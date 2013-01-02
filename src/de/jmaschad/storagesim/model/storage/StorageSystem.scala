@@ -1,7 +1,25 @@
 package de.jmaschad.storagesim.model.storage
 
+import scala.collection.mutable
+
 class StorageSystem(storageDevices: Seq[StorageDevice]) {
-  private val deviceMap = Map[StorageObject, StorageDevice]()
+  private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
+  private var lastDeviceIdx = 0
+
+  def storeObjects(objects: Traversable[StorageObject]): Unit = {
+    for (o <- objects) {
+      store(o, deviceForObject(o).getOrElse(throw new IllegalStateException))
+    }
+  }
+
+  private def deviceForObject(storageObject: StorageObject): Option[StorageDevice] = {
+    storageDevices.find(_.hasAvailableSpace(storageObject.size)).orElse(None)
+  }
+
+  private def store(storageObject: StorageObject, storageDevice: StorageDevice): Unit = {
+    deviceMap += (storageObject -> storageDevice)
+    storageDevice.allocate(storageObject.size)
+  }
 
   def loadThroughput(storageObject: StorageObject): Double = 0.0
   def storeThroughput(storageObject: StorageObject): Double = 0.0

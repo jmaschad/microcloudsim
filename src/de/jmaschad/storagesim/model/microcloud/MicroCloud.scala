@@ -32,6 +32,10 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
   private var state: MicroCloudState = new OfflineState
 
+  def storeObjects(objects: Traversable[StorageObject]) = {
+    storageSystem.storeObjects(objects)
+  }
+
   override def startEntity: Unit = {
     log("started")
     send(getId(), 0.0, MicroCloud.Boot)
