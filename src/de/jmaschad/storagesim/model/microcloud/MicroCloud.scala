@@ -26,14 +26,15 @@ object MicroCloud {
 }
 
 class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, disposer: Disposer) extends SimEntity(name) with LoggingEntity {
+  val status = new MicroCloudStatus
+
   private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices)
   private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth)
-  private val status = new MicroCloudStatus
 
   private var state: MicroCloudState = new OfflineState
 
-  def storeObjects(objects: Traversable[StorageObject]) = {
-    storageSystem.storeObjects(objects)
+  def storeObject(storageObject: StorageObject) = {
+    storageSystem.storeObject(storageObject)
   }
 
   override def startEntity: Unit = {

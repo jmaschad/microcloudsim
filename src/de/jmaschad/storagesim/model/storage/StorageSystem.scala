@@ -6,10 +6,8 @@ class StorageSystem(storageDevices: Seq[StorageDevice]) {
   private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
   private var lastDeviceIdx = 0
 
-  def storeObjects(objects: Traversable[StorageObject]): Unit = {
-    for (o <- objects) {
-      store(o, deviceForObject(o).getOrElse(throw new IllegalStateException))
-    }
+  def storeObject(storageObject: StorageObject): Unit = {
+    store(storageObject, deviceForObject(storageObject).getOrElse(throw new IllegalStateException))
   }
 
   private def deviceForObject(storageObject: StorageObject): Option[StorageDevice] = {

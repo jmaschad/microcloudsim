@@ -18,6 +18,7 @@ private[distribution] class RandomRequestDistributor extends RequestDistributor 
 
   def selectMicroCloud(request: UserObjectRequest, onlineMicroClouds: collection.Map[Int, MicroCloudStatus]): Int = {
     bucketMapping = bucketMapping.filter(bucketMap => onlineMicroClouds.keySet.contains(bucketMap._2))
+
     val bucket = request.storageObject.bucket
     if (!bucketMapping.contains(bucket)) {
       val dist = new UniformIntegerDistribution(0, onlineMicroClouds.size - 1)
