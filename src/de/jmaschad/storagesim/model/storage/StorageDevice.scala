@@ -1,7 +1,8 @@
 package de.jmaschad.storagesim.model.storage
 
 class StorageDevice(bandwidth: Double, capacity: Double) {
-  var allocated = 0.0
+  private var allocated = 0.0
+  private var accessorCount = 0
 
   def allocate(size: Double) = {
     allocated += size
@@ -13,4 +14,11 @@ class StorageDevice(bandwidth: Double, capacity: Double) {
 
   def hasAvailableSpace(size: Double): Boolean = (capacity - allocated) > size
 
+  def loadThroughput: Double = bandwidth / accessorCount
+
+  def storeThroughput: Double = loadThroughput
+
+  def addAccessor() = accessorCount += 1
+
+  def removeAccessor() = accessorCount -= 1
 }

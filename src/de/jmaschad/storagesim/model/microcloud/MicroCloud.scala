@@ -1,19 +1,19 @@
 package de.jmaschad.storagesim.model.microcloud
 
+import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.Disposer
+
+import de.jmaschad.storagesim.LoggingEntity
 import de.jmaschad.storagesim.model.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.GetObject
 import de.jmaschad.storagesim.model.PutObject
-import de.jmaschad.storagesim.model.ResourceProvisioning
-import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.UploadJob
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.model.UserRequest
-import de.jmaschad.storagesim.LoggingEntity
+import de.jmaschad.storagesim.model.storage.StorageObject
+import de.jmaschad.storagesim.model.storage.StorageSystem
 
 object MicroCloud {
   private val Base = 10200
@@ -27,14 +27,34 @@ object MicroCloud {
 
 class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, disposer: Disposer) extends SimEntity(name) with LoggingEntity {
   val status = new MicroCloudStatus
+  var lastChainUpdate: Option[SimEvent] = None
 
   private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices)
-  private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth)
+  private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)
 
   private var state: MicroCloudState = new OfflineState
 
   def storeObject(storageObject: StorageObject) = {
     storageSystem.storeObject(storageObject)
+  }
+
+  def scheduleProcessingUpdate(delay: Double) = {
+    lastChainUpdate match {
+      case None =>
+        lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
+
+      case Some(lastUpdate) =>
+        val lastUpdateProcessed = lastUpdate.eventTime() < CloudSim.clock();
+        if (lastUpdateProcessed) {
+          lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
+        }
+
+        val newUpdateBeforeLast = delay < lastUpdate.eventTime();
+        if (newUpdateBeforeLast) {
+          CloudSim.cancelEvent(lastUpdate);
+          lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
+        }
+    }
   }
 
   override def startEntity: Unit = {
@@ -101,7 +121,9 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
       def load(obj: StorageObject) = {
         storageSystem.startLoad(obj)
-        processing.add(new UploadJob(obj, _ => storageSystem.finishLoad(obj)))
+        processing.add(new UploadJob(obj, _ => {
+          storageSystem.finishLoad(obj)
+        }))
       }
 
       def store(obj: StorageObject) = {

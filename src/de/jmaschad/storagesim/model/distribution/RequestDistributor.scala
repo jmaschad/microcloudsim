@@ -21,8 +21,14 @@ private[distribution] class RandomRequestDistributor extends RequestDistributor 
 
     val bucket = request.storageObject.bucket
     if (!bucketMapping.contains(bucket)) {
-      val dist = new UniformIntegerDistribution(0, onlineMicroClouds.size - 1)
-      val cloud = onlineMicroClouds.keys.toSeq(dist.sample())
+
+      val cloud: Int = if (onlineMicroClouds.size == 1) {
+        onlineMicroClouds.head._1
+      } else {
+        val dist = new UniformIntegerDistribution(0, onlineMicroClouds.size - 1)
+        onlineMicroClouds.keys.toSeq(dist.sample())
+      }
+
       bucketMapping += bucket -> cloud
       cloud
     } else {

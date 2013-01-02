@@ -3,10 +3,10 @@ package de.jmaschad.storagesim.model
 import de.jmaschad.storagesim.Units
 import de.jmaschad.storagesim.model.storage.StorageObject
 
-protected class Job(transferSize: Double, onFinish: Boolean => Unit) {
+abstract class Job(val transferSize: Double, onFinish: Boolean => Unit) {
   private var success = true;
-  private var storageTransfer = transferSize;
-  private var networkTransfer = transferSize;
+  protected var storageTransfer = transferSize;
+  protected var networkTransfer = transferSize;
 
   def progressNetwork(progress: Double) = { networkTransfer -= progress }
   def progressStorage(progress: Double) = { storageTransfer -= progress }
@@ -17,5 +17,10 @@ protected class Job(transferSize: Double, onFinish: Boolean => Unit) {
   def isDone = storageTransfer < 1 * Units.Byte && networkTransfer < 1 * Units.Byte
 }
 
-case class UploadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish)
-case class DownloadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish)
+case class UploadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish) {
+  override def toString = "UploadJob %s [%f/%f]".format(storageObject, storageTransfer, networkTransfer)
+}
+
+case class DownloadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish) {
+  override def toString = "DownloadJob %s".format(storageObject)
+}

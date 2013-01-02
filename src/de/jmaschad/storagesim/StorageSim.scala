@@ -20,7 +20,7 @@ import de.jmaschad.storagesim.model.PutObject
 import de.jmaschad.storagesim.model.PutObject
 
 object StorageSim {
-  val MicroCloudCount = 4
+  val MicroCloudCount = 1
 
   val UserCount = 10
   val RequestRatePerUser = 10

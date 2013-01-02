@@ -60,7 +60,7 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
         send(getId(), Disposer.CheckStatusInterval, Disposer.CheckStatus)
 
     case Disposer.UserRequest =>
-      log("forewarding user request")
+      //      log("forewarding user request")
       val request = (event.getData() match {
         case r: UserObjectRequest => r
         case _ => throw new IllegalStateException
