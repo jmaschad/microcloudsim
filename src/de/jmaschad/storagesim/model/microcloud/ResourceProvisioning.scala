@@ -3,94 +3,83 @@ package de.jmaschad.storagesim.model.microcloud
 import org.apache.commons.math3.linear.ArrayRealVector
 import org.cloudbus.cloudsim.core.CloudSim
 
-import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.Job
-import de.jmaschad.storagesim.model.UploadJob
 import de.jmaschad.storagesim.model.storage.StorageSystem
 
 class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Double, cloud: MicroCloud) {
-  private val provisioner = List(new StorageIOProvisioner, new NetworkProvisioner)
-  private var jobs: List[Job] = Nil
+  private val provisioner = List(new NetUpProvisioner, new NetDownProvisioner, new IoLoadProvisioner, new IoStoreProvisioner)
+  var jobs: List[Job] = Nil
   private var lastUpdate: Option[Double] = None
 
   def add(job: Job): Unit = {
-    update()
+    update(false)
     jobs = job :: jobs
     scheduleNextUpdate()
   }
 
-  def update() = {
+  def update(scheduleUpdate: Boolean = true) = {
     val clock = CloudSim.clock
     val timeElapsed = clock - lastUpdate.getOrElse(clock)
     lastUpdate = Some(clock)
 
     provisioner.foreach(_.update(timeElapsed, jobs))
 
-    val done = jobs.filter(_.isDone)
-    done.foreach(_.finish)
+    val done = for (job <- jobs if job.isDone) yield {
+      job.finish()
+      cloud.log("%s completed. %d active jobs".format(job, jobs.size))
+      job
+    }
     jobs = jobs.diff(done)
 
-    if (done.nonEmpty) {
-      cloud.log("finished job: " + done.head)
-      scheduleNextUpdate()
-    }
+    if (scheduleUpdate) { scheduleNextUpdate() }
   }
 
   def clear() = {
     jobs.foreach(_.setFailed)
-    update
+    update()
   }
 
   private def scheduleNextUpdate() = {
-    var expectations = new ArrayRealVector(jobs.size);
-    for (prov <- provisioner) {
-      expectations = expectations.add(new ArrayRealVector(prov.expectedCompletions(jobs)));
-    }
+    if (jobs.nonEmpty) {
+      assume(jobs.filter(_.isDone).isEmpty)
 
-    // add 100 microseconds to avoid "early" updates because of rounding
-    // errors
-    cloud.scheduleProcessingUpdate(expectations.getMinValue() + 0.0001);
+      val expectations = provisioner.map(_.expectedCompletions(jobs))
+      val min = expectations.foldRight(new Array[Double](jobs.size))((a, b) => a.zip(b).map(pair => pair._1.max(pair._2))).min
+
+      // min 100 microseconds delay to avoid infinite update loop with zero progress
+      val minDelay = 0.0001
+      cloud.scheduleProcessingUpdate(min.max(minDelay))
+    }
   }
+
+  private def bandwidthPerJob = networkBandwidth / jobs.size
 
   trait Provisioner {
     def update(timeElapsed: Double, jobs: Seq[Job])
     def expectedCompletions(jobs: Seq[Job]): Array[Double]
   }
 
-  class StorageIOProvisioner extends Provisioner {
-    override def update(timeElapsed: Double, jobs: Seq[Job]): Unit =
-      jobs.foreach(job => job match {
-        case UploadJob(obj, _) =>
-          job.progressStorage(storageSystem.loadThroughput(obj) * timeElapsed)
-
-        case DownloadJob(obj, _) =>
-          job.progressStorage(storageSystem.storeThroughput(obj) * timeElapsed)
-
-        case _ =>
-          throw new IllegalStateException
-      })
-
-    override def expectedCompletions(jobs: Seq[Job]): Array[Double] =
-      jobs.map(job => job match {
-        case UploadJob(obj, _) =>
-          obj.size / storageSystem.loadThroughput(obj)
-
-        case DownloadJob(obj, _) =>
-          obj.size / storageSystem.storeThroughput(obj)
-
-        case _ =>
-          throw new IllegalStateException
-      }).map(i => if (i < 0) 0 else i).toArray
+  class NetUpProvisioner extends Provisioner {
+    def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(_.progressNetUp(timeElapsed * bandwidthPerJob))
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
+      jobs.map(j => (j.netUpSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
   }
 
-  class NetworkProvisioner extends Provisioner {
-    override def update(timeElapsed: Double, jobs: Seq[Job]) = {
-      val bwPerJob = networkBandwidth / jobs.size
-      jobs.foreach(_.progressNetwork(bwPerJob * timeElapsed))
-    }
+  class NetDownProvisioner extends Provisioner {
+    def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(_.progressNetDown(timeElapsed * bandwidthPerJob))
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
+      jobs.map(j => (j.netDownSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
+  }
 
-    override def expectedCompletions(jobs: Seq[Job]): Array[Double] =
-      jobs.map(job => job.transferSize / (networkBandwidth / jobs.size)).map(i => if (i < 0) 0 else i).toArray
+  class IoLoadProvisioner extends Provisioner {
+    def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(j => j.progressIoLoad(timeElapsed * storageSystem.loadThroughput(j.storageObject)))
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
+      jobs.map(j => (j.ioLoadSize.getOrElse(0.0) / storageSystem.loadThroughput(j.storageObject)).max(0)).toArray
+  }
 
+  class IoStoreProvisioner extends Provisioner {
+    def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(j => j.progressIoStore(timeElapsed * storageSystem.storeThroughput(j.storageObject)))
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
+      jobs.map(j => (j.ioStoreSize.getOrElse(0.0) / storageSystem.storeThroughput(j.storageObject)).max(0)).toArray
   }
 }

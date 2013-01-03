@@ -3,24 +3,45 @@ package de.jmaschad.storagesim.model
 import de.jmaschad.storagesim.Units
 import de.jmaschad.storagesim.model.storage.StorageObject
 
-abstract class Job(val transferSize: Double, onFinish: Boolean => Unit) {
+class Job(val storageObject: StorageObject, onFinish: Boolean => Unit) {
+  var netUpSize: Option[Double] = None;
+  var netDownSize: Option[Double] = None;
+  var ioLoadSize: Option[Double] = None;
+  var ioStoreSize: Option[Double] = None;
+
   private var success = true;
-  protected var storageTransfer = transferSize;
-  protected var networkTransfer = transferSize;
 
-  def progressNetwork(progress: Double) = { networkTransfer -= progress }
-  def progressStorage(progress: Double) = { storageTransfer -= progress }
+  def progressNetUp(progress: Double) = {
+    netUpSize = netUpSize.map(_ - progress)
+  }
 
-  def setFailed = { success = false }
+  def progressNetDown(progress: Double) = {
+    netDownSize = netDownSize.map(_ - progress)
+  }
+
+  def progressIoLoad(progress: Double) = {
+    ioLoadSize = ioLoadSize.map(_ - progress)
+  }
+
+  def progressIoStore(progress: Double) = {
+    ioStoreSize = ioStoreSize.map(_ - progress)
+  }
+
+  def setFailed() = { success = false }
   def hasFailed = !success
-  def finish: Unit = onFinish(success)
-  def isDone = storageTransfer < 1 * Units.Byte && networkTransfer < 1 * Units.Byte
+  def finish() = onFinish(success)
+  def isDone = hasFailed ||
+    List(netUpSize, netDownSize, ioLoadSize, ioStoreSize).map(_.forall(_ < 1 * Units.Byte)).forall(_ == true)
+
+  override def toString = "%s for %s [%f]".format(getClass().getSimpleName(), storageObject, netUpSize.getOrElse(0.0).max(ioLoadSize.getOrElse(0.0)))
 }
 
-case class UploadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish) {
-  override def toString = "UploadJob %s [%f/%f]".format(storageObject, storageTransfer, networkTransfer)
+class UploadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject, onFinish) {
+  netUpSize = Some(storageObject.size)
+  ioLoadSize = Some(storageObject.size)
 }
 
-case class DownloadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject.size, onFinish) {
-  override def toString = "DownloadJob %s".format(storageObject)
+class DownloadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends Job(storageObject, onFinish) {
+  netDownSize = Some(storageObject.size)
+  ioStoreSize = Some(storageObject.size)
 }

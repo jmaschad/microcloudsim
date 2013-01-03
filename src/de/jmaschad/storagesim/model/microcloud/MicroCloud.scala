@@ -39,22 +39,8 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
   }
 
   def scheduleProcessingUpdate(delay: Double) = {
-    lastChainUpdate match {
-      case None =>
-        lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
-
-      case Some(lastUpdate) =>
-        val lastUpdateProcessed = lastUpdate.eventTime() < CloudSim.clock();
-        if (lastUpdateProcessed) {
-          lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
-        }
-
-        val newUpdateBeforeLast = delay < lastUpdate.eventTime();
-        if (newUpdateBeforeLast) {
-          CloudSim.cancelEvent(lastUpdate);
-          lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
-        }
-    }
+    lastChainUpdate.map(CloudSim.cancelEvent(_))
+    lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
   }
 
   override def startEntity: Unit = {
@@ -62,10 +48,12 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
     send(getId(), 0.0, MicroCloud.Boot)
   }
 
-  override def shutdownEntity: Unit = log("shutdown")
+  override def shutdownEntity: Unit = log("shutdown. %d open jobs".format(processing.jobs.size))
 
   override def processEvent(event: SimEvent): Unit = event.getTag match {
-    case MicroCloud.ProcUpdate => processing.update
+    case MicroCloud.ProcUpdate =>
+      //      log("will process update")
+      processing.update()
     case _ => state.process(event)
   }
 

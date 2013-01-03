@@ -22,9 +22,9 @@ import de.jmaschad.storagesim.model.PutObject
 object StorageSim {
   val MicroCloudCount = 1
 
-  val UserCount = 10
+  val UserCount = 100
   val RequestRatePerUser = 10
-  val SimDuration = 10
+  val SimDuration = 4
 
   val bucketCountDist = new NormalDistribution(5, 2)
   val objectCountDist = new NormalDistribution(100, 20)
@@ -66,7 +66,7 @@ object StorageSim {
     val bucketCount = bucketCountDist.sample().toInt.max(1)
 
     val objectMappings = users.map(u => {
-      val objects = (1 to objectCount).map(idx => new StorageObject("bucket" + Random.nextInt(bucketCount), "obj" + idx, sizeDist.sample()))
+      val objects = (1 to objectCount).map(idx => new StorageObject("bucket" + Random.nextInt(bucketCount), "obj" + idx, sizeDist.sample().max(1 * Units.Byte)))
       u -> objects
     })
 
