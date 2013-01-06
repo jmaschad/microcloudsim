@@ -1,26 +1,30 @@
 package de.jmaschad.storagesim.model
 
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.microcloud.Status
 
 class StatusTracker {
   val MaxChecks = 2
-  var missingUpdates = Map.empty[Int, Int]
+  var trackedClouds = Map.empty[Int, Int]
+  var cloudStatus = Map.empty[Int, Status]
 
-  def online(microCloud: Int): Unit = {
-    val missing = missingUpdates.getOrElse(microCloud, 0) - 1
-    missingUpdates = (missingUpdates - microCloud) + (microCloud -> missing.max(0))
+  def onlineClouds: Map[Int, Status] = cloudStatus
+
+  def online(microCloud: Int, status: Status): Unit = {
+    val missedCount = trackedClouds.getOrElse(microCloud, 0) - 1
+    trackedClouds = (trackedClouds - microCloud) + (microCloud -> missedCount.max(0))
+    cloudStatus += microCloud -> status
   }
 
   def offline(microCloud: Int): Unit = {
-    missingUpdates -= microCloud
+    trackedClouds -= microCloud
   }
 
-  def check(): Seq[Int] = {
-    missingUpdates = missingUpdates.mapValues(_ + 1)
+  def check() = {
+    trackedClouds = trackedClouds.mapValues(_ + 1)
 
-    val offline = missingUpdates.filter(_._2 >= MaxChecks)
-    missingUpdates --= offline.keys
-
-    offline.keys.toSeq
+    val offline = trackedClouds.filter(_._2 >= MaxChecks)
+    trackedClouds --= offline.keys
+    cloudStatus --= offline.keys
   }
 }

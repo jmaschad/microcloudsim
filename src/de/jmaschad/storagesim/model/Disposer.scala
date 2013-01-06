@@ -2,11 +2,11 @@ package de.jmaschad.storagesim.model
 
 import org.cloudbus.cloudsim.core.SimEntity
 import de.jmaschad.storagesim.LoggingEntity
-import de.jmaschad.storagesim.model.microcloud.MicroCloudStatus
 import org.cloudbus.cloudsim.core.SimEvent
 import scala.collection.mutable
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
+import de.jmaschad.storagesim.model.microcloud.Status
 
 object Disposer {
   val StatusInterval = 1
@@ -21,10 +21,8 @@ object Disposer {
 }
 
 class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(name) with LoggingEntity {
-  val onlineMicroClouds = mutable.Map.empty[Int, MicroCloudStatus]
-  val statusTracker = new StatusTracker
-
-  var online = true
+  private val statusTracker = new StatusTracker
+  private var eventHandler = onlineEventHandler _
 
   override def startEntity(): Unit = {
     log("started")
@@ -33,41 +31,43 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
 
   override def shutdownEntity(): Unit = log("shutdown")
 
-  override def processEvent(event: SimEvent): Unit = event.getTag() match {
+  override def processEvent(event: SimEvent): Unit = eventHandler(event)
+
+  private def onlineEventHandler(event: SimEvent): Unit = event.getTag() match {
     case Disposer.Shutdown =>
-      onlineMicroClouds.keys.foreach(sendNow(_, MicroCloud.Shutdown))
-      online = false
+      statusTracker.onlineClouds.keys.foreach(sendNow(_, MicroCloud.Shutdown))
+      eventHandler = offlineEventHandler _
 
     case Disposer.MicroCloudStatus =>
-      log("MicroCloud status update " + event)
       val status = (event.getData() match {
-        case s: MicroCloudStatus => s
+        case s: Status => s
         case _ => throw new IllegalArgumentException
       })
-      onlineMicroClouds += event.getSource -> status
-      statusTracker online event.getSource
+      statusTracker.online(event.getSource, status)
+      distributor.statusUpdate(statusTracker.onlineClouds)
 
     case Disposer.MicroCloudShutdown =>
-      log("MicroCloud will shutdown")
-      onlineMicroClouds -= event.getSource
-      statusTracker offline event.getSource
+      statusTracker.offline(event.getSource)
 
     case Disposer.CheckStatus =>
-      log("checking MicroCloudStatus")
       val goneOffline = statusTracker.check()
-      onlineMicroClouds --= goneOffline
-      if (online)
-        send(getId(), Disposer.CheckStatusInterval, Disposer.CheckStatus)
+      send(getId(), Disposer.CheckStatusInterval, Disposer.CheckStatus)
 
     case Disposer.UserRequest =>
-      //      log("forewarding user request")
       val request = (event.getData() match {
         case r: UserObjectRequest => r
         case _ => throw new IllegalStateException
       })
-      val microCloud = distributor.selectMicroCloud(request, onlineMicroClouds)
-      sendNow(microCloud, MicroCloud.UserRequest, request)
+
+      distributor.selectMicroCloud(request) match {
+        case None =>
+          sendNow(event.getSource(), User.RequestFailed, request)
+        case Some(cloud) =>
+          sendNow(cloud, MicroCloud.UserRequest, request)
+      }
 
     case _ => log("dropped event " + event)
   }
+
+  private def offlineEventHandler(event: SimEvent) = log("Offline! dropped event " + event)
 }

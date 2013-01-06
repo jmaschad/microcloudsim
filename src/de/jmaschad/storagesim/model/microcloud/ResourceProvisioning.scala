@@ -8,12 +8,13 @@ import de.jmaschad.storagesim.model.storage.StorageSystem
 
 class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Double, cloud: MicroCloud) {
   private val provisioner = List(new NetUpProvisioner, new NetDownProvisioner, new IoLoadProvisioner, new IoStoreProvisioner)
-  var jobs: List[Job] = Nil
   private var lastUpdate: Option[Double] = None
+
+  var jobs = IndexedSeq.empty[Job]
 
   def add(job: Job): Unit = {
     update(false)
-    jobs = job :: jobs
+    jobs = job +: jobs
     scheduleNextUpdate()
   }
 
@@ -61,14 +62,12 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
 
   class NetUpProvisioner extends Provisioner {
     def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(_.progressNetUp(timeElapsed * bandwidthPerJob))
-    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
-      jobs.map(j => (j.netUpSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] = jobs.map(j => (j.netUpSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
   }
 
   class NetDownProvisioner extends Provisioner {
     def update(timeElapsed: Double, jobs: Seq[Job]) = jobs.foreach(_.progressNetDown(timeElapsed * bandwidthPerJob))
-    def expectedCompletions(jobs: Seq[Job]): Array[Double] =
-      jobs.map(j => (j.netDownSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
+    def expectedCompletions(jobs: Seq[Job]): Array[Double] = jobs.map(j => (j.netDownSize.getOrElse(0.0) / bandwidthPerJob).max(0)).toArray
   }
 
   class IoLoadProvisioner extends Provisioner {

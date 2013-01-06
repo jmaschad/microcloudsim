@@ -25,23 +25,20 @@ object MicroCloud {
   val Status = UserRequest + 1
 }
 
-class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, disposer: Disposer) extends SimEntity(name) with LoggingEntity {
-  val status = new MicroCloudStatus
+class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) with LoggingEntity {
   var lastChainUpdate: Option[SimEvent] = None
 
-  private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices)
+  private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
+
   private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)
-
   private var state: MicroCloudState = new OfflineState
-
-  def storeObject(storageObject: StorageObject) = {
-    storageSystem.storeObject(storageObject)
-  }
 
   def scheduleProcessingUpdate(delay: Double) = {
     lastChainUpdate.map(CloudSim.cancelEvent(_))
     lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
   }
+
+  def status = Status(storageSystem.buckets)
 
   override def startEntity: Unit = {
     log("started")
@@ -56,6 +53,8 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
       processing.update()
     case _ => state.process(event)
   }
+
+  override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
   private def switchState(newState: MicroCloudState): Unit = {
     state = newState
@@ -105,7 +104,10 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
     }
 
     def processRequest(request: UserRequest): Unit = {
-      def failed = send(request.user.getId(), 0.0, User.RequestFailed, request)
+      def failed = {
+        log("request failed: " + request)
+        send(request.user.getId(), 0.0, User.RequestFailed, request)
+      }
 
       def load(obj: StorageObject) = {
         storageSystem.startLoad(obj)
