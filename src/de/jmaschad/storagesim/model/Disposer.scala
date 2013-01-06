@@ -1,12 +1,12 @@
 package de.jmaschad.storagesim.model
 
 import org.cloudbus.cloudsim.core.SimEntity
-import de.jmaschad.storagesim.LoggingEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import scala.collection.mutable
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.LoggingEntity
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
 import de.jmaschad.storagesim.model.microcloud.Status
+import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 object Disposer {
   val StatusInterval = 1
@@ -55,7 +55,7 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
 
     case Disposer.UserRequest =>
       val request = (event.getData() match {
-        case r: UserObjectRequest => r
+        case r: Request => r
         case _ => throw new IllegalStateException
       })
 

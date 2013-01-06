@@ -1,13 +1,11 @@
 package de.jmaschad.storagesim.model.distribution
 
-import de.jmaschad.storagesim.model.UserRequest
-import de.jmaschad.storagesim.model.UserObjectRequest
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import scala.collection.mutable
+
 import de.jmaschad.storagesim.model.microcloud.Status
-import de.jmaschad.storagesim.model.GetObject
-import de.jmaschad.storagesim.model.PutObject
-import de.jmaschad.storagesim.model.GetObject
+import de.jmaschad.storagesim.model.request.GetRequest
+import de.jmaschad.storagesim.model.request.PutRequest
+import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 
 object RequestDistributor {
@@ -16,7 +14,7 @@ object RequestDistributor {
 
 trait RequestDistributor {
   def statusUpdate(onlineMicroClouds: collection.Map[Int, Status])
-  def selectMicroCloud(request: UserObjectRequest): Option[Int]
+  def selectMicroCloud(request: Request): Option[Int]
 }
 
 private[distribution] class RandomRequestDistributor extends RequestDistributor {
@@ -30,13 +28,13 @@ private[distribution] class RandomRequestDistributor extends RequestDistributor 
     onlineClouds = onlineMicroClouds.keys.toSeq
   }
 
-  def selectMicroCloud(request: UserObjectRequest): Option[Int] = onlineClouds.size match {
+  def selectMicroCloud(request: Request): Option[Int] = onlineClouds.size match {
     case 0 => None
     case _ =>
       val cloudsForBucket = bucketMapping.getOrElse(request.storageObject.bucket, Iterable()).toSeq
       request match {
-        case GetObject(obj, _, _) => getObject(obj, cloudsForBucket)
-        case PutObject(obj, _, _) => putObject(obj, cloudsForBucket)
+        case req: GetRequest => getObject(req.storageObject, cloudsForBucket)
+        case req: PutRequest => putObject(req.storageObject, cloudsForBucket)
         case _ => throw new IllegalStateException
       }
   }

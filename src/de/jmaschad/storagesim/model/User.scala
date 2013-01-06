@@ -7,6 +7,9 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.LoggingEntity
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.request.GetRequest
+import de.jmaschad.storagesim.model.request.PutRequest
 
 object User {
   private val Base = 10300
@@ -32,18 +35,22 @@ class User(name: String, disposer: Disposer) extends SimEntity(name) with Loggin
     case _ => log("dropped event" + event)
   }
 
+  private def logReq(req: Request, success: Boolean) = {
+    log("%s %s in %.3fs".format(if (success) "SUCCSESS" else "FAILED", req, CloudSim.clock() - req.time))
+  }
+
   private def done(event: SimEvent) = {
     event.getData() match {
-      case GetObject(obj, user, time) => log("DONE GET %s in %.3fs".format(obj, CloudSim.clock - time))
-      case PutObject(obj, user, time) => log("DONE PUT %s in %.3fs".format(obj, CloudSim.clock - time))
+      case req: GetRequest => logReq(req, true)
+      case req: PutRequest => logReq(req, true)
       case _ => throw new IllegalArgumentException
     }
   }
 
   private def failed(event: SimEvent) = {
     event.getData() match {
-      case GetObject(obj, user, time) => log("FAILED GET %s in %.3fs".format(obj, CloudSim.clock - time))
-      case PutObject(obj, user, time) => log("FAILED PUT %s in %.3fs".format(obj, CloudSim.clock - time))
+      case req: GetRequest => logReq(req, false)
+      case req: PutRequest => logReq(req, false)
       case _ => throw new IllegalArgumentException
     }
   }

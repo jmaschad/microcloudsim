@@ -1,5 +1,7 @@
 package de.jmaschad.storagesim.model.storage
 
-class StorageObject(val bucket: String, val name: String, val size: Double) {
+import de.jmaschad.storagesim.model.User
+
+class StorageObject(val name: String, val bucket: String, val size: Double, val user: User) {
   override def toString = "StorageObject %s/%s".format(bucket, name)
 }

@@ -1,13 +1,15 @@
 package de.jmaschad.storagesim.model.behavior
 
-import org.apache.commons.math3.distribution.UniformRealDistribution
 import scala.collection.mutable.Map
-import de.jmaschad.storagesim.model.storage.StorageObject
+
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import de.jmaschad.storagesim.model.UserRequest
+import org.apache.commons.math3.distribution.UniformRealDistribution
+
+import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.storage.StorageObject
 
 object Behavior {
-  def uniformTimeUniformObject(start: Double, end: Double, rate: Int, objects: IndexedSeq[StorageObject], requestGen: (StorageObject, Double) => UserRequest): Behavior = {
+  def uniformTimeUniformObject(start: Double, end: Double, rate: Int, objects: IndexedSeq[StorageObject], requestGen: (StorageObject, Double) => Request): Behavior = {
     val timer = new UniformTimer(start, end)
     val selector = new UniformObjectSelector(objects)
     val requestCount = (end - start) * rate
@@ -16,7 +18,7 @@ object Behavior {
 }
 
 trait Behavior {
-  def requests(): Map[Double, UserRequest]
+  def requests(): Map[Double, Request]
 }
 
 private[behavior] trait RequestTimer {
@@ -45,8 +47,8 @@ private[behavior] class BehaviorImpl(
   requestCount: Long,
   requestTimer: RequestTimer,
   objectSelector: StorageObjectSelector,
-  requestGen: (StorageObject, Double) => UserRequest) extends Behavior {
-  def requests(): Map[Double, UserRequest] = {
+  requestGen: (StorageObject, Double) => Request) extends Behavior {
+  def requests(): Map[Double, Request] = {
     val reqs = requestTimer.delays(requestCount).zip(objectSelector.storageObjects(requestCount)).map(p => p._1 -> requestGen(p._2, p._1))
     Map(reqs: _*)
   }

@@ -6,7 +6,6 @@ import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.RealDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.Disposer
-import de.jmaschad.storagesim.model.GetObject
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
@@ -14,11 +13,9 @@ import de.jmaschad.storagesim.model.storage.StorageDevice
 import de.jmaschad.storagesim.model.storage.StorageObject
 import java.util.Calendar
 import de.jmaschad.storagesim.model.behavior.Behavior
-import de.jmaschad.storagesim.model.GetObject
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
-import de.jmaschad.storagesim.model.PutObject
-import de.jmaschad.storagesim.model.PutObject
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
+import de.jmaschad.storagesim.model.request.GetRequest
 
 object StorageSim {
 
@@ -27,7 +24,7 @@ object StorageSim {
 
     val simDuration = 10
     val distributor = RequestDistributor.randomRequestDistributor
-    val userCount = 1000
+    val userCount = 100
     val RequestRatePerUser = 1
 
     val cloudCount = 5
@@ -46,7 +43,7 @@ object StorageSim {
 
     users.foreach(u =>
       u.addBehavior(
-        Behavior.uniformTimeUniformObject(3.0, simDuration, RequestRatePerUser, objects(u), (obj, time) => new GetObject(obj, u, time))))
+        Behavior.uniformTimeUniformObject(3.0, simDuration, RequestRatePerUser, objects(u), (obj, time) => new GetRequest(obj, time))))
 
     CloudSim.startSimulation();
   }
@@ -64,12 +61,19 @@ object StorageSim {
     users.map(user => {
       val objectCount = objectCountDist.sample().toInt.max(1)
       val bucketCount = bucketCountDist.sample().toInt.max(1)
-      user -> (1 to objectCount).map(idx => new StorageObject("bucket-%s-%d".format(user.getName, Random.nextInt(bucketCount)), "obj" + idx, sizeDist.sample().max(1 * Units.Byte))).toIndexedSeq
+
+      def createObject(idx: Int) = new StorageObject(
+        "obj" + idx,
+        "bucket-%s-%d".format(user.getName, Random.nextInt(bucketCount)),
+        sizeDist.sample().max(1 * Units.Byte),
+        user)
+
+      user -> (1 to objectCount).map(createObject).toIndexedSeq
     }).toMap
 
   private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
     val bucketCount = bucketObjectsMap.keys.size
-    val bucketGroups = if (cloudCount % bucketCount == 0) {
+    val bucketGroups = if (bucketCount % cloudCount == 0) {
       bucketObjectsMap.keySet.grouped(bucketCount / cloudCount).toSeq
     } else {
       val temp = bucketObjectsMap.keySet.grouped(bucketCount / cloudCount).toSeq

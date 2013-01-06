@@ -3,17 +3,16 @@ package de.jmaschad.storagesim.model.microcloud
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-
 import de.jmaschad.storagesim.LoggingEntity
 import de.jmaschad.storagesim.model.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
-import de.jmaschad.storagesim.model.GetObject
-import de.jmaschad.storagesim.model.PutObject
 import de.jmaschad.storagesim.model.UploadJob
-import de.jmaschad.storagesim.model.User
-import de.jmaschad.storagesim.model.UserRequest
+import de.jmaschad.storagesim.model.request.GetRequest
+import de.jmaschad.storagesim.model.request.PutRequest
+import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
+import de.jmaschad.storagesim.model.User
 
 object MicroCloud {
   private val Base = 10200
@@ -80,7 +79,7 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
     def process(event: SimEvent): Unit = event.getTag() match {
       case MicroCloud.UserRequest =>
         val request = event.getData() match {
-          case r: UserRequest => r
+          case r: Request => r
           case _ => throw new IllegalStateException
         }
         processRequest(request)
@@ -102,9 +101,9 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
       case _ => log("dropped event " + event)
     }
 
-    def processRequest(request: UserRequest): Unit = {
-      def failed() = sendNow(request.user.getId(), User.RequestFailed, request)
-      def done() = sendNow(request.user.getId(), User.RequestDone, request)
+    def processRequest(request: Request): Unit = {
+      def failed() = sendNow(request.storageObject.user.getId, User.RequestFailed, request)
+      def done() = sendNow(request.storageObject.user.getId, User.RequestDone, request)
 
       def load(obj: StorageObject) = {
         storageSystem.startLoad(obj)
@@ -128,11 +127,11 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
       }
 
       request match {
-        case req: GetObject =>
+        case req: GetRequest =>
           val obj = req.storageObject
           if (storageSystem.contains(obj)) load(obj) else failed
 
-        case req: PutObject =>
+        case req: PutRequest =>
           val obj = req.storageObject
           if (storageSystem.allocate(obj)) store(obj) else failed
 
