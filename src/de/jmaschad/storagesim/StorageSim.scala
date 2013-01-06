@@ -25,17 +25,17 @@ object StorageSim {
   def main(args: Array[String]) {
     CloudSim.init(1, Calendar.getInstance(), false)
 
-    val simDuration = 20
+    val simDuration = 10
     val distributor = RequestDistributor.randomRequestDistributor
-    val userCount = 10000
-    val RequestRatePerUser = 3
+    val userCount = 1000
+    val RequestRatePerUser = 1
 
-    val cloudCount = 50
+    val cloudCount = 5
     val storageDevicePerCloud = 10
 
     val bucketCountDist = new NormalDistribution(10, 2)
     val objectCountDist = new NormalDistribution(100, 20)
-    val objectSizeDist = new NormalDistribution(10 * Units.MByte, 5 * Units.MByte)
+    val objectSizeDist = new NormalDistribution(100 * Units.MByte, 20 * Units.MByte)
 
     val disposer = createDisposer(distributor, simDuration)
     val users = createUsers(userCount, disposer)
@@ -46,7 +46,7 @@ object StorageSim {
 
     users.foreach(u =>
       u.addBehavior(
-        Behavior.uniformTimeUniformObject(3.0, simDuration, RequestRatePerUser, objects(u), obj => new GetObject(obj, u))))
+        Behavior.uniformTimeUniformObject(3.0, simDuration, RequestRatePerUser, objects(u), (obj, time) => new GetObject(obj, u, time))))
 
     CloudSim.startSimulation();
   }
@@ -69,8 +69,15 @@ object StorageSim {
 
   private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
     val bucketCount = bucketObjectsMap.keys.size
-    val bucketsPerCloud = (bucketCount / cloudCount) + (if (bucketCount % cloudCount == 0) 0 else 1)
-    val bucketGroups = bucketObjectsMap.keySet.grouped(bucketsPerCloud).toIndexedSeq
+    val bucketGroups = if (cloudCount % bucketCount == 0) {
+      bucketObjectsMap.keySet.grouped(bucketCount / cloudCount).toSeq
+    } else {
+      val temp = bucketObjectsMap.keySet.grouped(bucketCount / cloudCount).toSeq
+      val lastBucket = Seq(temp(temp.length - 1) ++ temp(temp.length - 2))
+      temp.patch(temp.size - 2, lastBucket, 2)
+    }
+
+    assert(bucketGroups.size == cloudCount, "expected %d, found %d".format(cloudCount, bucketGroups.size))
 
     for (i <- 0 until cloudCount) yield {
       val storageDevices = for (i <- 1 to storageDeviceCount)

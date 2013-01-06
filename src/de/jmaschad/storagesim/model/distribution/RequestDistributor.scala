@@ -35,8 +35,8 @@ private[distribution] class RandomRequestDistributor extends RequestDistributor 
     case _ =>
       val cloudsForBucket = bucketMapping.getOrElse(request.storageObject.bucket, Iterable()).toSeq
       request match {
-        case GetObject(obj, _) => getObject(obj, cloudsForBucket)
-        case PutObject(obj, _) => putObject(obj, cloudsForBucket)
+        case GetObject(obj, _, _) => getObject(obj, cloudsForBucket)
+        case PutObject(obj, _, _) => putObject(obj, cloudsForBucket)
         case _ => throw new IllegalStateException
       }
   }

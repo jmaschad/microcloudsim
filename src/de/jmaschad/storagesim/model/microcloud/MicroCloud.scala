@@ -49,7 +49,6 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
   override def processEvent(event: SimEvent): Unit = event.getTag match {
     case MicroCloud.ProcUpdate =>
-      //      log("will process update")
       processing.update()
     case _ => state.process(event)
   }
@@ -104,15 +103,14 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
     }
 
     def processRequest(request: UserRequest): Unit = {
-      def failed = {
-        log("request failed: " + request)
-        send(request.user.getId(), 0.0, User.RequestFailed, request)
-      }
+      def failed() = sendNow(request.user.getId(), User.RequestFailed, request)
+      def done() = sendNow(request.user.getId(), User.RequestDone, request)
 
       def load(obj: StorageObject) = {
         storageSystem.startLoad(obj)
         processing.add(new UploadJob(obj, _ => {
           storageSystem.finishLoad(obj)
+          done()
         }))
       }
 
@@ -120,8 +118,13 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
         storageSystem.startStore(obj)
         processing.add(new DownloadJob(obj,
           success =>
-            if (success) storageSystem.finishStore(obj)
-            else storageSystem.abortStore(obj)))
+            if (success) {
+              storageSystem.finishStore(obj)
+              done()
+            } else {
+              storageSystem.abortStore(obj)
+              failed()
+            }))
       }
 
       request match {

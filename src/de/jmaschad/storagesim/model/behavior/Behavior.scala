@@ -7,7 +7,7 @@ import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.model.UserRequest
 
 object Behavior {
-  def uniformTimeUniformObject(start: Double, end: Double, rate: Int, objects: IndexedSeq[StorageObject], requestGen: StorageObject => UserRequest): Behavior = {
+  def uniformTimeUniformObject(start: Double, end: Double, rate: Int, objects: IndexedSeq[StorageObject], requestGen: (StorageObject, Double) => UserRequest): Behavior = {
     val timer = new UniformTimer(start, end)
     val selector = new UniformObjectSelector(objects)
     val requestCount = (end - start) * rate
@@ -45,9 +45,9 @@ private[behavior] class BehaviorImpl(
   requestCount: Long,
   requestTimer: RequestTimer,
   objectSelector: StorageObjectSelector,
-  requestGen: StorageObject => UserRequest) extends Behavior {
+  requestGen: (StorageObject, Double) => UserRequest) extends Behavior {
   def requests(): Map[Double, UserRequest] = {
-    val reqs = requestTimer.delays(requestCount) zip (objectSelector.storageObjects(requestCount) map requestGen)
+    val reqs = requestTimer.delays(requestCount).zip(objectSelector.storageObjects(requestCount)).map(p => p._1 -> requestGen(p._2, p._1))
     Map(reqs: _*)
   }
 }

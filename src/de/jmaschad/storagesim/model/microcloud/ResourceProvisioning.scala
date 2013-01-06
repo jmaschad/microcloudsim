@@ -27,7 +27,6 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
 
     val done = for (job <- jobs if job.isDone) yield {
       job.finish()
-      cloud.log("%s completed. %d active jobs".format(job, jobs.size))
       job
     }
     jobs = jobs.diff(done)
