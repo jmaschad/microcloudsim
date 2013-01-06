@@ -1,15 +1,15 @@
 package de.jmaschad.storagesim.model
 
 import scala.collection.mutable
-import org.cloudbus.cloudsim.core.SimEntity
-import org.cloudbus.cloudsim.core.SimEvent
-import org.apache.commons.math3.distribution.UniformRealDistribution
-import de.jmaschad.storagesim.model.behavior.Behavior
-import de.jmaschad.storagesim.LoggingEntity
+
 import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.model.request.Request
+import org.cloudbus.cloudsim.core.SimEvent
+
+import de.jmaschad.storagesim.LogSimEntity
+import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.model.request.GetRequest
 import de.jmaschad.storagesim.model.request.PutRequest
+import de.jmaschad.storagesim.model.request.Request
 
 object User {
   private val Base = 10300
@@ -17,17 +17,16 @@ object User {
   val RequestDone = Base + 2
 }
 
-class User(name: String, disposer: Disposer) extends SimEntity(name) with LoggingEntity {
+class User(name: String, disposer: Disposer) extends LogSimEntity(name) {
   private val behaviors = mutable.ArrayBuffer.empty[Behavior]
 
   def addBehavior(behavior: Behavior) = behaviors += behavior
 
   override def startEntity(): Unit = {
+    super.startEntity()
     behaviors.foreach(b =>
       b.requests.foreach(req => send(disposer.getId(), req._1, Disposer.UserRequest, req._2)))
   }
-
-  override def shutdownEntity(): Unit = {}
 
   override def processEvent(event: SimEvent): Unit = event.getTag() match {
     case User.RequestDone => done(event)

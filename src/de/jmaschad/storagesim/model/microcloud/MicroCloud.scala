@@ -3,7 +3,6 @@ package de.jmaschad.storagesim.model.microcloud
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.LoggingEntity
 import de.jmaschad.storagesim.model.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.UploadJob
@@ -13,6 +12,7 @@ import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.User
+import de.jmaschad.storagesim.LogSimEntity
 
 object MicroCloud {
   private val Base = 10200
@@ -24,7 +24,7 @@ object MicroCloud {
   val Status = UserRequest + 1
 }
 
-class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) with LoggingEntity {
+class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends LogSimEntity(name) {
   var lastChainUpdate: Option[SimEvent] = None
 
   private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
@@ -39,12 +39,10 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
   def status = Status(storageSystem.buckets)
 
-  override def startEntity: Unit = {
-    log("started")
+  override def startEntity(): Unit = {
+    super.startEntity()
     send(getId(), 0.0, MicroCloud.Boot)
   }
-
-  override def shutdownEntity: Unit = log("shutdown. %d open jobs".format(processing.jobs.size))
 
   override def processEvent(event: SimEvent): Unit = event.getTag match {
     case MicroCloud.ProcUpdate =>

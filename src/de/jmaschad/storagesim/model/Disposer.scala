@@ -1,12 +1,11 @@
 package de.jmaschad.storagesim.model
 
-import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.LoggingEntity
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.LogSimEntity
 
 object Disposer {
   val StatusInterval = 1
@@ -20,16 +19,14 @@ object Disposer {
   val UserRequest = CheckStatus + 1
 }
 
-class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(name) with LoggingEntity {
+class Disposer(name: String, distributor: RequestDistributor) extends LogSimEntity(name) {
   private val statusTracker = new StatusTracker
   private var eventHandler = onlineEventHandler _
 
   override def startEntity(): Unit = {
-    log("started")
+    super.startEntity()
     send(getId(), Disposer.CheckStatusInterval, Disposer.CheckStatus)
   }
-
-  override def shutdownEntity(): Unit = log("shutdown")
 
   override def processEvent(event: SimEvent): Unit = eventHandler(event)
 
