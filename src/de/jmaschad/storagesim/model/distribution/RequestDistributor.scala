@@ -1,5 +1,7 @@
 package de.jmaschad.storagesim.model.distribution
 
+import scala.collection.mutable
+
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 
 import de.jmaschad.storagesim.model.microcloud.Status
@@ -18,12 +20,14 @@ trait RequestDistributor {
 }
 
 private[distribution] class RandomRequestDistributor extends RequestDistributor {
-  private var bucketMapping = Map.empty[String, Iterable[Int]]
+  private val bucketMapping = mutable.Map.empty[String, Set[Int]]
   private var onlineClouds = Seq.empty[Int]
 
   def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) {
-    val bucketCloudPairs = onlineMicroClouds.map(cloud => cloud._2.buckets.map(_ -> cloud._1)).flatten.toMap
-    bucketMapping = bucketCloudPairs.groupBy(_._1).map(p => p._1 -> p._2.map(_._2))
+    bucketMapping.clear()
+    for (cloud <- onlineMicroClouds; bucket <- cloud._2.buckets) {
+      bucketMapping(bucket) = bucketMapping.getOrElse(bucket, Set.empty[Int]) + cloud._1
+    }
 
     onlineClouds = onlineMicroClouds.keys.toSeq
   }
@@ -51,7 +55,7 @@ private[distribution] class RandomRequestDistributor extends RequestDistributor 
         case 1 => onlineClouds.head
         case n => onlineClouds(new UniformIntegerDistribution(0, n - 1).sample())
       }
-      bucketMapping += obj.bucket -> Iterable(cloud)
+      bucketMapping += obj.bucket -> Set(cloud)
       Some(cloud)
 
     case 1 =>
