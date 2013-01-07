@@ -24,10 +24,10 @@ object StorageSim {
 
     val simDuration = 10
     val distributor = RequestDistributor.randomRequestDistributor
-    val userCount = 100
-    val RequestRatePerUser = 1
+    val userCount = 10000
+    val requestRatePerUser = 0.7
 
-    val cloudCount = 5
+    val cloudCount = 100
     val storageDevicePerCloud = 10
 
     val bucketCountDist = new NormalDistribution(10, 2)
@@ -43,7 +43,7 @@ object StorageSim {
 
     users.foreach(u =>
       u.addBehavior(
-        Behavior.uniformTimeUniformObject(3.0, simDuration, RequestRatePerUser, objects(u), (obj, time) => new GetRequest(obj, time))))
+        Behavior.uniformTimeUniformObject(1.0, simDuration, requestRatePerUser, objects(u), (obj, time) => new GetRequest(obj, time))))
 
     CloudSim.startSimulation();
   }

@@ -9,7 +9,7 @@ import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 
 object Behavior {
-  def uniformTimeUniformObject(start: Double, end: Double, rate: Int, objects: IndexedSeq[StorageObject], requestGen: (StorageObject, Double) => Request): Behavior = {
+  def uniformTimeUniformObject(start: Double, end: Double, rate: Double, objects: IndexedSeq[StorageObject], requestGen: (StorageObject, Double) => Request): Behavior = {
     val timer = new UniformTimer(start, end)
     val selector = new UniformObjectSelector(objects)
     val requestCount = (end - start) * rate

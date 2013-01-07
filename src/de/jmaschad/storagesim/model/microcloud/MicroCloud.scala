@@ -12,7 +12,7 @@ import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.User
-import de.jmaschad.storagesim.LogSimEntity
+import de.jmaschad.storagesim.Log
 
 object MicroCloud {
   private val Base = 10200
@@ -24,13 +24,13 @@ object MicroCloud {
   val Status = UserRequest + 1
 }
 
-class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends LogSimEntity(name) {
-  var lastChainUpdate: Option[SimEvent] = None
-
+class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) {
+  private val log = Log.line("MicroCloud '%s'".format(getName), _: String)
   private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
-
   private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)
   private var state: MicroCloudState = new OfflineState
+
+  var lastChainUpdate: Option[SimEvent] = None
 
   def scheduleProcessingUpdate(delay: Double) = {
     lastChainUpdate.map(CloudSim.cancelEvent(_))
@@ -40,9 +40,10 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
   def status = Status(storageSystem.buckets)
 
   override def startEntity(): Unit = {
-    super.startEntity()
     send(getId(), 0.0, MicroCloud.Boot)
   }
+
+  override def shutdownEntity() = {}
 
   override def processEvent(event: SimEvent): Unit = event.getTag match {
     case MicroCloud.ProcUpdate =>
@@ -80,6 +81,7 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
           case r: Request => r
           case _ => throw new IllegalStateException
         }
+        stateLog("received %s".format(request))
         processRequest(request)
 
       case MicroCloud.Status =>
