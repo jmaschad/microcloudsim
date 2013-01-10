@@ -20,6 +20,7 @@ import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.request.GetRequest
 import de.jmaschad.storagesim.model.request.GetRequest
+import org.apache.commons.math3.distribution.ExponentialDistribution
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -37,7 +38,7 @@ object StorageSim {
 
         val bucketCountDist = new NormalDistribution(10, 2)
         val objectCountDist = new NormalDistribution(100, 20)
-        val objectSizeDist = new NormalDistribution(1 * Units.MByte, 200 * Units.KByte)
+        val objectSizeDist = new ExponentialDistribution(1 * Units.MByte)
 
         log("create disposer")
         val disposer = createDisposer(distributor, simDuration)
