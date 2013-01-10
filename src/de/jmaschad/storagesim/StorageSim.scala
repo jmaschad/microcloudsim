@@ -16,82 +16,90 @@ import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.model.request.GetRequest
+import de.jmaschad.storagesim.model.storage.StorageObject
+import de.jmaschad.storagesim.model.storage.StorageObject
+import de.jmaschad.storagesim.model.request.GetRequest
+import de.jmaschad.storagesim.model.request.GetRequest
 
 object StorageSim {
-  private val log = Log.line("StorageSim", _: String)
+    private val log = Log.line("StorageSim", _: String)
 
-  def main(args: Array[String]) {
-    CloudSim.init(1, Calendar.getInstance(), false)
+    val simDuration = 10
 
-    val simDuration = 60 * 60
-    val distributor = RequestDistributor.randomRequestDistributor
-    val userCount = 10000
-    val requestRatePerUser = 0.3
+    def main(args: Array[String]) {
+        CloudSim.init(1, Calendar.getInstance(), false)
 
-    val cloudCount = 1000
-    val storageDevicePerCloud = 10
+        val distributor = RequestDistributor.randomRequestDistributor
+        val userCount = 10000
 
-    val bucketCountDist = new NormalDistribution(10, 2)
-    val objectCountDist = new NormalDistribution(100, 20)
-    val objectSizeDist = new NormalDistribution(100 * Units.MByte, 20 * Units.MByte)
+        val cloudCount = 100
+        val storageDevicePerCloud = 10
 
-    log("create disposer")
-    val disposer = createDisposer(distributor, simDuration)
+        val bucketCountDist = new NormalDistribution(10, 2)
+        val objectCountDist = new NormalDistribution(100, 20)
+        val objectSizeDist = new NormalDistribution(1 * Units.MByte, 200 * Units.KByte)
 
-    log("create users")
-    val users = createUsers(userCount, disposer)
+        log("create disposer")
+        val disposer = createDisposer(distributor, simDuration)
 
-    log("create objects")
-    val objects = createObjects(bucketCountDist, objectCountDist, objectSizeDist, users)
+        log("create users")
+        val users = createUsers(userCount, disposer)
 
-    log("create clouds")
-    val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
-    val clouds = createMicroClouds(cloudCount, storageDevicePerCloud, bucketObjectsMap, disposer)
+        log("create objects")
+        val objects = createObjects(bucketCountDist, objectCountDist, objectSizeDist, users)
 
-    users.foreach(u =>
-      u.addBehavior(
-        Behavior.uniformTimeUniformObject(1.0, simDuration, requestRatePerUser, objects(u), (obj, time) => new GetRequest(obj, time))))
+        log("add user behavior")
+        users.foreach(user => {
+            val userObjects = objects(user)
+            val delayModel = new NormalDistribution(1.0, 0.3)
+            val objectSelectionModel = new UniformIntegerDistribution(0, userObjects.size - 1)
+            val behavior = Behavior(delayModel, objectSelectionModel, userObjects, (storageObject, time) => { new GetRequest(user, storageObject, time) })
+            user.addBehavior(behavior)
+        })
 
-    log("will start simulation")
-    CloudSim.startSimulation();
-  }
+        log("create clouds")
+        val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
+        val clouds = createMicroClouds(cloudCount, storageDevicePerCloud, bucketObjectsMap, disposer)
 
-  private def createDisposer(distributor: RequestDistributor, simulationDuration: Double): Disposer = {
-    val disposer = new Disposer("dp", distributor)
-    CloudSim.send(0, disposer.getId(), simulationDuration + 1, Disposer.Shutdown, null)
-    disposer
-  }
-
-  private def createUsers(userCount: Int, disposer: Disposer): Seq[User] =
-    for (i <- 1 to userCount) yield new User("u" + i, disposer)
-
-  private def createObjects(bucketCountDist: RealDistribution, objectCountDist: RealDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
-    users.map(user => {
-      val objectCount = objectCountDist.sample().toInt.max(1)
-      val bucketCount = bucketCountDist.sample().toInt.max(1)
-
-      def createObject(idx: Int) = new StorageObject(
-        "obj" + idx,
-        "bucket-" + user.getName + "-" + Random.nextInt(bucketCount),
-        sizeDist.sample().max(1 * Units.Byte),
-        user)
-
-      user -> (1 to objectCount).map(createObject).toIndexedSeq
-    }).toMap
-
-  private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
-    val buckets = bucketObjectsMap.keys.toIndexedSeq
-    val bucketGroupIndices = buckets.indices.groupBy(_ % cloudCount)
-
-    assert(bucketGroupIndices.size == cloudCount, "expected %d, found %d.".format(cloudCount, bucketGroupIndices.size))
-
-    for (i <- 0 until cloudCount) yield {
-      val storageDevices = for (i <- 1 to storageDeviceCount)
-        yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = 600 * Units.MByte)
-      val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
-      val objects = bucketGroupIndices(i).map(idx => bucketObjectsMap(buckets(idx))).flatten
-      new MicroCloud("mc" + (i + 1), charact, objects, disposer)
+        log("will start simulation")
+        CloudSim.startSimulation();
     }
-  }
+
+    private def createDisposer(distributor: RequestDistributor, simulationDuration: Double): Disposer = {
+        val disposer = new Disposer("dp", distributor)
+        CloudSim.send(0, disposer.getId(), simulationDuration + 1, Disposer.Shutdown, null)
+        disposer
+    }
+
+    private def createUsers(userCount: Int, disposer: Disposer): Seq[User] =
+        for (i <- 1 to userCount) yield new User("u" + i, disposer)
+
+    private def createObjects(bucketCountDist: RealDistribution, objectCountDist: RealDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
+        users.map(user => {
+            val objectCount = objectCountDist.sample().toInt.max(1)
+            val bucketCount = bucketCountDist.sample().toInt.max(1)
+
+            def createObject(idx: Int) = new StorageObject(
+                "obj" + idx,
+                "bucket-" + user.getName + "-" + Random.nextInt(bucketCount),
+                sizeDist.sample().max(1 * Units.Byte))
+
+            user -> (1 to objectCount).map(createObject).toIndexedSeq
+        }).toMap
+
+    private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
+        val buckets = bucketObjectsMap.keys.toIndexedSeq
+        val bucketGroupIndices = buckets.indices.groupBy(_ % cloudCount)
+
+        assert(bucketGroupIndices.size == cloudCount, "expected %d, found %d.".format(cloudCount, bucketGroupIndices.size))
+
+        for (i <- 0 until cloudCount) yield {
+            val storageDevices = for (i <- 1 to storageDeviceCount)
+                yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = 600 * Units.MByte)
+            val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
+            val objects = bucketGroupIndices(i).map(idx => bucketObjectsMap(buckets(idx))).flatten
+            new MicroCloud("mc" + (i + 1), charact, objects, disposer)
+        }
+    }
 
 }
