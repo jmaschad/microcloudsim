@@ -10,26 +10,26 @@ object Behavior {
     def apply(delayModel: RealDistribution,
         objectSelectionModel: IntegerDistribution,
         objects: IndexedSeq[StorageObject],
-        generator: (StorageObject, Double) => Request) =
+        generator: StorageObject => Request) =
         new ConfigurableBehavior(delayModel,
             objectSelectionModel,
             objects: IndexedSeq[StorageObject],
-            generator: (StorageObject, Double) => Request)
+            generator: StorageObject => Request)
 }
 
 trait Behavior {
     def timeToNextEvent(): Double
-    def nextRequest(time: Double): Request
+    def nextRequest(): Request
 }
 
 private[behavior] class ConfigurableBehavior(
     delayModel: RealDistribution,
     objectSelectionModel: IntegerDistribution,
     objects: IndexedSeq[StorageObject],
-    generator: (StorageObject, Double) => Request) extends Behavior {
+    generator: StorageObject => Request) extends Behavior {
 
     override def timeToNextEvent(): Double = delayModel.sample()
 
-    override def nextRequest(time: Double): Request = generator(objects(objectSelectionModel.sample()), time)
+    override def nextRequest(): Request = generator(objects(objectSelectionModel.sample()))
 }
 

@@ -2,22 +2,24 @@ package de.jmaschad.storagesim.model.request
 
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.User
+import org.cloudbus.cloudsim.core.CloudSim
 
-private[request] object RequestType extends Enumeration {
+object RequestType extends Enumeration {
     val Get = Value("GET")
     val Put = Value("PUT")
 }
 import RequestType._
 
-trait Request {
-    val user: User
-    val requestType: RequestType.Value
-    val storageObject: StorageObject
-    val time: Double
+object Request {
+    def get(user: User, storageObject: StorageObject): Request = new Request(user, Get, storageObject, CloudSim.clock()) {}
+    def put(user: User, storageObject: StorageObject): Request = new Request(user, Put, storageObject, CloudSim.clock()) {}
+}
+
+abstract class Request(
+    val user: User,
+    val requestType: RequestType.Value,
+    val storageObject: StorageObject,
+    val time: Double) {
 
     override def toString = "%s request for %s".format(requestType, storageObject)
 }
-
-class GetRequest(val user: User, val storageObject: StorageObject, val time: Double) extends Request { val requestType = Get }
-class PutRequest(val user: User, val storageObject: StorageObject, val time: Double) extends Request { val requestType = Put }
-

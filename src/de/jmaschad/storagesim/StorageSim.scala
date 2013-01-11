@@ -15,12 +15,9 @@ import java.util.Calendar
 import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import de.jmaschad.storagesim.model.request.GetRequest
 import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.model.request.GetRequest
-import de.jmaschad.storagesim.model.request.GetRequest
 import org.apache.commons.math3.distribution.ExponentialDistribution
+import de.jmaschad.storagesim.model.request.Request
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -54,7 +51,7 @@ object StorageSim {
             val userObjects = objects(user)
             val delayModel = new NormalDistribution(1.0, 0.3)
             val objectSelectionModel = new UniformIntegerDistribution(0, userObjects.size - 1)
-            val behavior = Behavior(delayModel, objectSelectionModel, userObjects, (storageObject, time) => { new GetRequest(user, storageObject, time) })
+            val behavior = Behavior(delayModel, objectSelectionModel, userObjects, Request.get(user, _))
             user.addBehavior(behavior)
         })
 

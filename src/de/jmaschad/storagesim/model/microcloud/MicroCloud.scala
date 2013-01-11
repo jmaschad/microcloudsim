@@ -6,13 +6,12 @@ import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.model.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.UploadJob
-import de.jmaschad.storagesim.model.request.GetRequest
-import de.jmaschad.storagesim.model.request.PutRequest
 import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.Log
+import de.jmaschad.storagesim.model.request.RequestType
 
 object MicroCloud {
     private val Base = 10200
@@ -127,13 +126,13 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
                         }))
             }
 
-            request match {
-                case req: GetRequest =>
-                    val obj = req.storageObject
+            request.requestType match {
+                case RequestType.Get =>
+                    val obj = request.storageObject
                     if (storageSystem.contains(obj)) load(obj) else failed
 
-                case req: PutRequest =>
-                    val obj = req.storageObject
+                case RequestType.Put =>
+                    val obj = request.storageObject
                     if (storageSystem.allocate(obj)) store(obj) else failed
 
                 case _ => throw new IllegalArgumentException
