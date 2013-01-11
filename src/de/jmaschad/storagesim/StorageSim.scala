@@ -22,7 +22,7 @@ import de.jmaschad.storagesim.model.request.Request
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
 
-    val simDuration = 10
+    val simDuration = 60 * 60 * 24
 
     def main(args: Array[String]) {
         CloudSim.init(1, Calendar.getInstance(), false)
@@ -35,7 +35,7 @@ object StorageSim {
 
         val bucketCountDist = new NormalDistribution(10, 2)
         val objectCountDist = new NormalDistribution(100, 20)
-        val objectSizeDist = new ExponentialDistribution(1 * Units.MByte)
+        val objectSizeDist = new ExponentialDistribution(5 * Units.MByte)
 
         log("create disposer")
         val disposer = createDisposer(distributor, simDuration)
