@@ -3,7 +3,7 @@ package de.jmaschad.storagesim.model.microcloud
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.Disposer
+import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.UploadJob
 import de.jmaschad.storagesim.model.request.Request

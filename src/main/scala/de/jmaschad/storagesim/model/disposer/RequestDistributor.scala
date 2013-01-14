@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.distribution
+package de.jmaschad.storagesim.model.disposer
 
 import scala.collection.mutable
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
@@ -16,7 +16,7 @@ trait RequestDistributor {
     def selectMicroCloud(request: Request): Option[Int]
 }
 
-private[distribution] class RandomRequestDistributor extends RequestDistributor {
+private[disposer] class RandomRequestDistributor extends RequestDistributor {
     private val bucketMapping = mutable.Map.empty[String, Set[Int]]
     private var onlineClouds = Seq.empty[Int]
 

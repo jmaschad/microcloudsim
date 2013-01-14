@@ -16,14 +16,14 @@ import org.cloudbus.cloudsim.core.CloudSim
 
 import com.twitter.util.Eval
 
-import de.jmaschad.storagesim.model.Disposer
+import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
 import de.jmaschad.storagesim.model.storage.StorageDevice
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.behavior.Behavior
-import de.jmaschad.storagesim.model.distribution.RequestDistributor
+import de.jmaschad.storagesim.model.disposer.RequestDistributor
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.request.RequestType._

@@ -1,6 +1,4 @@
-package de.jmaschad.storagesim.model
-
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
+package de.jmaschad.storagesim.model.disposer
 import de.jmaschad.storagesim.model.microcloud.Status
 
 class StatusTracker {

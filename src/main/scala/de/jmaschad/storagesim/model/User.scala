@@ -11,6 +11,7 @@ import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.disposer.Disposer
 
 object User {
     private val Base = 10300

@@ -1,13 +1,13 @@
-package de.jmaschad.storagesim.model
+package de.jmaschad.storagesim.model.disposer
 
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.distribution.RequestDistributor
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.request.Request
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import org.cloudbus.cloudsim.core.SimEntity
 import de.jmaschad.storagesim.Log
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.User
 
 object Disposer {
     val StatusInterval = 1
