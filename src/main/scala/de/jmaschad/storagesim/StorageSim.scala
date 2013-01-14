@@ -1,31 +1,48 @@
 
 package de.jmaschad.storagesim
 
+import java.util.Calendar
+import java.io.File
+
 import scala.util.Random
-import org.apache.commons.math3.distribution.NormalDistribution
+
 import org.apache.commons.math3.distribution.RealDistribution
+import org.apache.commons.math3.distribution.IntegerDistribution
+import org.apache.commons.math3.distribution.NormalDistribution
+import org.apache.commons.math3.distribution.ExponentialDistribution
+import org.apache.commons.math3.distribution.UniformIntegerDistribution
+
 import org.cloudbus.cloudsim.core.CloudSim
+
+import com.twitter.util.Eval
+
 import de.jmaschad.storagesim.model.Disposer
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
 import de.jmaschad.storagesim.model.storage.StorageDevice
 import de.jmaschad.storagesim.model.storage.StorageObject
-import java.util.Calendar
 import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.model.distribution.RequestDistributor
-import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.model.storage.StorageObject
-import org.apache.commons.math3.distribution.ExponentialDistribution
 import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.request.RequestType._
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
 
-    val simDuration = 60 * 60 * 24
+    var simDuration = 0.0
 
     def main(args: Array[String]) {
         CloudSim.init(1, Calendar.getInstance(), false)
+
+        val config = args.size match {
+            case 0 => new StorageSimConfig {}
+            case 1 => Eval[StorageSimConfig](new File(args(0)))
+            case _ => throw new IllegalArgumentException
+        }
+
+        simDuration = config.simDuration
 
         val distributor = RequestDistributor.randomRequestDistributor
         val userCount = 10000
@@ -33,27 +50,20 @@ object StorageSim {
         val cloudCount = 100
         val storageDevicePerCloud = 10
 
-        val bucketCountDist = new NormalDistribution(10, 2)
-        val objectCountDist = new NormalDistribution(100, 20)
-        val objectSizeDist = new ExponentialDistribution(5 * Units.MByte)
-
         log("create disposer")
-        val disposer = createDisposer(distributor, simDuration)
+        val disposer = createDisposer(distributor, config.simDuration)
 
         log("create users")
-        val users = createUsers(userCount, disposer)
+        val users = createUsers(config.userCount, disposer)
 
         log("create objects")
+        val bucketCountDist = IntegerDistributionConfiguration.toDist(config.bucketCountDistribution)
+        val objectCountDist = IntegerDistributionConfiguration.toDist(config.objectCountDistribution)
+        val objectSizeDist = RealDistributionConfiguration.toDist(config.objectSizeDistribution)
         val objects = createObjects(bucketCountDist, objectCountDist, objectSizeDist, users)
 
         log("add user behavior")
-        users.foreach(user => {
-            val userObjects = objects(user)
-            val delayModel = new NormalDistribution(1.0, 0.3)
-            val objectSelectionModel = new UniformIntegerDistribution(0, userObjects.size - 1)
-            val behavior = Behavior(delayModel, objectSelectionModel, userObjects, Request.get(user, _))
-            user.addBehavior(behavior)
-        })
+        users.foreach(user => addBehavior(user, objects(user), config.behaviors))
 
         log("create clouds")
         val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
@@ -72,10 +82,10 @@ object StorageSim {
     private def createUsers(userCount: Int, disposer: Disposer): Seq[User] =
         for (i <- 1 to userCount) yield new User("u" + i, disposer)
 
-    private def createObjects(bucketCountDist: RealDistribution, objectCountDist: RealDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
+    private def createObjects(bucketCountDist: IntegerDistribution, objectCountDist: IntegerDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
         users.map(user => {
-            val objectCount = objectCountDist.sample().toInt.max(1)
-            val bucketCount = bucketCountDist.sample().toInt.max(1)
+            val objectCount = objectCountDist.sample().max(1)
+            val bucketCount = bucketCountDist.sample().max(1)
 
             def createObject(idx: Int) = new StorageObject(
                 "obj" + idx,
@@ -84,6 +94,25 @@ object StorageSim {
 
             user -> (1 to objectCount).map(createObject).toIndexedSeq
         }).toMap
+
+    private def addBehavior(user: User, objects: IndexedSeq[StorageObject], behaviorConfigs: Seq[BehaviorConfig]) =
+        behaviorConfigs.foreach(config => {
+            val requestType = config.requestType
+            val delayModel = RealDistributionConfiguration.toDist(config.delayModel)
+            val objectSelectionModel = ObjectSelectionModel.toDist(objects.size, config.objectSelectionModel)
+
+            val behavior = requestType match {
+                case Get =>
+                    Behavior(delayModel, objectSelectionModel, objects, Request.get(user, _))
+
+                case Put =>
+                    Behavior(delayModel, objectSelectionModel, objects, Request.put(user, _))
+
+                case _ => throw new IllegalStateException
+            }
+
+            user.addBehavior(behavior)
+        })
 
     private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
         val buckets = bucketObjectsMap.keys.toIndexedSeq

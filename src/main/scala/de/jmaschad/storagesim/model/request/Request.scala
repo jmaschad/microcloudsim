@@ -5,6 +5,8 @@ import de.jmaschad.storagesim.model.User
 import org.cloudbus.cloudsim.core.CloudSim
 
 object RequestType extends Enumeration {
+    type RequestType = Value
+
     val Get = Value("GET")
     val Put = Value("PUT")
 }
