@@ -2,62 +2,79 @@ package de.jmaschad.storagesim.model.storage
 
 import scala.collection.mutable
 
+object StoreTransaction {
+    val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
+}
+
+class StoreTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
+    assert(StoreTransaction.runningTransactions.isDefinedAt(storageObject) == false, storageObject + " has a runnning transaction")
+    StoreTransaction.runningTransactions += (storageObject -> this)
+
+    device.allocate(storageObject.size)
+    device.addAccessor()
+
+    def complete() = {
+        storageSystem.store(storageObject, device)
+        finish()
+    }
+
+    def abort() = {
+        device.deallocate(storageObject.size)
+        finish()
+    }
+
+    private def finish() = {
+        device.removeAccessor()
+
+        assert(StoreTransaction.runningTransactions.isDefinedAt(storageObject))
+        StoreTransaction.runningTransactions -= storageObject
+    }
+}
+
+class LoadTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
+    device.addAccessor()
+
+    def complete() = device.removeAccessor
+}
+
 class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable[StorageObject]) {
-  private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
-  private val currentUpload = mutable.Map.empty[StorageObject, StorageDevice]
-  private var lastDeviceIdx = 0
-  private val bucketSet = mutable.Set.empty[String]
+    private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
+    private var lastDeviceIdx = 0
 
-  initialObjects.foreach(obj =>
-    deviceForObject(obj) match {
-      case Some(dev) => store(obj, dev)
-      case None => throw new IllegalStateException
-    })
+    private[storage] val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
 
-  def buckets = bucketSet
+    initialObjects.foreach(obj =>
+        deviceForObject(obj) match {
+            case Some(dev) => store(obj, dev)
+            case None => throw new IllegalStateException
+        })
 
-  def loadThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).loadThroughput
-  def storeThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).storeThroughput
+    def buckets: Set[String] = bucketObjectMapping.keySet.toSet
+    def bucket(name: String): Seq[StorageObject] = bucketObjectMapping.getOrElse(name, Seq.empty[StorageObject])
 
-  def contains(storageObject: StorageObject): Boolean = deviceMap.isDefinedAt(storageObject)
-  def startLoad(storeageObject: StorageObject) = deviceMap(storeageObject).addAccessor
-  def finishLoad(storeageObject: StorageObject) = deviceMap(storeageObject).removeAccessor
+    def loadThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).loadThroughput
+    def storeThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).storeThroughput
 
-  def allocate(storageObject: StorageObject): Boolean = deviceForObject(storageObject) match {
-    case Some(dev) =>
-      dev.allocate(storageObject.size)
-      currentUpload += (storageObject -> dev)
-      true
+    def contains(storageObject: StorageObject): Boolean =
+        deviceMap.isDefinedAt(storageObject) && (!StoreTransaction.runningTransactions.isDefinedAt(storageObject))
+    def loadTransaction(storeageObject: StorageObject): Option[LoadTransaction] = contains(storeageObject) match {
+        case true => Some(new LoadTransaction(storeageObject, deviceMap(storeageObject), this))
+        case false => None
+    }
 
-    case _ => false
-  }
+    def storeTransaction(storageObject: StorageObject): Option[StoreTransaction] = deviceForObject(storageObject) match {
+        case Some(device) =>
+            deviceMap += (storageObject -> device)
+            Some(new StoreTransaction(storageObject, device, this))
+        case _ =>
+            None
+    }
 
-  def startStore(storeageObject: StorageObject) = deviceMap(storeageObject).addAccessor
-  def finishStore(storeageObject: StorageObject) = {
-    val device = currentUpload(storeageObject)
-    store(storeageObject, device)
-    finishUpload(storeageObject, device)
-  }
+    private[storage] def store(obj: StorageObject, dev: StorageDevice) = {
+        bucketObjectMapping += obj.bucket -> (bucketObjectMapping.getOrElse(obj.bucket, Seq.empty[StorageObject]) :+ obj)
+    }
 
-  def abortStore(storeageObject: StorageObject) = {
-    val device = currentUpload(storeageObject)
-    device.deallocate(storeageObject.size)
-
-    finishUpload(storeageObject, device)
-  }
-
-  private def finishUpload(obj: StorageObject, dev: StorageDevice) = {
-    currentUpload -= obj
-    dev.removeAccessor()
-  }
-
-  private def deviceForObject(storageObject: StorageObject): Option[StorageDevice] = {
-    storageDevices.find(_.hasAvailableSpace(storageObject.size)).orElse(None)
-  }
-
-  private def store(obj: StorageObject, dev: StorageDevice) = {
-    deviceMap += (obj -> dev)
-    bucketSet += obj.bucket
-  }
-
+    private def deviceForObject(storageObject: StorageObject): Option[StorageDevice] = {
+        storageDevices.find(_.hasAvailableSpace(storageObject.size)).orElse(None)
+    }
 }

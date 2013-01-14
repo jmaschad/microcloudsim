@@ -12,6 +12,8 @@ import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.User
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.request.RequestType
+import MicroCloud._
+import de.jmaschad.storagesim.model.disposer.ReplicationRequest
 
 object MicroCloud {
     private val Base = 10200
@@ -20,7 +22,9 @@ object MicroCloud {
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
     val UserRequest = Kill + 1
-    val Status = UserRequest + 1
+    val MicroCloudStatus = UserRequest + 1
+    val SendReplica = MicroCloudStatus + 1
+    val StoreReplica = SendReplica + 1
 }
 
 class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) {
@@ -33,19 +37,19 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
     def scheduleProcessingUpdate(delay: Double) = {
         lastChainUpdate.map(CloudSim.cancelEvent(_))
-        lastChainUpdate = Some(schedule(getId(), delay, MicroCloud.ProcUpdate))
+        lastChainUpdate = Some(schedule(getId(), delay, ProcUpdate))
     }
 
     def status = Status(storageSystem.buckets)
 
     override def startEntity(): Unit = {
-        send(getId(), 0.0, MicroCloud.Boot)
+        send(getId(), 0.0, Boot)
     }
 
     override def shutdownEntity() = {}
 
     override def processEvent(event: SimEvent): Unit = event.getTag match {
-        case MicroCloud.ProcUpdate =>
+        case ProcUpdate =>
             log("chain update")
             processing.update()
         case _ => state.process(event)
@@ -57,86 +61,109 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
         state = newState
     }
 
-    trait MicroCloudState {
+    private trait MicroCloudState {
         def process(event: SimEvent): Unit
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
 
-    class OfflineState extends MicroCloudState {
+    private class OfflineState extends MicroCloudState {
         def process(event: SimEvent): Unit = event.getTag match {
             case MicroCloud.Boot =>
                 stateLog("received boot request")
-                sendNow(getId, MicroCloud.Status)
+                sendNow(getId, MicroCloud.MicroCloudStatus)
                 switchState(new OnlineState)
 
             case _ => stateLog("dropped event " + event)
         }
     }
 
-    class OnlineState extends MicroCloudState {
+    private class OnlineState extends MicroCloudState {
         def process(event: SimEvent): Unit = event.getTag() match {
-            case MicroCloud.UserRequest =>
+            case UserRequest =>
                 val request = event.getData() match {
                     case r: Request => r
                     case _ => throw new IllegalStateException
                 }
                 stateLog("received %s".format(request))
-                processRequest(request)
+                processUserRequest(request)
 
-            case MicroCloud.Status =>
+            case MicroCloudStatus =>
                 sendNow(disposer.getId(), Disposer.MicroCloudStatus, status)
-                send(getId(), Disposer.StatusInterval, MicroCloud.Status)
+                send(getId(), Disposer.StatusInterval, MicroCloudStatus)
 
-            case MicroCloud.Shutdown =>
+            case Shutdown =>
                 stateLog("received shutdown request")
                 sendNow(disposer.getId(), Disposer.MicroCloudShutdown)
                 switchState(new OfflineState)
 
-            case MicroCloud.Kill =>
+            case Kill =>
                 stateLog("received kill request")
                 processing.clear
                 switchState(new OfflineState)
 
+            case SendReplica =>
+                val replicationRequest = event.getData() match {
+                    case req: ReplicationRequest => req
+                    case _ => throw new IllegalStateException
+                }
+                stateLog("received request to replicate bucket " +
+                    replicationRequest.bucket + " to " + replicationRequest.targets.mkString(","))
+                val objects = storageSystem.bucket(replicationRequest.bucket)
+                replicationRequest.targets.foreach(target => {
+                    objects.foreach(obj => {
+                        load(obj)
+                    })
+                    sendNow(target, MicroCloud.StoreReplica, objects)
+                })
+
+            case StoreReplica =>
+                val objects = event.getData() match {
+                    case obj: Seq[StorageObject] => obj
+                    case _ => throw new IllegalStateException
+                }
+                stateLog("received request to store replica for " + objects.mkString(","))
+                objects.foreach(store(_, success => if (!success) throw new IllegalStateException))
+
             case _ => log("dropped event " + event)
         }
 
-        def processRequest(request: Request): Unit = {
-            def failed() = sendNow(request.user.getId, User.RequestFailed, request)
-            def done() = sendNow(request.user.getId, User.RequestDone, request)
-
-            def load(obj: StorageObject) = {
-                storageSystem.startLoad(obj)
-                processing.add(new UploadJob(obj, _ => {
-                    storageSystem.finishLoad(obj)
-                    done()
-                }))
-            }
-
-            def store(obj: StorageObject) = {
-                storageSystem.startStore(obj)
-                processing.add(new DownloadJob(obj,
-                    success =>
-                        if (success) {
-                            storageSystem.finishStore(obj)
-                            done()
-                        } else {
-                            storageSystem.abortStore(obj)
-                            failed()
-                        }))
-            }
+        def processUserRequest(request: Request): Unit = {
+            def onFinish(success: Boolean) =
+                sendNow(request.user.getId, if (success) User.RequestDone else User.RequestFailed, request)
 
             request.requestType match {
                 case RequestType.Get =>
-                    val obj = request.storageObject
-                    if (storageSystem.contains(obj)) load(obj) else failed
+                    load(request.storageObject, onFinish(_))
 
                 case RequestType.Put =>
-                    val obj = request.storageObject
-                    if (storageSystem.allocate(obj)) store(obj) else failed
+                    store(request.storageObject, onFinish(_))
 
                 case _ => throw new IllegalArgumentException
             }
         }
+
+        def load(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
+            storageSystem.loadTransaction(obj) match {
+                case Some(transaction) =>
+                    processing.add(new UploadJob(obj, success => {
+                        transaction.complete()
+                        onFinish(success)
+                    }))
+
+                case None => onFinish(false)
+            }
+
+        def store(storageObject: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
+            storageSystem.storeTransaction(storageObject) match {
+                case Some(trans) =>
+                    processing.add(new DownloadJob(storageObject,
+                        success => {
+                            if (success) trans.complete() else trans.abort()
+                            onFinish(success)
+                        }))
+                case None =>
+                    onFinish(false)
+            }
     }
 }
