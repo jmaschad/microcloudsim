@@ -1,4 +1,4 @@
-import de.jmaschad.storagesim.StorageSimConfig
+import de.jmaschad.storagesim._
 
 new StorageSimConfig {
   simDuration = // default 10.0
