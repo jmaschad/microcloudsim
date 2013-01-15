@@ -104,6 +104,8 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
     private def removeOffline() = {
         val goneOffline = statusTracker.check()
         if (goneOffline.nonEmpty) {
+            runningReplicationRequests.foreach(reqCloudsMapping =>
+                runningReplicationRequests(reqCloudsMapping._1) = runningReplicationRequests(reqCloudsMapping._1) -- goneOffline)
             log("detected offline cloud " + goneOffline.mkString(","))
         }
     }
