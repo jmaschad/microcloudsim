@@ -1,7 +1,5 @@
 package de.jmaschad.storagesim.model.disposer
 
-import scala.collection.mutable
-
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
@@ -28,7 +26,7 @@ object Disposer {
 
 class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(name) {
     private val statusTracker = new StatusTracker
-    private val runningReplicationRequests = mutable.Map.empty[ReplicationRequest, Set[Int]]
+    private var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
     private var eventHandler = onlineEventHandler _
 
     private val log = Log.line("Disposer '%s'".format(getName), _: String)
@@ -86,14 +84,15 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
                 case req: ReplicationRequest => req
                 case _ => throw new IllegalArgumentException
             }
-            assert(runningReplicationRequests.contains(request))
-            assert(runningReplicationRequests(request).contains(event.getSource()))
+            assert(dueReplications.contains(request))
+            assert(dueReplications(request).contains(event.getSource()))
 
             log("replication of bucket " + request.bucket + " to " + event.getSource() + " finished")
 
-            runningReplicationRequests(request) = runningReplicationRequests(request) - event.getSource()
-            if (runningReplicationRequests(request).isEmpty) {
-                runningReplicationRequests -= request
+            dueReplications = dueReplications +
+                (request -> (dueReplications(request) - event.getSource()))
+            if (dueReplications(request).isEmpty) {
+                dueReplications -= request
             }
 
         case _ => log("dropped event " + event)
@@ -104,17 +103,18 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
     private def removeOffline() = {
         val goneOffline = statusTracker.check()
         if (goneOffline.nonEmpty) {
-            runningReplicationRequests.foreach(reqCloudsMapping =>
-                runningReplicationRequests(reqCloudsMapping._1) = runningReplicationRequests(reqCloudsMapping._1) -- goneOffline)
+            dueReplications =
+                dueReplications.map(reqCloudsMapping =>
+                    (reqCloudsMapping._1 -> (dueReplications(reqCloudsMapping._1) -- goneOffline)))
             log("detected offline cloud " + goneOffline.mkString(","))
         }
     }
 
     private def updateReplication() = {
-        val newRequests = distributor.replicationRequests.filter(req => !runningReplicationRequests.contains(req._2))
+        val newRequests = distributor.replicationRequests.filter(req => !dueReplications.contains(req._2))
         newRequests.foreach(cloudReq =>
             sendNow(cloudReq._1, MicroCloud.SendReplica, cloudReq._2))
-        runningReplicationRequests ++= newRequests.map(req => req._2 -> req._2.targets.toSet)
+        dueReplications ++= newRequests.map(req => req._2 -> req._2.targets.toSet)
     }
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
