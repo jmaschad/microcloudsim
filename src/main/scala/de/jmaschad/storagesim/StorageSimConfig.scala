@@ -53,6 +53,7 @@ class BehaviorConfig(
 
 trait StorageSimConfig {
     var simDuration: Double = 10.0
+    var replicaCount: Int = 3
 
     var cloudCount: Int = 5
     var storageDevicesPerCloud: Int = 10

@@ -2,7 +2,8 @@ import de.jmaschad.storagesim._
 
 new StorageSimConfig {
   simDuration = // default 10.0
-
+  replicaCount = // default 3
+      
   cloudCount = // default 5
   storageDevicesPerCloud = // default 10
 

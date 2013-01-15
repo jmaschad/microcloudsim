@@ -4,13 +4,13 @@ import scala.collection.mutable
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.request.Request
-import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.request.RequestType
+import de.jmaschad.storagesim.model.storage.StorageObject
+import de.jmaschad.storagesim.StorageSim
 
 class ReplicationRequest(val targets: Iterable[Int], val bucket: String)
 
 object RequestDistributor {
-    val ReplicaCount = 3
     def randomRequestDistributor(): RequestDistributor = new RandomRequestDistributor
 }
 
@@ -44,12 +44,12 @@ private[disposer] class RandomRequestDistributor extends RequestDistributor {
     }
 
     def replicationRequests: Seq[(Int, ReplicationRequest)] = {
-        val replicationNeeded = bucketMapping.filter(_._2.size < RequestDistributor.ReplicaCount)
+        val replicationNeeded = bucketMapping.filter(_._2.size < StorageSim.replicaCount)
 
         replicationNeeded.toSeq.map(bucketMapping => {
             val replicationSource = bucketMapping._2.head
             val bucket = bucketMapping._1
-            val count = RequestDistributor.ReplicaCount - bucketMapping._2.size
+            val count = StorageSim.replicaCount - bucketMapping._2.size
             replicationSource -> new ReplicationRequest(replicationTargets(bucketMapping._1, count), bucketMapping._1)
         })
     }

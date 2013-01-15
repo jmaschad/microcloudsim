@@ -38,11 +38,12 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
     private[storage] val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
     private var lastDeviceIdx = 0
 
-    private[storage] val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
-
+    private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
     initialObjects.foreach(obj =>
         deviceForObject(obj) match {
-            case Some(dev) => store(obj, dev)
+            case Some(dev) =>
+                deviceMap += (obj -> dev)
+                store(obj, dev)
             case None => throw new IllegalStateException
         })
 

@@ -32,6 +32,7 @@ object StorageSim {
     private val log = Log.line("StorageSim", _: String)
 
     var simDuration = 0.0
+    var replicaCount = 1
 
     def main(args: Array[String]) {
         CloudSim.init(1, Calendar.getInstance(), false)
@@ -43,6 +44,7 @@ object StorageSim {
         }
 
         simDuration = config.simDuration
+        replicaCount = config.replicaCount
 
         val distributor = RequestDistributor.randomRequestDistributor
         val userCount = 10000
@@ -115,16 +117,21 @@ object StorageSim {
         })
 
     private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
+        assert(cloudCount >= replicaCount)
         val buckets = bucketObjectsMap.keys.toIndexedSeq
-        val bucketGroupIndices = buckets.indices.groupBy(_ % cloudCount)
-
-        assert(bucketGroupIndices.size == cloudCount, "expected %d, found %d.".format(cloudCount, bucketGroupIndices.size))
+        val dist = new UniformIntegerDistribution(0, cloudCount - 1)
+        val groupBucketsMapping = (for (bucket <- buckets) yield {
+            var indices = Set.empty[Int]
+            while (indices.size < replicaCount) indices += dist.sample()
+            (bucket -> indices)
+        }).map(bucketToIndices => bucketToIndices._2.map(_ -> bucketToIndices._1)).flatten.groupBy(_._1).map(idxMapping => (idxMapping._1 -> idxMapping._2.map(_._2)))
 
         for (i <- 0 until cloudCount) yield {
             val storageDevices = for (i <- 1 to storageDeviceCount)
                 yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = 600 * Units.MByte)
             val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
-            val objects = bucketGroupIndices(i).map(idx => bucketObjectsMap(buckets(idx))).flatten
+            val objects = groupBucketsMapping(i).map(bucketObjectsMap(_)).flatten
+
             new MicroCloud("mc" + (i + 1), charact, objects, disposer)
         }
     }
