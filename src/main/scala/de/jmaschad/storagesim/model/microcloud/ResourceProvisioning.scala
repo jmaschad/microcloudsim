@@ -53,8 +53,8 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
         }
     }
 
-    private def uploadBandwidthPerJob = networkBandwidth / jobs.filter(_.netUpSize.getOrElse(0.0) > 0.0).size
-    private def downloadBandwidthPerJob = networkBandwidth / jobs.filter(_.netDownSize.getOrElse(0.0) > 0.0).size
+    private def uploadBandwidthPerJob = networkBandwidth / Job.uploadJobCount
+    private def downloadBandwidthPerJob = networkBandwidth / Job.downloadJobCount
 
     trait Provisioner {
         def update(timeElapsed: Double, jobs: Seq[Job])

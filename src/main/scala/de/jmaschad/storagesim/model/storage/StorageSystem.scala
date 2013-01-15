@@ -2,13 +2,9 @@ package de.jmaschad.storagesim.model.storage
 
 import scala.collection.mutable
 
-object StoreTransaction {
-    val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
-}
-
 class StoreTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
-    assert(StoreTransaction.runningTransactions.isDefinedAt(storageObject) == false, storageObject + " has a runnning transaction")
-    StoreTransaction.runningTransactions += (storageObject -> this)
+    assert(storageSystem.runningTransactions.isDefinedAt(storageObject) == false, storageObject + " has a runnning transaction")
+    storageSystem.runningTransactions += (storageObject -> this)
 
     device.allocate(storageObject.size)
     device.addAccessor()
@@ -26,8 +22,8 @@ class StoreTransaction(storageObject: StorageObject, device: StorageDevice, stor
     private def finish() = {
         device.removeAccessor()
 
-        assert(StoreTransaction.runningTransactions.isDefinedAt(storageObject))
-        StoreTransaction.runningTransactions -= storageObject
+        assert(storageSystem.runningTransactions.isDefinedAt(storageObject))
+        storageSystem.runningTransactions -= storageObject
     }
 }
 
@@ -39,6 +35,7 @@ class LoadTransaction(storageObject: StorageObject, device: StorageDevice, stora
 
 class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable[StorageObject]) {
     private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
+    private[storage] val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
     private var lastDeviceIdx = 0
 
     private[storage] val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
@@ -56,7 +53,7 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
     def storeThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).storeThroughput
 
     def contains(storageObject: StorageObject): Boolean =
-        deviceMap.isDefinedAt(storageObject) && (!StoreTransaction.runningTransactions.isDefinedAt(storageObject))
+        deviceMap.isDefinedAt(storageObject) && (!runningTransactions.isDefinedAt(storageObject))
     def loadTransaction(storeageObject: StorageObject): Option[LoadTransaction] = contains(storeageObject) match {
         case true => Some(new LoadTransaction(storeageObject, deviceMap(storeageObject), this))
         case false => None
