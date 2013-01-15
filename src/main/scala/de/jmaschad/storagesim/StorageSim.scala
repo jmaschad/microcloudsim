@@ -47,10 +47,6 @@ object StorageSim {
         replicaCount = config.replicaCount
 
         val distributor = RequestDistributor.randomRequestDistributor
-        val userCount = 10000
-
-        val cloudCount = 100
-        val storageDevicePerCloud = 10
 
         log("create disposer")
         val disposer = createDisposer(distributor, config.simDuration)
@@ -69,7 +65,9 @@ object StorageSim {
 
         log("create clouds")
         val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
-        val clouds = createMicroClouds(cloudCount, storageDevicePerCloud, bucketObjectsMap, disposer)
+        val clouds = createMicroClouds(config.cloudCount, config.storageDevicesPerCloud, bucketObjectsMap, disposer)
+
+        CloudSim.send(0, clouds.head.getId(), 20.0, MicroCloud.Kill, null)
 
         log("will start simulation")
         CloudSim.startSimulation();

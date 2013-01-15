@@ -48,6 +48,7 @@ class UploadJob(storageObject: StorageObject, onFinish: Boolean => Unit) extends
     Job.uploadJobCount += 1
 
     override def finish() = {
+        super.finish()
         Job.uploadJobCount -= 1
     }
 }
@@ -59,6 +60,7 @@ class DownloadJob(storageObject: StorageObject, onFinish: Boolean => Unit) exten
     Job.downloadJobCount += 1
 
     override def finish() = {
+        super.finish()
         Job.downloadJobCount -= 1
     }
 }

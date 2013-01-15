@@ -79,6 +79,8 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
     }
 
     private class OnlineState extends MicroCloudState {
+        private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
+
         def process(event: SimEvent): Unit = event.getTag() match {
             case UserRequest =>
                 val request = event.getData() match {
@@ -114,16 +116,24 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
                     objects.foreach(obj => {
                         load(obj)
                     })
-                    sendNow(target, MicroCloud.StoreReplica, objects)
+                    sendNow(target, MicroCloud.StoreReplica, (replicationRequest, objects))
                 })
 
             case StoreReplica =>
-                val objects = event.getData() match {
-                    case obj: Seq[StorageObject] => obj
+                val (request, objects) = event.getData() match {
+                    case (req: ReplicationRequest, objs: Seq[StorageObject]) => (req, objs)
                     case _ => throw new IllegalStateException
                 }
                 stateLog("received request to store replica for " + objects.mkString(","))
-                objects.foreach(store(_, success => if (!success) throw new IllegalStateException))
+
+                // store all objects and notify the disposer when the last is saved
+                val objectsToStore = scala.collection.mutable.Set.empty ++ objects
+                objects.foreach(obj => store(obj, success => if (success) {
+                    assert(objectsToStore.contains(obj))
+                    objectsToStore -= obj
+                    if (objectsToStore.isEmpty)
+                        sendNow(disposer.getId(), Disposer.ReplicationFinished, request)
+                } else throw new IllegalStateException))
 
             case _ => log("dropped event " + event)
         }

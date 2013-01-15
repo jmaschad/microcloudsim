@@ -1,5 +1,6 @@
 import de.jmaschad.storagesim._
 
 new StorageSimConfig {
-  userCount = 20
+  simDuration = 60
+  userCount = 10
 }

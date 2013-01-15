@@ -35,7 +35,8 @@ class User(
     }
 
     override def startEntity(): Unit = {
-        behaviors.foreach(b => send(getId, b.timeToNextEvent(), ScheduleRequest, b))
+        // wait two tenth of a second for the system to start up
+        behaviors.foreach(b => send(getId, 0.2 + b.timeToNextEvent, ScheduleRequest, b))
     }
 
     override def shutdownEntity() = {}

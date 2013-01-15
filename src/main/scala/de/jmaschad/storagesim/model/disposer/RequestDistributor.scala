@@ -7,8 +7,17 @@ import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.request.RequestType
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.StorageSim
+import java.util.Objects
 
-class ReplicationRequest(val targets: Iterable[Int], val bucket: String)
+final class ReplicationRequest(val targets: Iterable[Int], val bucket: String) {
+    override def equals(other: Any) = other match {
+        case that: ReplicationRequest =>
+            bucket.equals(that.bucket) && targets.equals(that.targets)
+        case _ => false
+    }
+
+    override def hashCode: Int = Objects.hash(bucket, targets)
+}
 
 object RequestDistributor {
     def randomRequestDistributor(): RequestDistributor = new RandomRequestDistributor
