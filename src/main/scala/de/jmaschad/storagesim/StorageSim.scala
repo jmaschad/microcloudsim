@@ -67,7 +67,8 @@ object StorageSim {
         val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
         val clouds = createMicroClouds(config.cloudCount, config.storageDevicesPerCloud, bucketObjectsMap, disposer)
 
-        CloudSim.send(0, clouds.head.getId(), 20.0, MicroCloud.Kill, null)
+        for (idx <- 0 until 3)
+            CloudSim.send(0, clouds(idx).getId(), 10.0 + (idx * 5), MicroCloud.Kill, null)
 
         log("will start simulation")
         CloudSim.startSimulation();

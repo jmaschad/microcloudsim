@@ -101,7 +101,7 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
             case Kill =>
                 stateLog("received kill request")
-                processing.clear
+                processing.clear()
                 switchState(new OfflineState)
 
             case SendReplica =>
@@ -128,12 +128,16 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
 
                 // store all objects and notify the disposer when the last is saved
                 val objectsToStore = scala.collection.mutable.Set.empty ++ objects
-                objects.foreach(obj => store(obj, success => if (success) {
-                    assert(objectsToStore.contains(obj))
-                    objectsToStore -= obj
-                    if (objectsToStore.isEmpty)
-                        sendNow(disposer.getId(), Disposer.ReplicationFinished, request)
-                } else throw new IllegalStateException))
+                objects.foreach(obj => store(obj, success =>
+                    if (success) {
+                        assert(objectsToStore.contains(obj))
+                        objectsToStore -= obj
+                        if (objectsToStore.isEmpty) {
+                            sendNow(disposer.getId(), Disposer.ReplicationFinished, request)
+                        }
+                    } else {
+                        throw new IllegalStateException
+                    }))
 
             case _ => log("dropped event " + event)
         }

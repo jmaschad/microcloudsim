@@ -10,4 +10,4 @@ libraryDependencies += "com.twitter" % "util-eval" % "5.+"
 
 fork := true
 
-javaOptions += "-Xmx1G"
+javaOptions += "-Xmx2G"

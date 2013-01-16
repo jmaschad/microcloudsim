@@ -36,8 +36,7 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
     }
 
     def clear() = {
-        jobs.foreach(_.setFailed)
-        update()
+        jobs = IndexedSeq.empty[Job]
     }
 
     private def scheduleNextUpdate() = {

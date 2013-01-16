@@ -26,25 +26,33 @@ object Disposer {
 
 class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(name) {
     private val statusTracker = new StatusTracker
-    private var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
-    private var eventHandler = onlineEventHandler _
+    private val replicationTracker = new ReplicationTracker
+
+    private val onlineEvents = Set(Shutdown, MicroCloudStatus, MicroCloudShutdown, Hartbeat, UserRequest, ReplicationFinished)
+    private val offlineEvents = Set(ReplicationFinished)
+    private var eventFilter = onlineEvents
 
     private val log = Log.line("Disposer '%s'".format(getName), _: String)
 
     override def startEntity(): Unit = {
-        // wait one tenth of a second for the first status updates
+        // wait for the first status updates
         send(getId(), 0.001, Hartbeat)
     }
 
-    override def shutdownEntity() = {}
+    override def shutdownEntity() = {
+        log("open replication requests on shutdown: " + replicationTracker.dueReplications)
+    }
 
-    override def processEvent(event: SimEvent): Unit = eventHandler(event)
+    override def processEvent(event: SimEvent): Unit = eventFilter.contains(event.getTag()) match {
+        case true => eventHandler(event)
+        case false => log("Dropped event " + event)
+    }
 
-    private def onlineEventHandler(event: SimEvent): Unit = event.getTag() match {
+    private def eventHandler(event: SimEvent): Unit = event.getTag() match {
         case Shutdown =>
             log("shutdown now")
             statusTracker.onlineClouds.keys.foreach(sendNow(_, MicroCloud.Shutdown))
-            eventHandler = offlineEventHandler _
+            eventFilter = offlineEvents
 
         case MicroCloudStatus =>
             val status = (event.getData() match {
@@ -59,10 +67,13 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
             statusTracker.offline(event.getSource)
 
         case Hartbeat =>
-            send(getId(), CheckStatusInterval, Hartbeat)
-            removeOffline()
+            updateCloudAvailabiility()
             distributor.statusUpdate(statusTracker.onlineClouds)
-            updateReplication()
+
+            val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
+            requests.foreach(req => sendNow(req._1, MicroCloud.SendReplica, req._2))
+
+            send(getId(), CheckStatusInterval, Hartbeat)
 
         case UserRequest =>
             val request = event.getData() match {
@@ -84,39 +95,19 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
                 case req: ReplicationRequest => req
                 case _ => throw new IllegalArgumentException
             }
-            assert(dueReplications.contains(request))
-            assert(dueReplications(request).contains(event.getSource()))
-
             log("replication of bucket " + request.bucket + " to " + event.getSource() + " finished")
-
-            dueReplications = dueReplications +
-                (request -> (dueReplications(request) - event.getSource()))
-            if (dueReplications(request).isEmpty) {
-                dueReplications -= request
-            }
+            replicationTracker.replicationRequestCompleted(request, event.getSource())
 
         case _ => log("dropped event " + event)
     }
 
-    private def offlineEventHandler(event: SimEvent) = log("Offline! dropped event " + event)
-
-    private def removeOffline() = {
+    private def updateCloudAvailabiility() = {
         val goneOffline = statusTracker.check()
         if (goneOffline.nonEmpty) {
-            dueReplications =
-                dueReplications.map(reqCloudsMapping =>
-                    (reqCloudsMapping._1 -> (dueReplications(reqCloudsMapping._1) -- goneOffline)))
-            log("detected offline cloud " + goneOffline.mkString(","))
+            replicationTracker.cloudsWentOflline(goneOffline)
+            log("detected offline cloud " + goneOffline.map(CloudSim.getEntityName(_)).mkString(","))
         }
     }
 
-    private def updateReplication() = {
-        val newRequests = distributor.replicationRequests.filter(req => !dueReplications.contains(req._2))
-        newRequests.foreach(cloudReq =>
-            sendNow(cloudReq._1, MicroCloud.SendReplica, cloudReq._2))
-        dueReplications ++= newRequests.map(req => req._2 -> req._2.targets.toSet)
-    }
-
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
-
 }
