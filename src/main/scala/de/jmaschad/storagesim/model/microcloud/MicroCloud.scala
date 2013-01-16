@@ -46,7 +46,9 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
         send(getId(), 0.0, Boot)
     }
 
-    override def shutdownEntity() = {}
+    override def shutdownEntity() = {
+        log(processing.jobs.size + " running jobs on shutdown")
+    }
 
     override def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcUpdate =>
