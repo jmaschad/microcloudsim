@@ -3,12 +3,11 @@ package de.jmaschad.storagesim
 import org.apache.commons.math3.distribution.IntegerDistribution
 import org.apache.commons.math3.distribution.RealDistribution
 import de.jmaschad.storagesim.model.behavior.Behavior
-import de.jmaschad.storagesim.model.request.RequestType._
+import de.jmaschad.storagesim.model.user.RequestType._
 import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.PoissonDistribution
-import de.jmaschad.storagesim.model.request.RequestType
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {
@@ -63,5 +62,5 @@ trait StorageSimConfig {
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
 
-    var behaviors: Seq[BehaviorConfig] = Seq(BehaviorConfig(RequestType.Get, NormalDist(1.0, 0.3), UniformSelection()))
+    var behaviors: Seq[BehaviorConfig] = Seq(BehaviorConfig(Get, NormalDist(1.0, 0.3), UniformSelection()))
 }

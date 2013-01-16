@@ -6,10 +6,10 @@ import org.cloudbus.cloudsim.core.SimEvent
 
 import Disposer._
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.User
+import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.Status
-import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.user.Request
 
 object Disposer {
     val StatusInterval = 1
@@ -39,9 +39,7 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
         send(getId(), 0.001, Hartbeat)
     }
 
-    override def shutdownEntity() = {
-        log("open replication requests on shutdown: " + replicationTracker.dueReplications)
-    }
+    override def shutdownEntity() = {}
 
     override def processEvent(event: SimEvent): Unit = eventFilter.contains(event.getTag()) match {
         case true => eventHandler(event)

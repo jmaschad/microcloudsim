@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.disposer
 
 private[disposer] final class ReplicationTracker {
-    private[disposer] var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
+    private var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
 
     def trackedReplicationRequests(requests: Seq[(Int, ReplicationRequest)]): Seq[(Int, ReplicationRequest)] = {
         val newRequests = requests.filter(req => !dueReplications.contains(req._2))

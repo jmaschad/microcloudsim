@@ -6,12 +6,12 @@ import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.DownloadJob
 import de.jmaschad.storagesim.model.UploadJob
-import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
-import de.jmaschad.storagesim.model.User
+import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.request.RequestType
+import de.jmaschad.storagesim.model.user.RequestType
 import MicroCloud._
 import de.jmaschad.storagesim.model.disposer.ReplicationRequest
 

@@ -3,7 +3,7 @@ package de.jmaschad.storagesim.model.disposer
 import java.util.Objects
 
 import de.jmaschad.storagesim.model.microcloud.Status
-import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.user.Request
 
 object RequestDistributor {
     def randomRequestDistributor(): RequestDistributor = new RandomRequestDistributor

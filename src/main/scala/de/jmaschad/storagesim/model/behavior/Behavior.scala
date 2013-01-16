@@ -1,6 +1,6 @@
 package de.jmaschad.storagesim.model.behavior
 
-import de.jmaschad.storagesim.model.request.Request
+import de.jmaschad.storagesim.model.user.Request
 import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.IntegerDistribution
 import de.jmaschad.storagesim.model.storage.StorageObject

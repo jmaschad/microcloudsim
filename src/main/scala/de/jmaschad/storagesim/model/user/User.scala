@@ -1,16 +1,13 @@
-package de.jmaschad.storagesim.model
+package de.jmaschad.storagesim.model.user
 
 import scala.collection.mutable
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import User._
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.behavior.Behavior
-import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.request.Request
 import de.jmaschad.storagesim.model.disposer.Disposer
 
 object User {
@@ -19,6 +16,7 @@ object User {
     val RequestDone = RequestFailed + 1
     val ScheduleRequest = RequestDone + 1
 }
+import User._
 
 class User(
     name: String,
@@ -26,6 +24,7 @@ class User(
 
     private val behaviors = scala.collection.mutable.Buffer.empty[Behavior]
     private val log = Log.line("User '%s'".format(getName), _: String)
+    private val tracker = new RequestTracker
 
     def addBehavior(behavior: Behavior) = {
         behaviors += behavior
@@ -39,14 +38,14 @@ class User(
         behaviors.foreach(b => send(getId, 0.2 + b.timeToNextEvent, ScheduleRequest, b))
     }
 
-    override def shutdownEntity() = {}
+    override def shutdownEntity() = log(tracker.summary())
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
         case RequestDone =>
-            done(event)
+            tracker.completed(getRequest(event))
 
         case RequestFailed =>
-            failed(event)
+            tracker.failed(getRequest(event))
 
         case ScheduleRequest =>
             if (CloudSim.clock() <= StorageSim.simDuration) {
@@ -55,28 +54,46 @@ class User(
                     case _ => throw new IllegalStateException
                 }
 
-                sendNow(disposer.getId, Disposer.UserRequest, behavior.nextRequest())
+                val request = behavior.nextRequest()
+                tracker.add(request)
+
+                sendNow(disposer.getId, Disposer.UserRequest, request)
                 send(getId, behavior.timeToNextEvent().max(0.001), ScheduleRequest, behavior)
             }
 
         case _ => log("dropped event" + event)
     }
 
-    private def logReq(req: Request, success: Boolean) = {
-        log("%s %s in %.3fs".format(if (success) "SUCCSESS" else "FAILED", req, CloudSim.clock() - req.time))
-    }
-
-    private def done(event: SimEvent) = {
+    private def getRequest(event: SimEvent): Request = {
         event.getData() match {
-            case req: Request => logReq(req, true)
+            case req: Request => req
             case _ => throw new IllegalArgumentException
         }
     }
+}
 
-    private def failed(event: SimEvent) = {
-        event.getData() match {
-            case req: Request => logReq(req, false)
-            case _ => throw new IllegalArgumentException
-        }
+private[user] class RequestTracker {
+    var openRequests = Set.empty[Request]
+    var completedRequests = Map.empty[Request, Double]
+    var failedRequests = Map.empty[Request, Double]
+
+    def add(request: Request) =
+        openRequests += request
+
+    def completed(request: Request) = {
+        assert(openRequests.contains(request))
+        openRequests -= request
+        completedRequests += (request -> CloudSim.clock())
     }
+
+    def failed(request: Request) = {
+        assert(openRequests.contains(request))
+        openRequests -= request
+        failedRequests += (request -> CloudSim.clock())
+    }
+
+    def summary(): String =
+        completedRequests.size + " completed, " +
+            failedRequests.size + " failed, " +
+            openRequests.size + " outstanding Requests"
 }
