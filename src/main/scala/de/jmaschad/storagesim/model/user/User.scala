@@ -93,6 +93,6 @@ private[user] class RequestTracker {
     }
 
     def summary(): String = {
-        "%d completed, %d failed, %d missing%n%s".format(completedRequests.size, failedRequests.size, openRequests.size, openRequests.mkString(", "))
+        "%d completed, %d failed, %d missing".format(completedRequests.size, failedRequests.size, openRequests.size)
     }
 }

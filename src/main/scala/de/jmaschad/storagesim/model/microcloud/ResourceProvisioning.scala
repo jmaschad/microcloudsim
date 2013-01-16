@@ -7,12 +7,13 @@ import de.jmaschad.storagesim.model.storage.StorageSystem
 class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Double, cloud: MicroCloud) {
     private val provisioner = List(new NetUpProvisioner, new NetDownProvisioner, new IoLoadProvisioner, new IoStoreProvisioner)
     private var lastUpdate: Option[Double] = None
+    private var jobs = IndexedSeq.empty[Job]
 
-    var jobs = IndexedSeq.empty[Job]
+    def jobCount = jobs.size
 
     def add(job: Job): Unit = {
         update(false)
-        jobs = job +: jobs
+        jobs = jobs :+ job
         cloud.log("added job %s".format(job))
         scheduleNextUpdate()
     }

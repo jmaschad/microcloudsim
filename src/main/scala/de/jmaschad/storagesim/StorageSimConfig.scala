@@ -54,10 +54,10 @@ trait StorageSimConfig {
     var simDuration: Double = 10.0
     var replicaCount: Int = 3
 
-    var cloudCount: Int = 5
+    var cloudCount: Int = 10
     var storageDevicesPerCloud: Int = 10
 
-    var userCount: Int = 500
+    var userCount: Int = 1000
     var bucketCountDistribution: IntegerDistributionConfiguration = PoissonDist(20)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
