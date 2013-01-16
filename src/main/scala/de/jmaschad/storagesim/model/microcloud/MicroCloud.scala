@@ -4,8 +4,6 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.model.disposer.Disposer
-import de.jmaschad.storagesim.model.DownloadJob
-import de.jmaschad.storagesim.model.UploadJob
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
@@ -28,7 +26,7 @@ object MicroCloud {
 }
 
 class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) {
-    private val log = Log.line("MicroCloud '%s'".format(getName), _: String)
+    private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
     private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)
     private var state: MicroCloudState = new OfflineState

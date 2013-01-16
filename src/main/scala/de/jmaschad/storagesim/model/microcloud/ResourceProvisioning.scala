@@ -2,10 +2,7 @@ package de.jmaschad.storagesim.model.microcloud
 
 import org.apache.commons.math3.linear.ArrayRealVector
 import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.model.Job
 import de.jmaschad.storagesim.model.storage.StorageSystem
-import de.jmaschad.storagesim.model.UploadJob
-import de.jmaschad.storagesim.model.DownloadJob
 
 class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Double, cloud: MicroCloud) {
     private val provisioner = List(new NetUpProvisioner, new NetDownProvisioner, new IoLoadProvisioner, new IoStoreProvisioner)
@@ -16,6 +13,7 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
     def add(job: Job): Unit = {
         update(false)
         jobs = job +: jobs
+        cloud.log("added job %s".format(job))
         scheduleNextUpdate()
     }
 
@@ -27,6 +25,7 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
         provisioner.foreach(_.update(timeElapsed, jobs))
 
         val done = for (job <- jobs if job.isDone) yield {
+            cloud.log("done %s".format(job))
             job.finish()
             job
         }

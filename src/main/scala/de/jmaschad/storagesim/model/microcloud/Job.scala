@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model
+package de.jmaschad.storagesim.model.microcloud
 
 import de.jmaschad.storagesim.Units
 import de.jmaschad.storagesim.model.storage.StorageObject

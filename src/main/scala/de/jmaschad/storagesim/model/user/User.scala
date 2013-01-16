@@ -92,8 +92,7 @@ private[user] class RequestTracker {
         failedRequests += (request -> CloudSim.clock())
     }
 
-    def summary(): String =
-        completedRequests.size + " completed, " +
-            failedRequests.size + " failed, " +
-            openRequests.size + " outstanding Requests"
+    def summary(): String = {
+        "%d completed, %d failed, %d missing%n%s".format(completedRequests.size, failedRequests.size, openRequests.size, openRequests.mkString(", "))
+    }
 }
