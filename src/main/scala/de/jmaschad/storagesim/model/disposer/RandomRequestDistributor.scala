@@ -44,15 +44,15 @@ private[disposer] class RandomRequestDistributor extends RequestDistributor {
 
     private def replicationTargets(bucket: String, count: Int): Iterable[Int] = {
         val possibleTargets = onlineClouds.diff(bucketMapping(bucket).toSeq)
-        val targetSize = possibleTargets.size
-        assert(targetSize >= count)
+        val possibleTargetCount = possibleTargets.size
+        assert(possibleTargetCount >= count)
 
-        targetSize match {
+        possibleTargetCount match {
             case 1 => possibleTargets
             case n =>
-                val dist = new UniformIntegerDistribution(0, targetSize - 1)
+                val dist = new UniformIntegerDistribution(0, possibleTargetCount - 1)
                 val uniqueSample = mutable.Set.empty[Int]
-                while (uniqueSample.size < targetSize) {
+                while (uniqueSample.size < count) {
                     uniqueSample += dist.sample()
                 }
 

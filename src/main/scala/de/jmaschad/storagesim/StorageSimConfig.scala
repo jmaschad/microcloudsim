@@ -51,7 +51,7 @@ class BehaviorConfig(
     val objectSelectionModel: ObjectSelectionModel)
 
 trait StorageSimConfig {
-    var simDuration: Double = 10.0
+    var simDuration: Double = 30.0
     var replicaCount: Int = 3
 
     var cloudCount: Int = 10

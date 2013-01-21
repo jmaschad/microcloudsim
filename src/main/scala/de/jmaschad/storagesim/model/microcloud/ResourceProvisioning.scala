@@ -14,7 +14,6 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
     def add(job: Job): Unit = {
         update(false)
         jobs = jobs :+ job
-        cloud.log("added job %s".format(job))
         scheduleNextUpdate()
     }
 

@@ -35,8 +35,11 @@ class Job(val storageObject: StorageObject, onFinish: Boolean => Unit) {
     def setFailed() = { success = false }
     def hasFailed = !success
     def finish() = onFinish(success)
-    def isDone = hasFailed ||
-        List(netUpSize, netDownSize, ioLoadSize, ioStoreSize).map(_.forall(_ < 1 * Units.Byte)).forall(_ == true)
+    def isDone = hasFailed || (
+        netUpSize.getOrElse(0.0) < 1 * Units.Byte &&
+        netDownSize.getOrElse(0.0) < 1 * Units.Byte &&
+        ioLoadSize.getOrElse(0.0) < 1 * Units.Byte &&
+        ioStoreSize.getOrElse(0.0) < 1 * Units.Byte)
 
     override def toString = "%s for %s [%f]".format(getClass().getSimpleName(), storageObject, netUpSize.getOrElse(0.0).max(ioLoadSize.getOrElse(0.0)))
 }

@@ -109,8 +109,8 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
                     case req: ReplicationRequest => req
                     case _ => throw new IllegalStateException
                 }
-                stateLog("received request to replicate bucket " +
-                    replicationRequest.bucket + " to " + replicationRequest.targets.mkString(","))
+                stateLog("received request to send replicate of " +
+                    replicationRequest.bucket + " to " + replicationRequest.targets.map(CloudSim.getEntityName(_)).mkString(","))
                 val objects = storageSystem.bucket(replicationRequest.bucket)
                 replicationRequest.targets.foreach(target => {
                     objects.foreach(obj => {
