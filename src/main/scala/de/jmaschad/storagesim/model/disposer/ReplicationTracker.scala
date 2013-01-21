@@ -3,7 +3,7 @@ package de.jmaschad.storagesim.model.disposer
 import org.cloudbus.cloudsim.core.CloudSim
 
 private[disposer] final class ReplicationTracker(private val log: String => Unit) {
-    private var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
+    var dueReplications = Map.empty[ReplicationRequest, Set[Int]]
     private var beginningOfRepair = Double.NegativeInfinity
 
     def dueReplicationCount = dueReplications.values.flatten.size

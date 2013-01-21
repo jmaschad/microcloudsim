@@ -48,18 +48,16 @@ class User(
             tracker.failed(getRequest(event))
 
         case ScheduleRequest =>
-            if (CloudSim.clock() <= StorageSim.simDuration) {
-                val behavior = event.getData match {
-                    case b: Behavior => b
-                    case _ => throw new IllegalStateException
-                }
-
-                val request = behavior.nextRequest()
-                tracker.add(request)
-
-                sendNow(disposer.getId, Disposer.UserRequest, request)
-                send(getId, behavior.timeToNextEvent().max(0.001), ScheduleRequest, behavior)
+            val behavior = event.getData match {
+                case b: Behavior => b
+                case _ => throw new IllegalStateException
             }
+
+            val request = behavior.nextRequest()
+            tracker.add(request)
+
+            sendNow(disposer.getId, Disposer.UserRequest, request)
+            send(getId, behavior.timeToNextEvent().max(0.001), ScheduleRequest, behavior)
 
         case _ => log("dropped event" + event)
     }

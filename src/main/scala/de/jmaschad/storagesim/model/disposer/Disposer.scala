@@ -16,8 +16,7 @@ object Disposer {
     val CheckStatusInterval = 2 * StatusInterval
 
     val Base = 10100
-    val Shutdown = Base + 1
-    val MicroCloudStatus = Shutdown + 1
+    val MicroCloudStatus = Base + 1
     val MicroCloudShutdown = MicroCloudStatus + 1
     val Hartbeat = MicroCloudShutdown + 1
     val UserRequest = Hartbeat + 1
@@ -29,8 +28,6 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
 
     private val statusTracker = new StatusTracker
     private val replicationTracker = new ReplicationTracker(log)
-
-    private var state: DisposerState = new OnlineState
 
     override def startEntity(): Unit = {
         // wait for the first status updates
@@ -51,6 +48,7 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
         case MicroCloudShutdown =>
             log("shutdown notification from %s".format(sourceEntity(event)))
             statusTracker.offline(event.getSource)
+            replicationTracker.cloudsWentOflline(Seq(event.getSource))
 
         case ReplicationFinished =>
             val request = event.getData() match {
@@ -60,11 +58,31 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
             log("replication of %s to %s finished.".format(request.bucket, CloudSim.getEntityName(event.getSource())))
             replicationTracker.replicationRequestCompleted(request, event.getSource())
 
-        case _ => state.handle(event)
-    }
+        case Hartbeat =>
+            updateCloudAvailability()
+            distributor.statusUpdate(statusTracker.onlineClouds)
 
-    private def switchState(newState: DisposerState): Unit = {
-        state = newState
+            val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
+            requests.foreach(req => sendNow(req._1, MicroCloud.SendReplica, req._2))
+
+            send(getId(), CheckStatusInterval, Hartbeat)
+
+        case UserRequest =>
+            val request = event.getData() match {
+                case r: Request => r
+                case _ => throw new IllegalStateException
+            }
+
+            distributor.selectMicroCloud(request) match {
+                case None =>
+                    log("no cloud found for %s".format(request))
+                    sendNow(event.getSource(), User.RequestFailed, request)
+                case Some(cloud) =>
+                    log("foreward %s to %s".format(request, CloudSim.getEntity(cloud)))
+                    sendNow(cloud, MicroCloud.UserRequest, request)
+            }
+
+        case _ => log("[online] dropped event " + event)
     }
 
     private def updateCloudAvailability() = {
@@ -76,57 +94,4 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
     }
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
-
-    private trait DisposerState {
-        def handle(event: SimEvent)
-    }
-
-    private class OfflineState extends DisposerState {
-        override def handle(event: SimEvent) = event.getTag() match {
-            case Hartbeat =>
-                updateCloudAvailability()
-                distributor.statusUpdate(statusTracker.onlineClouds)
-
-                if (replicationTracker.dueReplicationCount > 0) {
-                    send(getId(), CheckStatusInterval, Hartbeat)
-                }
-
-            case _ => log("[offline] dropped event " + event)
-        }
-    }
-
-    private class OnlineState extends DisposerState {
-        override def handle(event: SimEvent) = event.getTag() match {
-            case Hartbeat =>
-                updateCloudAvailability()
-                distributor.statusUpdate(statusTracker.onlineClouds)
-
-                val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
-                requests.foreach(req => sendNow(req._1, MicroCloud.SendReplica, req._2))
-
-                send(getId(), CheckStatusInterval, Hartbeat)
-
-            case Shutdown =>
-                log("shutdown now")
-                statusTracker.onlineClouds.keys.foreach(sendNow(_, MicroCloud.Shutdown))
-                switchState(new OfflineState)
-
-            case UserRequest =>
-                val request = event.getData() match {
-                    case r: Request => r
-                    case _ => throw new IllegalStateException
-                }
-
-                distributor.selectMicroCloud(request) match {
-                    case None =>
-                        log("no cloud found for %s".format(request))
-                        sendNow(event.getSource(), User.RequestFailed, request)
-                    case Some(cloud) =>
-                        log("foreward %s to %s".format(request, CloudSim.getEntity(cloud)))
-                        sendNow(cloud, MicroCloud.UserRequest, request)
-                }
-
-            case _ => log("[online] dropped event " + event)
-        }
-    }
 }

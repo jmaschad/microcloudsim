@@ -9,14 +9,12 @@ import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.StorageSim
 
 private[disposer] class RandomRequestDistributor extends RequestDistributor {
-    private val bucketMapping = mutable.Map.empty[String, Set[Int]]
+    private var bucketMapping = Map.empty[String, Set[Int]]
     private var onlineClouds = Seq.empty[Int]
 
     override def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) = {
-        bucketMapping.clear()
-        for (cloud <- onlineMicroClouds; bucket <- cloud._2.buckets) {
-            bucketMapping(bucket) = bucketMapping.getOrElse(bucket, Set.empty[Int]) + cloud._1
-        }
+        bucketMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.buckets.map(bucket => bucket -> m._1)).
+            groupBy(_._1).mapValues(_.map(_._2).toSet)
         onlineClouds = onlineMicroClouds.keys.toSeq
     }
 

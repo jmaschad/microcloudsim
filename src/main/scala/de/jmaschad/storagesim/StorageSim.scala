@@ -31,7 +31,6 @@ import de.jmaschad.storagesim.model.user.RequestType._
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
 
-    var simDuration = 0.0
     var replicaCount = 1
 
     def main(args: Array[String]) {
@@ -43,13 +42,12 @@ object StorageSim {
             case _ => throw new IllegalArgumentException
         }
 
-        simDuration = config.simDuration
         replicaCount = config.replicaCount
 
         val distributor = RequestDistributor.randomRequestDistributor
 
         log("create disposer")
-        val disposer = createDisposer(distributor, config.simDuration)
+        val disposer = createDisposer(distributor)
 
         log("create users")
         val users = createUsers(config.userCount, disposer)
@@ -72,13 +70,10 @@ object StorageSim {
 
         log("will start simulation")
         CloudSim.startSimulation();
+        CloudSim.terminateSimulation(config.simDuration)
     }
 
-    private def createDisposer(distributor: RequestDistributor, simulationDuration: Double): Disposer = {
-        val disposer = new Disposer("dp", distributor)
-        CloudSim.send(0, disposer.getId(), simulationDuration + 1, Disposer.Shutdown, null)
-        disposer
-    }
+    private def createDisposer(distributor: RequestDistributor): Disposer = new Disposer("dp", distributor)
 
     private def createUsers(userCount: Int, disposer: Disposer): Seq[User] =
         for (i <- 1 to userCount) yield new User("u" + i, disposer)
