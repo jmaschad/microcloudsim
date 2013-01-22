@@ -2,7 +2,7 @@ package de.jmaschad.storagesim
 
 import org.apache.commons.math3.distribution.IntegerDistribution
 import org.apache.commons.math3.distribution.RealDistribution
-import de.jmaschad.storagesim.model.behavior.Behavior
+import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType._
 import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
@@ -56,6 +56,10 @@ trait StorageSimConfig {
 
     var cloudCount: Int = 10
     var storageDevicesPerCloud: Int = 10
+    var cloudFailureDistribution: RealDistributionConfiguration = NormalDist(5 * 60, 2 * 60)
+    var cloudRepairDistribution: RealDistributionConfiguration = NormalDist(30, 5)
+    var diskFailureDistribution: RealDistributionConfiguration = NormalDist(60, 10)
+    var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
 
     var userCount: Int = 1000
     var bucketCountDistribution: IntegerDistributionConfiguration = PoissonDist(20)

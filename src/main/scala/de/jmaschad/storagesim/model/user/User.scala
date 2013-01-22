@@ -5,7 +5,6 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.behavior.Behavior
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.disposer.Disposer
@@ -22,11 +21,11 @@ class User(
     name: String,
     disposer: Disposer) extends SimEntity(name) {
 
-    private val behaviors = scala.collection.mutable.Buffer.empty[Behavior]
+    private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val log = Log.line("User '%s'".format(getName), _: String)
     private val tracker = new RequestTracker
 
-    def addBehavior(behavior: Behavior) = {
+    def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
         if (CloudSim.running()) {
             send(getId, behavior.timeToNextEvent(), ScheduleRequest, behavior)
@@ -49,7 +48,7 @@ class User(
 
         case ScheduleRequest =>
             val behavior = event.getData match {
-                case b: Behavior => b
+                case b: UserBehavior => b
                 case _ => throw new IllegalStateException
             }
 

@@ -25,7 +25,13 @@ object MicroCloud {
     val StoreReplica = SendReplica + 1
 }
 
-class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharacteristics, initialObjects: Iterable[StorageObject], disposer: Disposer) extends SimEntity(name) {
+class MicroCloud(
+    name: String,
+    resourceCharacteristics: MicroCloudResourceCharacteristics,
+    initialObjects: Iterable[StorageObject],
+    failureBehavior: MicroCloudFailureBehavior,
+    disposer: Disposer) extends SimEntity(name) {
+
     private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
     private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)

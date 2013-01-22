@@ -1,12 +1,11 @@
-package de.jmaschad.storagesim.model.behavior
+package de.jmaschad.storagesim.model.user
 
-import de.jmaschad.storagesim.model.user.Request
 import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.IntegerDistribution
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageObject
 
-object Behavior {
+object UserBehavior {
     def apply(delayModel: RealDistribution,
         objectSelectionModel: IntegerDistribution,
         objects: IndexedSeq[StorageObject],
@@ -17,16 +16,16 @@ object Behavior {
             generator: StorageObject => Request)
 }
 
-trait Behavior {
+trait UserBehavior {
     def timeToNextEvent(): Double
     def nextRequest(): Request
 }
 
-private[behavior] class ConfigurableBehavior(
+private[user] class ConfigurableBehavior(
     delayModel: RealDistribution,
     objectSelectionModel: IntegerDistribution,
     objects: IndexedSeq[StorageObject],
-    generator: StorageObject => Request) extends Behavior {
+    generator: StorageObject => Request) extends UserBehavior {
 
     override def timeToNextEvent(): Double = delayModel.sample()
 

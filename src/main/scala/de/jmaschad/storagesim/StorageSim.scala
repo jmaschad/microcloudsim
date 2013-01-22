@@ -3,30 +3,26 @@ package de.jmaschad.storagesim
 
 import java.util.Calendar
 import java.io.File
-
 import scala.util.Random
-
 import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.IntegerDistribution
 import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-
 import org.cloudbus.cloudsim.core.CloudSim
-
 import com.twitter.util.Eval
-
 import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
 import de.jmaschad.storagesim.model.storage.StorageDevice
 import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.model.behavior.Behavior
+import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.disposer.RequestDistributor
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType._
+import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -63,7 +59,7 @@ object StorageSim {
 
         log("create clouds")
         val bucketObjectsMap = objects.values.flatten.groupBy(_.bucket)
-        val clouds = createMicroClouds(config.cloudCount, config.storageDevicesPerCloud, bucketObjectsMap, disposer)
+        val clouds = createMicroClouds(config, bucketObjectsMap, disposer)
 
         for (idx <- 0 until 3)
             CloudSim.send(0, clouds(idx).getId(), 10.0 + (idx * 30), MicroCloud.Kill, null)
@@ -99,10 +95,10 @@ object StorageSim {
 
             val behavior = requestType match {
                 case Get =>
-                    Behavior(delayModel, objectSelectionModel, objects, Request.get(user, _))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _))
 
                 case Put =>
-                    Behavior(delayModel, objectSelectionModel, objects, Request.put(user, _))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _))
 
                 case _ => throw new IllegalStateException
             }
@@ -110,23 +106,28 @@ object StorageSim {
             user.addBehavior(behavior)
         })
 
-    private def createMicroClouds(cloudCount: Int, storageDeviceCount: Int, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
-        assert(cloudCount >= replicaCount)
+    private def createMicroClouds(config: StorageSimConfig, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
+        assert(config.cloudCount >= replicaCount)
         val buckets = bucketObjectsMap.keys.toIndexedSeq
-        val dist = new UniformIntegerDistribution(0, cloudCount - 1)
+        val dist = new UniformIntegerDistribution(0, config.cloudCount - 1)
         val groupBucketsMapping = (for (bucket <- buckets) yield {
             var indices = Set.empty[Int]
             while (indices.size < replicaCount) indices += dist.sample()
             (bucket -> indices)
         }).map(bucketToIndices => bucketToIndices._2.map(_ -> bucketToIndices._1)).flatten.groupBy(_._1).map(idxMapping => (idxMapping._1 -> idxMapping._2.map(_._2)))
 
-        for (i <- 0 until cloudCount) yield {
-            val storageDevices = for (i <- 1 to storageDeviceCount)
+        for (i <- 0 until config.cloudCount) yield {
+            val storageDevices = for (i <- 1 to config.storageDevicesPerCloud)
                 yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = 600 * Units.MByte)
             val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
             val objects = groupBucketsMapping(i).map(bucketObjectsMap(_)).flatten
+            val failureBehavior = new MicroCloudFailureBehavior(
+                RealDistributionConfiguration.toDist(config.cloudFailureDistribution),
+                RealDistributionConfiguration.toDist(config.cloudRepairDistribution),
+                RealDistributionConfiguration.toDist(config.diskFailureDistribution),
+                RealDistributionConfiguration.toDist(config.diskRepairDistribution))
 
-            new MicroCloud("mc" + (i + 1), charact, objects, disposer)
+            new MicroCloud("mc" + (i + 1), charact, objects, failureBehavior, disposer)
         }
     }
 
