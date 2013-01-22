@@ -10,12 +10,12 @@ import de.jmaschad.storagesim.StorageSim
 
 private[disposer] class RandomRequestDistributor extends RequestDistributor {
     private var bucketMapping = Map.empty[String, Set[Int]]
-    private var onlineClouds = Seq.empty[Int]
+    private var onlineClouds = Set.empty[Int]
 
     override def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) = {
         bucketMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.buckets.map(bucket => bucket -> m._1)).
             groupBy(_._1).mapValues(_.map(_._2).toSet)
-        onlineClouds = onlineMicroClouds.keys.toSeq
+        onlineClouds = onlineMicroClouds.keys.toSet
     }
 
     override def selectMicroCloud(request: Request): Option[Int] = onlineClouds.size match {
@@ -29,32 +29,36 @@ private[disposer] class RandomRequestDistributor extends RequestDistributor {
             }
     }
 
-    override def replicationRequests(): Seq[(Int, ReplicationRequest)] = {
+    override def replicationRequests(): Set[ReplicationRequest] = {
         val replicationNeeded = bucketMapping.filter(_._2.size < StorageSim.replicaCount)
 
-        replicationNeeded.toSeq.map(bucketMapping => {
-            val replicationSource = bucketMapping._2.head
-            val bucket = bucketMapping._1
-            val count = StorageSim.replicaCount - bucketMapping._2.size
-            replicationSource -> new ReplicationRequest(replicationTargets(bucketMapping._1, count), bucketMapping._1)
+        replicationNeeded.toSet.map((m: Tuple2[String, Set[Int]]) => {
+            val replicationSource = m._2.size match {
+                case 1 => m._2.head
+                case n => m._2.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
+            }
+
+            val bucket = m._1
+            val count = StorageSim.replicaCount - m._2.size
+            ReplicationRequest(replicationSource, replicationTargets(bucket, count), m._1)
         })
     }
 
-    private def replicationTargets(bucket: String, count: Int): Iterable[Int] = {
-        val possibleTargets = onlineClouds.diff(bucketMapping(bucket).toSeq)
+    private def replicationTargets(bucket: String, count: Int): Set[Int] = {
+        val possibleTargets = onlineClouds.diff(bucketMapping(bucket)).toSeq
         val possibleTargetCount = possibleTargets.size
         assert(possibleTargetCount >= count)
 
         possibleTargetCount match {
-            case 1 => possibleTargets
+            case 1 => possibleTargets.toSet
             case n =>
-                val dist = new UniformIntegerDistribution(0, possibleTargetCount - 1)
+                val dist = new UniformIntegerDistribution(0, n - 1)
                 val uniqueSample = mutable.Set.empty[Int]
                 while (uniqueSample.size < count) {
                     uniqueSample += dist.sample()
                 }
 
-                uniqueSample.map(idx => possibleTargets(idx))
+                uniqueSample.map(idx => possibleTargets(idx)).toSet
         }
 
     }
@@ -74,9 +78,9 @@ private[disposer] class RandomRequestDistributor extends RequestDistributor {
         val clouds = bucketMapping.getOrElse(bucket, Iterable()).toSeq
         clouds.size match {
             case 0 =>
-                val cloud = onlineClouds.size match {
+                val cloud: Int = onlineClouds.size match {
                     case 1 => onlineClouds.head
-                    case n => onlineClouds(new UniformIntegerDistribution(0, n - 1).sample())
+                    case n => onlineClouds.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
                 }
                 bucketMapping += bucket -> Set(cloud)
                 Some(cloud)

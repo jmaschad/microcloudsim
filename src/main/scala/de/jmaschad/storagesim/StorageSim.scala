@@ -66,11 +66,11 @@ object StorageSim {
         val clouds = createMicroClouds(config.cloudCount, config.storageDevicesPerCloud, bucketObjectsMap, disposer)
 
         for (idx <- 0 until 3)
-            CloudSim.send(0, clouds(idx).getId(), 10.0 + (idx * 5), MicroCloud.Kill, null)
+            CloudSim.send(0, clouds(idx).getId(), 10.0 + (idx * 30), MicroCloud.Kill, null)
 
         log("will start simulation")
-        CloudSim.startSimulation();
         CloudSim.terminateSimulation(config.simDuration)
+        CloudSim.startSimulation();
     }
 
     private def createDisposer(distributor: RequestDistributor): Disposer = new Disposer("dp", distributor)

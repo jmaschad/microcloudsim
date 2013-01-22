@@ -2,12 +2,10 @@ package de.jmaschad.storagesim.model.disposer
 
 import java.util.Objects
 
-final class ReplicationRequest(val targets: Iterable[Int], val bucket: String) {
-    override def equals(other: Any) = other match {
-        case that: ReplicationRequest =>
-            bucket.equals(that.bucket)
-        case _ => false
+object ReplicationRequest {
+    def apply(source: Int, targets: Set[Int], bucket: String): ReplicationRequest = {
+        new ReplicationRequest(source, targets, bucket)
     }
-
-    override def hashCode: Int = Objects.hash(bucket)
 }
+
+class ReplicationRequest(val source: Int, val targets: Set[Int], val bucket: String)

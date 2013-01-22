@@ -63,7 +63,9 @@ class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(
             distributor.statusUpdate(statusTracker.onlineClouds)
 
             val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
-            requests.foreach(req => sendNow(req._1, MicroCloud.SendReplica, req._2))
+            requests.foreach(req => {
+                sendNow(req.source, MicroCloud.SendReplica, req)
+            })
 
             send(getId(), CheckStatusInterval, Hartbeat)
 

@@ -124,7 +124,7 @@ class MicroCloud(name: String, resourceCharacteristics: MicroCloudResourceCharac
                     case (req: ReplicationRequest, objs: Seq[StorageObject]) => (req, objs)
                     case _ => throw new IllegalStateException
                 }
-                stateLog("received request to store replica for " + objects.mkString(","))
+                stateLog(CloudSim.getEntityName(event.getSource()) + " send request to store replica for " + objects.mkString(","))
 
                 // store all objects and notify the disposer when the last is saved
                 val objectsToStore = scala.collection.mutable.Set.empty ++ objects
