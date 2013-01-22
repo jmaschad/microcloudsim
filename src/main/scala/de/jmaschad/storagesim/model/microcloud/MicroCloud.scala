@@ -78,6 +78,7 @@ class MicroCloud(
             case MicroCloud.Boot =>
                 stateLog("received boot request")
                 sendNow(getId, MicroCloud.MicroCloudStatus)
+                send(getId, failureBehavior.timeToCloudFailure, Kill)
                 switchState(new OnlineState)
 
             case _ => stateLog("dropped event " + event)
@@ -108,6 +109,7 @@ class MicroCloud(
             case Kill =>
                 stateLog("received kill request")
                 processing.clear()
+                send(getId, failureBehavior.timeToCloudRepair, Boot)
                 switchState(new OfflineState)
 
             case SendReplica =>
