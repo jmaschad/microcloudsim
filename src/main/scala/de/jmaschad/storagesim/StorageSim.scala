@@ -106,18 +106,19 @@ object StorageSim {
     private def createMicroClouds(config: StorageSimConfig, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
         assert(config.cloudCount >= replicaCount)
         val buckets = bucketObjectsMap.keys.toIndexedSeq
-        val dist = new UniformIntegerDistribution(0, config.cloudCount - 1)
-        val groupBucketsMapping = (for (bucket <- buckets) yield {
+        val cloudForBucketDist = new UniformIntegerDistribution(0, config.cloudCount - 1)
+        val bucketCloudMapping = (for (bucket <- buckets) yield {
             var indices = Set.empty[Int]
-            while (indices.size < replicaCount) indices += dist.sample()
+            while (indices.size < replicaCount) indices += cloudForBucketDist.sample()
             (bucket -> indices)
         }).map(bucketToIndices => bucketToIndices._2.map(_ -> bucketToIndices._1)).flatten.groupBy(_._1).map(idxMapping => (idxMapping._1 -> idxMapping._2.map(_._2)))
 
+        val cloudBandwidthDist = RealDistributionConfiguration.toDist(config.cloudBandwidthDistribution)
         for (i <- 0 until config.cloudCount) yield {
             val storageDevices = for (i <- 1 to config.storageDevicesPerCloud)
-                yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = 600 * Units.MByte)
+                yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = cloudBandwidthDist.sample().max(1))
             val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
-            val objects = groupBucketsMapping(i).map(bucketObjectsMap(_)).flatten
+            val objects = bucketCloudMapping(i).map(bucketObjectsMap(_)).flatten
             val failureBehavior = new MicroCloudFailureBehavior(
                 RealDistributionConfiguration.toDist(config.cloudFailureDistribution),
                 RealDistributionConfiguration.toDist(config.cloudRepairDistribution),
