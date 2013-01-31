@@ -2,11 +2,11 @@ package de.jmaschad.storagesim.model.distributor
 
 import scala.collection.mutable
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.model.transfer.StorageObject
 
 private[distributor] class RandomRequestDistributor extends RequestDistributor {
     private var bucketMapping = Map.empty[String, Set[Int]]

@@ -1,13 +1,16 @@
 package de.jmaschad.storagesim.model.user
 
-import scala.collection.mutable
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.StorageSim
+
+import User.RequestDone
+import User.RequestFailed
+import User.ScheduleRequest
 import de.jmaschad.storagesim.model.distributor.Distributor
+import de.jmaschad.storagesim.model.user.Request
+import de.jmaschad.storagesim.model.user.UserBehavior
+import de.jmaschad.storagesim.Log
 
 object User {
     private val Base = 10300
@@ -15,7 +18,7 @@ object User {
     val RequestDone = RequestFailed + 1
     val ScheduleRequest = RequestDone + 1
 }
-import User._
+
 
 class User(
     name: String,

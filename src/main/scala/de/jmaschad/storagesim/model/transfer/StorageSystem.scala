@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.storage
+package de.jmaschad.storagesim.model.transfer
 
 import scala.collection.mutable
 
@@ -35,7 +35,7 @@ class LoadTransaction(storageObject: StorageObject, device: StorageDevice, stora
 
 class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable[StorageObject]) {
     private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
-    private[storage] val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
+    private[transfer] val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
     private var lastDeviceIdx = 0
 
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
@@ -68,7 +68,7 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
             None
     }
 
-    private[storage] def store(obj: StorageObject, dev: StorageDevice) = {
+    private[transfer] def store(obj: StorageObject, dev: StorageDevice) = {
         bucketObjectMapping += obj.bucket -> (bucketObjectMapping.getOrElse(obj.bucket, Seq.empty[StorageObject]) :+ obj)
     }
 

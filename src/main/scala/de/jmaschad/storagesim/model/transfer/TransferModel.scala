@@ -2,9 +2,9 @@ package de.jmaschad.storagesim.model.microcloud
 
 import org.apache.commons.math3.linear.ArrayRealVector
 import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.model.storage.StorageSystem
+import de.jmaschad.storagesim.model.transfer.StorageSystem
 
-class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Double, cloud: MicroCloud) {
+class TransferModel(log: String => Unit, scheduleUpdate: Double => Unit, storageSystem: StorageSystem, networkBandwidth: Double) {
     private val provisioner = List(new NetUpProvisioner, new NetDownProvisioner, new IoLoadProvisioner, new IoStoreProvisioner)
     private var lastUpdate: Option[Double] = None
     private var jobs = IndexedSeq.empty[Job]
@@ -25,7 +25,7 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
         provisioner.foreach(_.update(timeElapsed, jobs))
 
         val done = for (job <- jobs if job.isDone) yield {
-            cloud.log("done %s".format(job))
+            log("done %s".format(job))
             job.finish()
             job
         }
@@ -47,7 +47,7 @@ class ResourceProvisioning(storageSystem: StorageSystem, networkBandwidth: Doubl
 
             // min 100 microseconds delay to avoid infinite update loop with zero progress
             val minDelay = 0.0001
-            cloud.scheduleProcessingUpdate(min.max(minDelay))
+            scheduleUpdate(min.max(minDelay))
         }
     }
 

@@ -14,15 +14,14 @@ import com.twitter.util.Eval
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
-import de.jmaschad.storagesim.model.storage.StorageDevice
-import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType._
 import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.RequestDistributor
+import de.jmaschad.storagesim.model.transfer.StorageDevice
+import de.jmaschad.storagesim.model.transfer.StorageObject
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)

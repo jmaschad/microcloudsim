@@ -4,14 +4,14 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.storage.StorageObject
-import de.jmaschad.storagesim.model.storage.StorageSystem
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.user.RequestType
 import MicroCloud._
 import de.jmaschad.storagesim.model.distributor.ReplicationRequest
 import de.jmaschad.storagesim.model.distributor.Distributor
+import de.jmaschad.storagesim.model.transfer.StorageObject
+import de.jmaschad.storagesim.model.transfer.StorageSystem
 
 object MicroCloud {
     private val Base = 10200
@@ -34,7 +34,7 @@ class MicroCloud(
 
     private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
-    private val processing = new ResourceProvisioning(storageSystem, resourceCharacteristics.bandwidth, this)
+    private val processing = new TransferModel(log, scheduleProcessingUpdate(_), storageSystem, resourceCharacteristics.bandwidth)
     private var state: MicroCloudState = new OfflineState
 
     var lastChainUpdate: Option[SimEvent] = None

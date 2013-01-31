@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.storage
+package de.jmaschad.storagesim.model.transfer
 
 class StorageDevice(bandwidth: Double, capacity: Double) {
     private var allocated = 0.0

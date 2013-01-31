@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.microcloud
 
 import de.jmaschad.storagesim.Units
-import de.jmaschad.storagesim.model.storage.StorageObject
+import de.jmaschad.storagesim.model.transfer.StorageObject
 
 object Job {
     var uploadJobCount = 0
