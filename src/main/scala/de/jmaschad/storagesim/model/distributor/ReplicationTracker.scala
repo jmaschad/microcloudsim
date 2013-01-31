@@ -1,8 +1,8 @@
-package de.jmaschad.storagesim.model.disposer
+package de.jmaschad.storagesim.model.distributor
 
 import org.cloudbus.cloudsim.core.CloudSim
 
-private[disposer] final class ReplicationTracker(private val log: String => Unit) {
+private[distributor] final class ReplicationTracker(private val log: String => Unit) {
     var dueReplications = Map.empty[String, Set[Int]]
     private var beginningOfRepair = Double.NegativeInfinity
 

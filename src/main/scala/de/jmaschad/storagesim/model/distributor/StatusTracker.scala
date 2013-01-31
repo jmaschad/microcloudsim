@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.disposer
+package de.jmaschad.storagesim.model.distributor
 
 import de.jmaschad.storagesim.model.microcloud.Status
 

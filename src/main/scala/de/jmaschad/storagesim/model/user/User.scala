@@ -7,7 +7,7 @@ import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.disposer.Disposer
+import de.jmaschad.storagesim.model.distributor.Distributor
 
 object User {
     private val Base = 10300
@@ -19,7 +19,7 @@ import User._
 
 class User(
     name: String,
-    disposer: Disposer) extends SimEntity(name) {
+    disposer: Distributor) extends SimEntity(name) {
 
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val log = Log.line("User '%s'".format(getName), _: String)
@@ -55,7 +55,7 @@ class User(
             val request = behavior.nextRequest()
             tracker.add(request)
 
-            sendNow(disposer.getId, Disposer.UserRequest, request)
+            sendNow(disposer.getId, Distributor.UserRequest, request)
             send(getId, behavior.timeToNextEvent().max(0.001), ScheduleRequest, behavior)
 
         case _ => log("dropped event" + event)

@@ -3,7 +3,6 @@ package de.jmaschad.storagesim.model.microcloud
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.storage.StorageSystem
@@ -11,7 +10,8 @@ import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.user.RequestType
 import MicroCloud._
-import de.jmaschad.storagesim.model.disposer.ReplicationRequest
+import de.jmaschad.storagesim.model.distributor.ReplicationRequest
+import de.jmaschad.storagesim.model.distributor.Distributor
 
 object MicroCloud {
     private val Base = 10200
@@ -30,7 +30,7 @@ class MicroCloud(
     resourceCharacteristics: MicroCloudResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
-    disposer: Disposer) extends SimEntity(name) {
+    disposer: Distributor) extends SimEntity(name) {
 
     private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
@@ -98,12 +98,12 @@ class MicroCloud(
                 processUserRequest(request)
 
             case MicroCloudStatus =>
-                sendNow(disposer.getId(), Disposer.MicroCloudStatus, status)
-                send(getId(), Disposer.StatusInterval, MicroCloudStatus)
+                sendNow(disposer.getId(), Distributor.MicroCloudStatus, status)
+                send(getId(), Distributor.StatusInterval, MicroCloudStatus)
 
             case Shutdown =>
                 stateLog("received shutdown request")
-                sendNow(disposer.getId(), Disposer.MicroCloudShutdown)
+                sendNow(disposer.getId(), Distributor.MicroCloudShutdown)
                 switchState(new OfflineState)
 
             case Kill =>
@@ -141,7 +141,7 @@ class MicroCloud(
                         assert(objectsToStore.contains(obj))
                         objectsToStore -= obj
                         if (objectsToStore.isEmpty) {
-                            sendNow(disposer.getId(), Disposer.ReplicationFinished, request)
+                            sendNow(disposer.getId(), Distributor.ReplicationFinished, request)
                         }
                     } else {
                         throw new IllegalStateException

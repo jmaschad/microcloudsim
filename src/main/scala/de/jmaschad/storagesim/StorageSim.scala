@@ -11,18 +11,18 @@ import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import com.twitter.util.Eval
-import de.jmaschad.storagesim.model.disposer.Disposer
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
 import de.jmaschad.storagesim.model.storage.StorageDevice
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.disposer.RequestDistributor
 import de.jmaschad.storagesim.model.storage.StorageObject
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType._
 import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
+import de.jmaschad.storagesim.model.distributor.Distributor
+import de.jmaschad.storagesim.model.distributor.RequestDistributor
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -66,9 +66,9 @@ object StorageSim {
         CloudSim.startSimulation();
     }
 
-    private def createDisposer(distributor: RequestDistributor): Disposer = new Disposer("dp", distributor)
+    private def createDisposer(distributor: RequestDistributor): Distributor = new Distributor("dp", distributor)
 
-    private def createUsers(userCount: Int, disposer: Disposer): Seq[User] =
+    private def createUsers(userCount: Int, disposer: Distributor): Seq[User] =
         for (i <- 1 to userCount) yield new User("u" + i, disposer)
 
     private def createObjects(bucketCountDist: IntegerDistribution, objectCountDist: IntegerDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
@@ -103,7 +103,7 @@ object StorageSim {
             user.addBehavior(behavior)
         })
 
-    private def createMicroClouds(config: StorageSimConfig, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Disposer): Seq[MicroCloud] = {
+    private def createMicroClouds(config: StorageSimConfig, bucketObjectsMap: Map[String, Iterable[StorageObject]], disposer: Distributor): Seq[MicroCloud] = {
         assert(config.cloudCount >= replicaCount)
         val buckets = bucketObjectsMap.keys.toIndexedSeq
         val cloudForBucketDist = new UniformIntegerDistribution(0, config.cloudCount - 1)

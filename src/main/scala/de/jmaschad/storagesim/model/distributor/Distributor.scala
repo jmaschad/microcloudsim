@@ -1,17 +1,17 @@
-package de.jmaschad.storagesim.model.disposer
+package de.jmaschad.storagesim.model.distributor
 
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 
-import Disposer._
+import Distributor._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
 
-object Disposer {
+object Distributor {
     val StatusInterval = 1
     val CheckStatusInterval = 2 * StatusInterval
 
@@ -23,7 +23,7 @@ object Disposer {
     val ReplicationFinished = UserRequest + 1
 }
 
-class Disposer(name: String, distributor: RequestDistributor) extends SimEntity(name) {
+class Distributor(name: String, distributor: RequestDistributor) extends SimEntity(name) {
     private val log = Log.line("Disposer '%s'".format(getName), _: String)
 
     private val statusTracker = new StatusTracker
