@@ -13,23 +13,25 @@ class ProcessingModel(
     def jobCount = jobs.size
 
     def add(job: Job): Unit = {
-        update(false)
+        if (timeSinceLastUpdae > 0.0) {
+            update(false)
+        }
         jobs += job
         scheduleNextUpdate()
     }
 
     def update(scheduleUpdate: Boolean = true) = {
-        val clock = CloudSim.clock
-        val timeElapsed = clock - lastUpdate.getOrElse(clock)
-        lastUpdate = Some(clock)
+        log("update after " + timeSinceLastUpdae)
 
-        jobs = jobs.map(_.process(timeElapsed))
+        jobs = jobs.map(_.process(timeSinceLastUpdae))
 
         val done = jobs.filter(_.isDone)
         done.foreach(_.onFinish())
         jobs = jobs.diff(done)
 
         if (scheduleUpdate) { scheduleNextUpdate() }
+
+        lastUpdate = Some(CloudSim.clock())
     }
 
     def clear() = {
@@ -40,4 +42,8 @@ class ProcessingModel(
     private def scheduleNextUpdate() =
         if (jobs.nonEmpty) scheduleUpdate(jobs.map(_.expectedCompletion).min.max(0.0001))
 
+    private def timeSinceLastUpdae: Double = {
+        val clock = CloudSim.clock
+        clock - lastUpdate.getOrElse(clock)
+    }
 }

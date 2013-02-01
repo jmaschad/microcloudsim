@@ -17,6 +17,7 @@ import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.transfer.DiskIO
 import de.jmaschad.storagesim.model.transfer.Job
 import de.jmaschad.storagesim.model.transfer.Download
+import de.jmaschad.storagesim.model.transfer.Workload
 
 object MicroCloud {
     private val Base = 10200
@@ -175,7 +176,7 @@ class MicroCloud(
         def load(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.loadTransaction(obj) match {
                 case Some(transaction) =>
-                    val workloads = Set(
+                    val workloads = Set[Workload](
                         Upload(obj.size, resourceCharacteristics.bandwidth),
                         DiskIO(obj.size, { storageSystem.loadThroughput(obj) }))
                     processing.add(Job(workloads, () => {
@@ -189,7 +190,7 @@ class MicroCloud(
         def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.storeTransaction(obj) match {
                 case Some(trans) =>
-                    val workloads = Set(
+                    val workloads = Set[Workload](
                         Download(obj.size, resourceCharacteristics.bandwidth),
                         DiskIO(obj.size, { storageSystem.storeThroughput(obj) }))
                     processing.add(Job(workloads, () => {

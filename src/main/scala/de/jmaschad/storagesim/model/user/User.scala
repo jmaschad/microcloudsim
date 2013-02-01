@@ -8,8 +8,6 @@ import User.RequestDone
 import User.RequestFailed
 import User.ScheduleRequest
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.Log
 
 object User {
@@ -18,7 +16,6 @@ object User {
     val RequestDone = RequestFailed + 1
     val ScheduleRequest = RequestDone + 1
 }
-
 
 class User(
     name: String,
