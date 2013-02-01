@@ -47,6 +47,8 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
             case None => throw new IllegalStateException
         })
 
+    def reset() = runningTransactions.mapValues(_.abort)
+
     def buckets: Set[String] = bucketObjectMapping.keySet.toSet
     def bucket(name: String): Seq[StorageObject] = bucketObjectMapping.getOrElse(name, Seq.empty[StorageObject])
 

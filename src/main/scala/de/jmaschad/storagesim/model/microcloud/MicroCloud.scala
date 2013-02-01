@@ -7,11 +7,16 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.user.RequestType
-import MicroCloud._
 import de.jmaschad.storagesim.model.distributor.ReplicationRequest
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.transfer.StorageObject
 import de.jmaschad.storagesim.model.transfer.StorageSystem
+import de.jmaschad.storagesim.model.transfer.ProcessingModel
+import MicroCloud._
+import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.transfer.DiskIO
+import de.jmaschad.storagesim.model.transfer.Job
+import de.jmaschad.storagesim.model.transfer.Download
 
 object MicroCloud {
     private val Base = 10200
@@ -34,7 +39,7 @@ class MicroCloud(
 
     private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
-    private val processing = new TransferModel(log, scheduleProcessingUpdate(_), storageSystem, resourceCharacteristics.bandwidth)
+    private val processing = new ProcessingModel(log, scheduleProcessingUpdate(_))
     private var state: MicroCloudState = new OfflineState
 
     var lastChainUpdate: Option[SimEvent] = None
@@ -89,13 +94,6 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Unit = event.getTag() match {
-            case UserRequest =>
-                val request = event.getData() match {
-                    case r: Request => r
-                    case _ => throw new IllegalStateException
-                }
-                stateLog("received %s".format(request))
-                processUserRequest(request)
 
             case MicroCloudStatus =>
                 sendNow(disposer.getId(), Distributor.MicroCloudStatus, status)
@@ -109,8 +107,17 @@ class MicroCloud(
             case Kill =>
                 stateLog("received kill request")
                 processing.clear()
+                storageSystem.reset()
                 send(getId, failureBehavior.timeToCloudRepair, Boot)
                 switchState(new OfflineState)
+
+            case UserRequest =>
+                val request = event.getData() match {
+                    case r: Request => r
+                    case _ => throw new IllegalStateException
+                }
+                stateLog("received %s".format(request))
+                processUserRequest(request)
 
             case SendReplica =>
                 val replicationRequest = event.getData() match {
@@ -168,24 +175,29 @@ class MicroCloud(
         def load(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.loadTransaction(obj) match {
                 case Some(transaction) =>
-                    processing.add(new UploadJob(obj, success => {
+                    val workloads = Set(
+                        Upload(obj.size, resourceCharacteristics.bandwidth),
+                        DiskIO(obj.size, { storageSystem.loadThroughput(obj) }))
+                    processing.add(Job(workloads, () => {
                         transaction.complete()
-                        onFinish(success)
+                        onFinish(true)
                     }))
 
                 case None => onFinish(false)
             }
 
-        def store(storageObject: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
-            storageSystem.storeTransaction(storageObject) match {
+        def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
+            storageSystem.storeTransaction(obj) match {
                 case Some(trans) =>
-                    processing.add(new DownloadJob(storageObject,
-                        success => {
-                            if (success) trans.complete() else trans.abort()
-                            onFinish(success)
-                        }))
-                case None =>
-                    onFinish(false)
+                    val workloads = Set(
+                        Download(obj.size, resourceCharacteristics.bandwidth),
+                        DiskIO(obj.size, { storageSystem.storeThroughput(obj) }))
+                    processing.add(Job(workloads, () => {
+                        trans.complete()
+                        onFinish(true)
+                    }))
+
+                case None => onFinish(false)
             }
     }
 }
