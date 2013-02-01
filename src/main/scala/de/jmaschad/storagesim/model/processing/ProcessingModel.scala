@@ -21,13 +21,11 @@ class ProcessingModel(
     }
 
     def update(scheduleUpdate: Boolean = true) = {
-        log("update after " + timeSinceLastUpdae)
-
         jobs = jobs.map(_.process(timeSinceLastUpdae))
 
         val done = jobs.filter(_.isDone)
         done.foreach(_.onFinish())
-        jobs = jobs.diff(done)
+        jobs --= done
 
         if (scheduleUpdate) { scheduleNextUpdate() }
 

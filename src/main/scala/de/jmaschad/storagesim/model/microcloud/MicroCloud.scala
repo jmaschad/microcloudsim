@@ -18,6 +18,7 @@ import de.jmaschad.storagesim.model.processing.Upload
 import de.jmaschad.storagesim.model.processing.DiskIO
 import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.Job
+import org.cloudbus.cloudsim.core.predicates.PredicateType
 
 object MicroCloud {
     private val Base = 10200
@@ -43,11 +44,9 @@ class MicroCloud(
     private val processing = new ProcessingModel(log, scheduleProcessingUpdate(_))
     private var state: MicroCloudState = new OfflineState
 
-    var lastChainUpdate: Option[SimEvent] = None
-
     def scheduleProcessingUpdate(delay: Double) = {
-        lastChainUpdate.map(CloudSim.cancelEvent(_))
-        lastChainUpdate = Some(schedule(getId(), delay, ProcUpdate))
+        CloudSim.cancelAll(getId(), new PredicateType(ProcUpdate))
+        schedule(getId(), delay, ProcUpdate)
     }
 
     def status = Status(storageSystem.buckets)
@@ -159,8 +158,14 @@ class MicroCloud(
         }
 
         def processUserRequest(request: Request): Unit = {
-            def onFinish(success: Boolean) =
-                sendNow(request.user.getId, if (success) User.RequestDone else User.RequestFailed, request)
+            def onFinish(success: Boolean) = success match {
+                case true =>
+                    log(request + " done")
+                    sendNow(request.user.getId, User.RequestDone, request)
+                case false =>
+                    log(request + " failed")
+                    sendNow(request.user.getId, User.RequestFailed, request)
+            }
 
             request.requestType match {
                 case RequestType.Get =>

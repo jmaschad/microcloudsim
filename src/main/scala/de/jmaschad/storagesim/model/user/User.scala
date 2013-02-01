@@ -23,7 +23,7 @@ class User(
 
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val log = Log.line("User '%s'".format(getName), _: String)
-    private val tracker = new RequestTracker
+    private val tracker = new RequestTracker(log)
 
     def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
@@ -41,9 +41,11 @@ class User(
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
         case RequestDone =>
-            tracker.completed(getRequest(event))
+            val request = getRequest(event)
+            tracker.completed(request)
 
         case RequestFailed =>
+            val request = getRequest(event)
             tracker.failed(getRequest(event))
 
         case ScheduleRequest =>
@@ -69,7 +71,7 @@ class User(
     }
 }
 
-private[user] class RequestTracker {
+private[user] class RequestTracker(log: String => Unit) {
     var openRequests = Set.empty[Request]
     var completedRequests = Map.empty[Request, Double]
     var failedRequests = Map.empty[Request, Double]
