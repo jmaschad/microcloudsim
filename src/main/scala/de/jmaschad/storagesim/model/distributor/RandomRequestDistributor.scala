@@ -6,7 +6,7 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.transfer.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 private[distributor] class RandomRequestDistributor extends RequestDistributor {
     private var bucketMapping = Map.empty[String, Set[Int]]

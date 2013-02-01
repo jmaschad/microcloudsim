@@ -2,7 +2,7 @@ package de.jmaschad.storagesim.model.user
 
 import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.IntegerDistribution
-import de.jmaschad.storagesim.model.transfer.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 object UserBehavior {
     def apply(delayModel: RealDistribution,

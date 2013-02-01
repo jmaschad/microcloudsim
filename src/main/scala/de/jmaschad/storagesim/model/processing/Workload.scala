@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.transfer
+package de.jmaschad.storagesim.model.processing
 
 import de.jmaschad.storagesim.Units
 
@@ -8,7 +8,7 @@ trait Workload {
     def isDone: Boolean
 }
 
-private[transfer] abstract class NetworkTransfer(size: Double, totalBandwidth: Double) extends Workload {
+private[processing] abstract class NetworkTransfer(size: Double, totalBandwidth: Double) extends Workload {
     override def expectedCompletion: Double = size / bandwidth
     override def isDone = size < 1 * Units.Byte
     override def process(timeSpan: Double) =
@@ -26,7 +26,7 @@ object Upload {
     def apply(size: Double, totalBandwidth: Double) = new Upload(size, totalBandwidth)
 }
 
-private[transfer] class Upload(size: Double, totalBandwidth: Double)
+private[processing] class Upload(size: Double, totalBandwidth: Double)
     extends NetworkTransfer(size, totalBandwidth) {
 
     if (!isDone) Upload.activeUploads += this
@@ -45,7 +45,7 @@ object Download {
     def apply(size: Double, totalBandwidth: Double) = new Download(size, totalBandwidth)
 }
 
-private[transfer] class Download(size: Double, totalBandwidth: Double)
+private[processing] class Download(size: Double, totalBandwidth: Double)
     extends NetworkTransfer(size, totalBandwidth) {
 
     if (!isDone) Download.activeDownloads += this
@@ -62,7 +62,7 @@ object DiskIO {
     def apply(size: Double, throughput: => Double) = new DiskIO(size, throughput)
 }
 
-private[transfer] class DiskIO(size: Double, throughput: => Double) extends Workload {
+private[processing] class DiskIO(size: Double, throughput: => Double) extends Workload {
     override def process(timeSpan: Double) = DiskIO(size - progress(timeSpan), throughput)
     override def expectedCompletion: Double = size / throughput
     override def isDone = size < 1 * Units.Byte

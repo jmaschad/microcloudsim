@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.user
 
 import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.model.transfer.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 object RequestType extends Enumeration {
     type RequestType = Value

@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.transfer
+package de.jmaschad.storagesim.model.processing
 
 import scala.Array.canBuildFrom
 

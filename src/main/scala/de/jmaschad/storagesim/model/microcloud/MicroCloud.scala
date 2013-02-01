@@ -3,21 +3,21 @@ package de.jmaschad.storagesim.model.microcloud
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.user.RequestType
-import de.jmaschad.storagesim.model.distributor.ReplicationRequest
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.transfer.StorageObject
-import de.jmaschad.storagesim.model.transfer.StorageSystem
-import de.jmaschad.storagesim.model.transfer.ProcessingModel
+import de.jmaschad.storagesim.model.distributor.ReplicationRequest
+import de.jmaschad.storagesim.model.user.Request
+import de.jmaschad.storagesim.model.user.RequestType
+import de.jmaschad.storagesim.model.user.User
+import de.jmaschad.storagesim.model.processing.Workload
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.ProcessingModel
+import de.jmaschad.storagesim.model.processing.StorageSystem
 import MicroCloud._
-import de.jmaschad.storagesim.model.transfer.Upload
-import de.jmaschad.storagesim.model.transfer.DiskIO
-import de.jmaschad.storagesim.model.transfer.Job
-import de.jmaschad.storagesim.model.transfer.Download
-import de.jmaschad.storagesim.model.transfer.Workload
+import de.jmaschad.storagesim.model.processing.Upload
+import de.jmaschad.storagesim.model.processing.DiskIO
+import de.jmaschad.storagesim.model.processing.Download
+import de.jmaschad.storagesim.model.processing.Job
 
 object MicroCloud {
     private val Base = 10200

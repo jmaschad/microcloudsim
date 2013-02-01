@@ -20,8 +20,8 @@ import de.jmaschad.storagesim.model.user.RequestType._
 import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.RequestDistributor
-import de.jmaschad.storagesim.model.transfer.StorageDevice
-import de.jmaschad.storagesim.model.transfer.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageDevice
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
