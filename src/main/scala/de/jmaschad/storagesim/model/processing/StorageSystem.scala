@@ -3,7 +3,6 @@ package de.jmaschad.storagesim.model.processing
 import scala.collection.mutable
 
 class StoreTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
-    assert(storageSystem.runningTransactions.isDefinedAt(storageObject) == false, storageObject + " has a runnning transaction")
     storageSystem.runningTransactions += (storageObject -> this)
 
     device.allocate(storageObject.size)
