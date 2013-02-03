@@ -19,6 +19,7 @@ import de.jmaschad.storagesim.model.processing.DiskIO
 import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.Job
 import org.cloudbus.cloudsim.core.predicates.PredicateType
+import de.jmaschad.storagesim.model.processing.TransferModel
 
 object MicroCloud {
     private val Base = 10200
@@ -26,9 +27,9 @@ object MicroCloud {
     val Boot = ProcUpdate + 1
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
-    val UserRequest = Kill + 1
-    val MicroCloudStatus = UserRequest + 1
-    val SendReplica = MicroCloudStatus + 1
+    val MicroCloudStatus = Kill + 1
+    val UserRequest = MicroCloudStatus + 1
+    val SendReplica = UserRequest + 1
     val StoreReplica = SendReplica + 1
 }
 
@@ -41,7 +42,8 @@ class MicroCloud(
 
     private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
     private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
-    private val processing = new ProcessingModel(log, scheduleProcessingUpdate(_))
+    private val processing = new ProcessingModel(log, scheduleProcessingUpdate(_), resourceCharacteristics.bandwidth)
+    private val transferModel = new TransferModel((target, tag, data) => sendNow(target, tag, data), this, processing)
     private var state: MicroCloudState = new OfflineState
 
     def scheduleProcessingUpdate(delay: Double) = {
@@ -84,6 +86,7 @@ class MicroCloud(
                 stateLog("received boot request")
                 sendNow(getId, MicroCloud.MicroCloudStatus)
                 send(getId, failureBehavior.timeToCloudFailure, Kill)
+                send(getId, TransferModel.TickDelay, TransferModel.Tick)
                 switchState(new OnlineState)
 
             case _ => stateLog("dropped event " + event)
@@ -94,6 +97,11 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Unit = event.getTag() match {
+            case TransferModel.Tick =>
+                transferModel.tick()
+
+            case TransferModel.Transfer =>
+                transferModel.process(event.getSource(), event.getData())
 
             case MicroCloudStatus =>
                 sendNow(disposer.getId(), Distributor.MicroCloudStatus, status)
@@ -180,29 +188,15 @@ class MicroCloud(
 
         def load(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.loadTransaction(obj) match {
-                case Some(transaction) =>
-                    val workloads = Set[Workload](
-                        Upload(obj.size, resourceCharacteristics.bandwidth),
-                        DiskIO(obj.size, { storageSystem.loadThroughput(obj) }))
-                    processing.add(Job(workloads, () => {
-                        transaction.complete()
-                        onFinish(true)
-                    }))
-
+                case Some(trans) =>
+                // TODO
                 case None => onFinish(false)
             }
 
         def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.storeTransaction(obj) match {
                 case Some(trans) =>
-                    val workloads = Set[Workload](
-                        Download(obj.size, resourceCharacteristics.bandwidth),
-                        DiskIO(obj.size, { storageSystem.storeThroughput(obj) }))
-                    processing.add(Job(workloads, () => {
-                        trans.complete()
-                        onFinish(true)
-                    }))
-
+                // TODO
                 case None => onFinish(false)
             }
     }

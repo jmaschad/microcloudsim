@@ -18,6 +18,10 @@ class StoreTransaction(storageObject: StorageObject, device: StorageDevice, stor
         finish()
     }
 
+    def throughtput: Double = {
+        storageSystem.storeThroughput(storageObject);
+    }
+
     private def finish() = {
         device.removeAccessor()
 
@@ -28,6 +32,10 @@ class StoreTransaction(storageObject: StorageObject, device: StorageDevice, stor
 
 class LoadTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
     device.addAccessor()
+
+    def throughput: Double = {
+        storageSystem.loadThroughput(storageObject);
+    }
 
     def complete() = device.removeAccessor
 }

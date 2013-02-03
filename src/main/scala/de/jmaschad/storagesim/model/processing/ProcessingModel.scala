@@ -6,7 +6,8 @@ import org.cloudbus.cloudsim.core.CloudSim
 
 class ProcessingModel(
     log: String => Unit,
-    scheduleUpdate: Double => Unit) {
+    scheduleUpdate: Double => Unit,
+    totalBandwidth: Double) {
     private var lastUpdate: Option[Double] = None
     private var jobs = Set.empty[Job]
 
@@ -18,6 +19,26 @@ class ProcessingModel(
         }
         jobs += job
         scheduleNextUpdate()
+    }
+
+    def addObjectDownload(size: Double, transaction: StoreTransaction, onFinish: () => Unit) = {
+        val workloads = Set[Workload](
+            Download(size, totalBandwidth),
+            DiskIO(size, { transaction.throughtput }))
+        add(Job(workloads, () => {
+            transaction.complete()
+            onFinish()
+        }))
+    }
+
+    def addObjectUpload(storageObject: StorageObject, transaction: LoadTransaction, onFinish: () => Unit) = {
+        val workloads = Set[Workload](
+            Upload(storageObject.size, totalBandwidth),
+            DiskIO(storageObject.size, { transaction.throughput }))
+        add(Job(workloads, () => {
+            transaction.complete()
+            onFinish()
+        }))
     }
 
     def update(scheduleUpdate: Boolean = true) = {
