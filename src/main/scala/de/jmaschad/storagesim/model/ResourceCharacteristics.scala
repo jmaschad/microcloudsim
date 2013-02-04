@@ -1,8 +1,8 @@
-package de.jmaschad.storagesim.model.microcloud
+package de.jmaschad.storagesim.model
 
 import de.jmaschad.storagesim.model.processing.StorageDevice
 
-class MicroCloudResourceCharacteristics(bandwidth: Double, storageDevices: Seq[StorageDevice]) {
+class ResourceCharacteristics(bandwidth: Double, storageDevices: Seq[StorageDevice]) {
     def bandwidth(): Double = bandwidth
     def storageDevices(): Seq[StorageDevice] = storageDevices
 }

@@ -23,7 +23,6 @@ class TransferModel(
 
     var transfers = Map.empty[Transfer, TransferTracker]
     var partnerFinished = Map.empty[Transfer, Int]
-
     var transactions = Map.empty[StorageObject, StorageTransaction]
 
     def tick() = {
@@ -72,6 +71,12 @@ class TransferModel(
             packetReceived(packet)
 
         case _ => throw new IllegalStateException("request error")
+    }
+
+    def reset() = {
+        transfers = Map.empty[Transfer, TransferTracker]
+        partnerFinished = Map.empty[Transfer, Int]
+        transactions = Map.empty[StorageObject, StorageTransaction]
     }
 
     private def uploadRequested(upload: Transfer, source: Int) = {

@@ -20,11 +20,12 @@ import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.Job
 import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.model.processing.TransferModel
+import de.jmaschad.storagesim.model.ResourceCharacteristics
+import de.jmaschad.storagesim.model.MicroCloudEntity
 
 object MicroCloud {
     private val Base = 10200
-    val ProcUpdate = Base + 1
-    val Boot = ProcUpdate + 1
+    val Boot = Base + 1
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
     val MicroCloudStatus = Kill + 1
@@ -35,23 +36,21 @@ object MicroCloud {
 
 class MicroCloud(
     name: String,
-    resourceCharacteristics: MicroCloudResourceCharacteristics,
+    resourceCharacteristics: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
-    disposer: Distributor) extends SimEntity(name) {
+    disposer: Distributor) extends MicroCloudEntity(name, resourceCharacteristics, initialObjects) {
 
-    private[microcloud] val log = Log.line("MicroCloud '%s'".format(getName), _: String)
-    private val storageSystem = new StorageSystem(resourceCharacteristics.storageDevices, initialObjects)
-    private val processing = new ProcessingModel(log, scheduleProcessingUpdate(_), resourceCharacteristics.bandwidth)
-    private val transferModel = new TransferModel((target, tag, data) => sendNow(target, tag, data), this, processing)
     private var state: MicroCloudState = new OfflineState
 
     def scheduleProcessingUpdate(delay: Double) = {
-        CloudSim.cancelAll(getId(), new PredicateType(ProcUpdate))
-        schedule(getId(), delay, ProcUpdate)
+        CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
+        send(getId(), delay, ProcessingModel.ProcUpdate)
     }
 
     def status = Status(storageSystem.buckets)
+
+    override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
         send(getId(), 0.0, Boot)
@@ -61,11 +60,9 @@ class MicroCloud(
         log(processing.jobCount + " running jobs on shutdown")
     }
 
-    override def processEvent(event: SimEvent): Unit = event.getTag match {
-        case ProcUpdate =>
-            log("chain update")
-            processing.update()
-        case _ => state.process(event)
+    override def processEvent(event: SimEvent): Unit = {
+        super.processEvent(event)
+        state.process(event)
     }
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
@@ -86,7 +83,6 @@ class MicroCloud(
                 stateLog("received boot request")
                 sendNow(getId, MicroCloud.MicroCloudStatus)
                 send(getId, failureBehavior.timeToCloudFailure, Kill)
-                send(getId, TransferModel.TickDelay, TransferModel.Tick)
                 switchState(new OnlineState)
 
             case _ => stateLog("dropped event " + event)
@@ -97,12 +93,6 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Unit = event.getTag() match {
-            case TransferModel.Tick =>
-                transferModel.tick()
-
-            case TransferModel.Transfer =>
-                transferModel.process(event.getSource(), event.getData())
-
             case MicroCloudStatus =>
                 sendNow(disposer.getId(), Distributor.MicroCloudStatus, status)
                 send(getId(), Distributor.StatusInterval, MicroCloudStatus)
@@ -114,8 +104,7 @@ class MicroCloud(
 
             case Kill =>
                 stateLog("received kill request")
-                processing.clear()
-                storageSystem.reset()
+                resetModel
                 send(getId, failureBehavior.timeToCloudRepair, Boot)
                 switchState(new OfflineState)
 
@@ -177,27 +166,13 @@ class MicroCloud(
 
             request.requestType match {
                 case RequestType.Get =>
-                    load(request.storageObject, request.user.getId, onFinish(_))
+                    load(request.storageObject, request.user.getId, onFinish _)
 
                 case RequestType.Put =>
-                    store(request.storageObject, onFinish(_))
+                    store(request.storageObject, onFinish _)
 
                 case _ => throw new IllegalArgumentException
             }
         }
-
-        def load(obj: StorageObject, target: Int, onFinish: (Boolean => Unit) = _ => {}) =
-            storageSystem.loadTransaction(obj) match {
-                case Some(trans) =>
-                    transferModel.startUpload(trans, target)
-                case None => onFinish(false)
-            }
-
-        def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
-            storageSystem.storeTransaction(obj) match {
-                case Some(trans) =>
-                    transferModel.expectDownload(trans)
-                case None => onFinish(false)
-            }
     }
 }

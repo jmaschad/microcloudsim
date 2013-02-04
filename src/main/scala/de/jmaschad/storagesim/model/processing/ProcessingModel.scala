@@ -2,7 +2,11 @@ package de.jmaschad.storagesim.model.processing
 
 import scala.Array.canBuildFrom
 import org.cloudbus.cloudsim.core.CloudSim
-import scala.dbc.statement.Transaction
+
+object ProcessingModel {
+    private val Base = 10500
+    val ProcUpdate = Base + 1
+}
 
 class ProcessingModel(
     log: String => Unit,
@@ -53,7 +57,7 @@ class ProcessingModel(
         lastUpdate = Some(CloudSim.clock())
     }
 
-    def clear() = {
+    def reset() = {
         jobs = Set.empty[Job]
     }
 

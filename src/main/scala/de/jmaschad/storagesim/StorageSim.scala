@@ -13,7 +13,7 @@ import org.cloudbus.cloudsim.core.CloudSim
 import com.twitter.util.Eval
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.microcloud.MicroCloudResourceCharacteristics
+import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType._
@@ -22,6 +22,7 @@ import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.RequestDistributor
 import de.jmaschad.storagesim.model.processing.StorageDevice
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.ResourceCharacteristics
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -68,7 +69,11 @@ object StorageSim {
     private def createDisposer(distributor: RequestDistributor): Distributor = new Distributor("dp", distributor)
 
     private def createUsers(userCount: Int, disposer: Distributor): Seq[User] =
-        for (i <- 1 to userCount) yield new User("u" + i, disposer)
+        for (i <- 1 to userCount) yield {
+            val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
+            val resources = new ResourceCharacteristics(bandwidth = 2 * Units.MByte, storageDevices = Seq(storage))
+            new User("u" + i, resources, Seq.empty[StorageObject], disposer)
+        }
 
     private def createObjects(bucketCountDist: IntegerDistribution, objectCountDist: IntegerDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
         users.map(user => {
@@ -115,8 +120,8 @@ object StorageSim {
         val cloudBandwidthDist = RealDistributionConfiguration.toDist(config.cloudBandwidthDistribution)
         for (i <- 0 until config.cloudCount) yield {
             val storageDevices = for (i <- 1 to config.storageDevicesPerCloud)
-                yield new StorageDevice(capacity = 2 * Units.TByte, bandwidth = cloudBandwidthDist.sample().max(1))
-            val charact = new MicroCloudResourceCharacteristics(bandwidth = 125 * Units.MByte, storageDevices)
+                yield new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
+            val charact = new ResourceCharacteristics(bandwidth = cloudBandwidthDist.sample().max(1), storageDevices = storageDevices)
             val objects = bucketCloudMapping(i).map(bucketObjectsMap(_)).flatten
             val failureBehavior = new MicroCloudFailureBehavior(
                 RealDistributionConfiguration.toDist(config.cloudFailureDistribution),
