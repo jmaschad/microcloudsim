@@ -137,7 +137,7 @@ class MicroCloud(
                 val objects = storageSystem.bucket(replicationRequest.bucket)
                 replicationRequest.targets.foreach(target => {
                     objects.foreach(obj => {
-                        load(obj)
+                        load(obj, replicationRequest.source)
                     })
                     sendNow(target, MicroCloud.StoreReplica, (replicationRequest, objects))
                 })
@@ -177,7 +177,7 @@ class MicroCloud(
 
             request.requestType match {
                 case RequestType.Get =>
-                    load(request.storageObject, onFinish(_))
+                    load(request.storageObject, request.user.getId, onFinish(_))
 
                 case RequestType.Put =>
                     store(request.storageObject, onFinish(_))
@@ -186,17 +186,17 @@ class MicroCloud(
             }
         }
 
-        def load(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
+        def load(obj: StorageObject, target: Int, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.loadTransaction(obj) match {
                 case Some(trans) =>
-                // TODO
+                    transferModel.startUpload(trans, target)
                 case None => onFinish(false)
             }
 
         def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
             storageSystem.storeTransaction(obj) match {
                 case Some(trans) =>
-                // TODO
+                    transferModel.expectDownload(trans)
                 case None => onFinish(false)
             }
     }

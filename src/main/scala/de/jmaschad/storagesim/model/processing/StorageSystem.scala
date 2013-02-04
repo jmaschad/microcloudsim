@@ -2,7 +2,13 @@ package de.jmaschad.storagesim.model.processing
 
 import scala.collection.mutable
 
-class StoreTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
+trait StorageTransaction {
+    def complete(): Unit
+    def abort(): Unit
+    def throughput(): Double
+}
+
+class StoreTransaction(val storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) extends StorageTransaction {
     storageSystem.runningTransactions += (storageObject -> this)
 
     device.allocate(storageObject.size)
@@ -18,7 +24,7 @@ class StoreTransaction(storageObject: StorageObject, device: StorageDevice, stor
         finish()
     }
 
-    def throughtput: Double = {
+    def throughput: Double = {
         storageSystem.storeThroughput(storageObject);
     }
 
@@ -30,7 +36,7 @@ class StoreTransaction(storageObject: StorageObject, device: StorageDevice, stor
     }
 }
 
-class LoadTransaction(storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) {
+class LoadTransaction(val storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) extends StorageTransaction {
     device.addAccessor()
 
     def throughput: Double = {
@@ -38,6 +44,8 @@ class LoadTransaction(storageObject: StorageObject, device: StorageDevice, stora
     }
 
     def complete() = device.removeAccessor
+
+    def abort() = device.removeAccessor
 }
 
 class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable[StorageObject]) {

@@ -1,8 +1,8 @@
 package de.jmaschad.storagesim.model.processing
 
 import scala.Array.canBuildFrom
-
 import org.cloudbus.cloudsim.core.CloudSim
+import scala.dbc.statement.Transaction
 
 class ProcessingModel(
     log: String => Unit,
@@ -21,17 +21,17 @@ class ProcessingModel(
         scheduleNextUpdate()
     }
 
-    def addObjectDownload(size: Double, transaction: StoreTransaction, onFinish: () => Unit) = {
+    def addObjectDownload(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
             Download(size, totalBandwidth),
-            DiskIO(size, { transaction.throughtput }))
+            DiskIO(size, { transaction.throughput }))
         add(Job(workloads, () => {
             transaction.complete()
             onFinish()
         }))
     }
 
-    def addObjectUpload(storageObject: StorageObject, transaction: LoadTransaction, onFinish: () => Unit) = {
+    def addObjectUpload(storageObject: StorageObject, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
             Upload(storageObject.size, totalBandwidth),
             DiskIO(storageObject.size, { transaction.throughput }))

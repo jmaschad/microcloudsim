@@ -21,56 +21,51 @@ class TransferModel(
     source: SimEntity,
     processing: ProcessingModel) {
 
-    var requestedUploads = Map.empty[Transfer, Int]
-    var uploads = Map.empty[Transfer, TransferTracker]
+    var transfers = Map.empty[Transfer, TransferTracker]
     var partnerFinished = Map.empty[Transfer, Int]
 
-    var downloads = Map.empty[Transfer, TransferTracker]
-
-    var storeTransactions = Map.empty[StorageObject, StoreTransaction]
-    var loadTransactions = Map.empty[StorageObject, LoadTransaction]
+    var transactions = Map.empty[StorageObject, StorageTransaction]
 
     def tick() = {
-        def timeoutRequestedTransfers() = {
-            requestedUploads = requestedUploads.map(p => p._1 -> (p._2 - 1)).filter(_._2 > 0)
+        def timeoutTransfers() = {
+            transfers.values.foreach(_.tick())
+            val overdue = transfers.filter(_._2.overdue).keys
+            overdue.foreach(transfer => {
+                val storageObject = transfer.storageObject
+                val transaction = transactions(storageObject)
+                transaction.complete()
+                transactions -= storageObject
+            })
+            transfers --= overdue
         }
 
-        def timeoutUploads() = {
-            uploads.values.foreach(_.tick())
-            val overdue = uploads.filter(_._2.overdue).keys
-            overdue.foreach(trans => loadTransactions(trans.storageObject).complete())
-            uploads --= overdue
-        }
-
-        def timeoutDownloads() = {
-            downloads.values.foreach(_.tick())
-            val overdue = downloads.filter(_._2.overdue).keys
-            overdue.foreach(trans => storeTransactions(trans.storageObject).abort())
-            downloads --= overdue
-        }
-
-        timeoutRequestedTransfers()
-        timeoutUploads()
-        timeoutDownloads()
+        timeoutTransfers()
     }
 
-    def startTransfer(storageObject: StorageObject, target: Int) = {
+    def startUpload(loadTransaction: LoadTransaction, target: Int) = {
+        val storageObject = loadTransaction.storageObject
         val upload = new Transfer(storageObject, packetCount(storageObject.size))
-        requestedUploads += upload -> MaxAckTicks
+        transactions += (storageObject -> loadTransaction)
+        transfers += upload -> new TransferTracker(target)
 
         send(target, Transfer, Start(upload))
     }
 
+    def expectDownload(storeTransaction: StoreTransaction) = {
+        transactions += storeTransaction.storageObject -> storeTransaction
+    }
+
     def process(source: Int, request: Object) = request match {
-        case Ack(Start(transfer)) =>
-            uploadAccepted(source, transfer)
+        case Ack(Start(upload)) =>
+            transfers(upload).resetTickCount
+            uploadNextPacket(upload)
 
-        case Ack(Packet(transfer, packetNumber, _)) =>
-            uploads(transfer).resetTickCount
-            ifPartnerFinishedUploadNextPacket(transfer, packetNumber)
+        case Ack(Packet(upload, packetNumber, _)) =>
+            transfers(upload).resetTickCount
+            ifPartnerFinishedUploadNextPacket(upload, packetNumber)
 
-        case start @ Start(objectTransfer) =>
-            uploadRequested(objectTransfer, source)
+        case start @ Start(upload) =>
+            uploadRequested(upload, source)
             send(source, Transfer, Ack(start))
 
         case packet @ Packet(_, _, _) =>
@@ -79,36 +74,28 @@ class TransferModel(
         case _ => throw new IllegalStateException("request error")
     }
 
-    private def uploadAccepted(uploadTarget: Int, upload: Transfer) = {
-        assert(requestedUploads.contains(upload))
-
-        requestedUploads -= upload
-        uploads += (upload -> new TransferTracker(uploadTarget))
-        uploadNextPacket(upload)
-    }
-
-    private def uploadRequested(transfer: Transfer, source: Int) = {
-        assert(storeTransactions.contains(transfer.storageObject))
-        downloads += (transfer -> new TransferTracker(source))
+    private def uploadRequested(upload: Transfer, source: Int) = {
+        assert(transactions.contains(upload.storageObject))
+        transfers += (upload -> new TransferTracker(source))
     }
 
     private def packetReceived(packet: Packet) = {
         val transfer = packet.transfer
-        assert(downloads.contains(transfer))
-        assert(storeTransactions.contains(transfer.storageObject))
+        assert(transfers.contains(transfer))
+        assert(transactions.contains(transfer.storageObject))
 
-        val tracker = downloads(transfer)
+        val tracker = transfers(transfer)
         assert(packet.number == tracker.nextPacket)
         tracker.resetTickCount()
 
-        processing.addObjectDownload(packet.size, storeTransactions(transfer.storageObject), () => {
+        processing.addObjectDownload(packet.size, transactions(transfer.storageObject), () => {
             send(tracker.partner, Transfer, Ack(packet))
         })
     }
 
     private def ifPartnerFinishedUploadNextPacket(transfer: Transfer, packetNumber: Int) = {
-        assert(uploads.contains(transfer))
-        assert(loadTransactions.contains(transfer.storageObject))
+        assert(transfers.contains(transfer))
+        assert(transactions.contains(transfer.storageObject))
 
         if (partnerFinished.getOrElse(transfer, -1) == packetNumber) {
             uploadNextPacket(transfer)
@@ -118,13 +105,13 @@ class TransferModel(
     }
 
     private def uploadNextPacket(transfer: Transfer): Unit = {
-        assert(uploads.contains(transfer))
-        assert(loadTransactions.contains(transfer.storageObject))
+        assert(transfers.contains(transfer))
+        assert(transactions.contains(transfer.storageObject))
 
-        val tracker = uploads(transfer)
+        val tracker = transfers(transfer)
         val packetNumber = tracker.nextPacket()
         send(tracker.partner, Transfer, Packet(transfer, packetNumber, packetSize(transfer.storageObject.size)))
-        processing.addObjectUpload(transfer.storageObject, loadTransactions(transfer.storageObject), () => {
+        processing.addObjectUpload(transfer.storageObject, transactions(transfer.storageObject), () => {
             ifPartnerFinishedUploadNextPacket(transfer, packetNumber)
         })
     }
