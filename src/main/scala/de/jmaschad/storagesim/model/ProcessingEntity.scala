@@ -41,7 +41,7 @@ abstract class ProcessingEntity(
     protected def load(obj: StorageObject, target: Int, onFinish: (Boolean => Unit) = _ => {}) =
         storageSystem.loadTransaction(obj) match {
             case Some(trans) =>
-                transferModel.startUpload(trans, target)
+                transferModel.startUpload(trans, target, onFinish)
             case None => onFinish(false)
         }
 
