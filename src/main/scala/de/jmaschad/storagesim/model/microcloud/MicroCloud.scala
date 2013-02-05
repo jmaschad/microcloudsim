@@ -21,7 +21,7 @@ import de.jmaschad.storagesim.model.processing.Job
 import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.model.processing.TransferModel
 import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.MicroCloudEntity
+import de.jmaschad.storagesim.model.ProcessingEntity
 
 object MicroCloud {
     private val Base = 10200
@@ -39,7 +39,7 @@ class MicroCloud(
     resourceCharacteristics: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
-    disposer: Distributor) extends MicroCloudEntity(name, resourceCharacteristics, initialObjects) {
+    disposer: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
 
     private var state: MicroCloudState = new OfflineState
 

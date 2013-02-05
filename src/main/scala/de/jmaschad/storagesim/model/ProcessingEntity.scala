@@ -9,13 +9,13 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.predicates.PredicateType
 
-abstract class MicroCloudEntity(
+abstract class ProcessingEntity(
     name: String,
     resources: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject]) extends SimEntity(name) {
     protected val storageSystem = new StorageSystem(resources.storageDevices, initialObjects)
     protected val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
-    protected val transferModel = new TransferModel((target, tag, data) => sendNow(target, tag, data), this, processing)
+    protected val transferModel = new TransferModel((target, tag, data) => sendNow(target, tag, data), ProcessingEntity.this, processing)
 
     def startEntity(): Unit = {
         send(getId, TransferModel.TickDelay, TransferModel.Tick)

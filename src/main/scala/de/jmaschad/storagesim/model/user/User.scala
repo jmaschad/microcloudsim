@@ -12,7 +12,7 @@ import de.jmaschad.storagesim.model.processing.ProcessingModel
 import User._
 import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.MicroCloudEntity
+import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
 
 object User {
@@ -26,7 +26,7 @@ class User(
     name: String,
     resources: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
-    disposer: Distributor) extends MicroCloudEntity(name, resources, initialObjects) {
+    disposer: Distributor) extends ProcessingEntity(name, resources, initialObjects) {
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val tracker = new RequestTracker(log)
 
