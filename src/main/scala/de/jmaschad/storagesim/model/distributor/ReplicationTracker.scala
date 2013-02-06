@@ -1,6 +1,7 @@
 package de.jmaschad.storagesim.model.distributor
 
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.microcloud.ReplicateTo
 
 private[distributor] final class ReplicationTracker(private val log: String => Unit) {
     var dueReplications = Map.empty[String, Set[Int]]
@@ -8,7 +9,7 @@ private[distributor] final class ReplicationTracker(private val log: String => U
 
     def dueReplicationCount = dueReplications.values.flatten.size
 
-    def trackedReplicationRequests(requests: Set[ReplicationRequest]): Set[ReplicationRequest] = {
+    def trackedReplicationRequests(requests: Set[ReplicateTo]): Set[ReplicateTo] = {
         if (dueReplications.isEmpty && requests.nonEmpty) {
             log("starting repair")
             assert(beginningOfRepair == Double.NegativeInfinity)
@@ -19,14 +20,14 @@ private[distributor] final class ReplicationTracker(private val log: String => U
             val targets = req.targets.diff(dueReplications.getOrElse(req.bucket, Set.empty))
             if (targets.nonEmpty) {
                 dueReplications += req.bucket -> (dueReplications.getOrElse(req.bucket, Set.empty) ++ targets)
-                Some(ReplicationRequest(req.source, targets, req.bucket))
+                Some(ReplicateTo(req.source, targets, req.bucket))
             } else {
                 None
             }
         })
     }
 
-    def replicationRequestCompleted(request: ReplicationRequest, cloud: Int) = {
+    def replicationRequestCompleted(request: ReplicateTo, cloud: Int) = {
         val bucket = request.bucket
         assert(dueReplications.contains(bucket))
         assert(dueReplications(bucket).contains(cloud))

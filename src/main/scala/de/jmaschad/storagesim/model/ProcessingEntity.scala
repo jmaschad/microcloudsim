@@ -15,46 +15,31 @@ abstract class ProcessingEntity(
     initialObjects: Iterable[StorageObject]) extends SimEntity(name) {
     protected val storageSystem = new StorageSystem(resources.storageDevices, initialObjects)
     protected val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
-    protected val transferModel = new TransferModel((target, tag, data) => sendNow(target, tag, data), ProcessingEntity.this, processing)
+    protected val transfers = new TransferModel(send _, log _, ProcessingEntity.this, processing)
 
-    def startEntity(): Unit = {
-        send(getId, TransferModel.TickDelay, TransferModel.Tick)
-    }
+    def startEntity(): Unit = {}
 
-    def processEvent(event: SimEvent): Unit = event.getTag match {
+    final def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcessingModel.ProcUpdate =>
             log("chain update")
             processing.update()
 
-        case TransferModel.Tick =>
-            transferModel.tick()
-            send(getId, TransferModel.TickDelay, TransferModel.Tick)
-
         case TransferModel.Transfer =>
-            transferModel.process(event.getSource(), event.getData())
+            transfers.process(event.getSource(), event.getData())
+
+        case _ =>
+            if (!process(event)) log("dropped event " + event)
     }
 
     def shutdownEntity(): Unit
 
     def log(message: String): Unit
 
-    protected def load(obj: StorageObject, target: Int, onFinish: (Boolean => Unit) = _ => {}) =
-        storageSystem.loadTransaction(obj) match {
-            case Some(trans) =>
-                transferModel.startUpload(trans, target, onFinish)
-            case None => onFinish(false)
-        }
-
-    protected def store(obj: StorageObject, onFinish: (Boolean => Unit) = _ => {}) =
-        storageSystem.storeTransaction(obj) match {
-            case Some(trans) =>
-                transferModel.expectDownload(trans)
-            case None => onFinish(false)
-        }
+    protected def process(event: SimEvent): Boolean
 
     protected def resetModel() = {
         processing.reset()
-        transferModel.reset()
+        transfers.reset()
         storageSystem.reset()
     }
 

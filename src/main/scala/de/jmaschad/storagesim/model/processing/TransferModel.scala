@@ -1,121 +1,121 @@
 package de.jmaschad.storagesim.model.processing
 
 import de.jmaschad.storagesim.Units
-import TransferModel._
 import org.cloudbus.cloudsim.core.SimEntity
+import org.cloudbus.cloudsim.core.CloudSim
+import scala.util.Random
+import de.jmaschad.storagesim.util.Ticker
 
 object TransferModel {
-    private val MaxPacketSize = 1.5 * Units.KByte // approximation of maximum TCP payload
-
-    private[processing] val MaxAckTicks = 2
-    private[processing] val MaxPacketTicks = 2
-    val TickDelay = 1.0
+    val MaxPacketSize = 1.5 * Units.KByte // approximation of maximum TCP payload
+    val TickDelay = 1
+    val MaxPacketTicks = 2
 
     private val Base = 10400
-    val Tick = Base + 1
-    val Transfer = Tick + 1
+    val Transfer = Base + 1
+
+    def transferId(): String = CloudSim.clock() + "-" + Random.nextLong
 }
+import TransferModel._
 
 class TransferModel(
-    send: (Int, Int, Object) => Unit,
+    send: (Int, Double, Int, Object) => Unit,
+    log: String => Unit,
     source: SimEntity,
     processing: ProcessingModel) {
 
-    var transfers = Map.empty[Transfer, TransferTracker]
-    var partnerFinished = Map.empty[Transfer, Int]
-    var transactions = Map.empty[StorageObject, StorageTransaction]
+    var transfers = Map.empty[String, TransferTracker]
+    var partnerFinished = Map.empty[String, Int]
 
-    def tick() = {
-        transfers = transfers.map(t => t._1 -> t._2.countDown).collect({ case (transfer, Some(tracker)) => transfer -> tracker })
+    var expectedDownloadTransaction = Map.empty[StorageObject, StorageTransaction]
+    var expectedDownloadTimeout = Map.empty[StorageTransaction, Int]
+
+    def upload(transferId: String, size: Double, target: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
+        addTransfer(transferId, new TransferTracker(target, packetSize(size), packetCount(size), process, onFinish))
+
+        // introduce a small delay, this allows the uploader to send some message before the transfer starts
+        uploadNextPacket(transferId, 0.01)
     }
 
-    def startUpload(loadTransaction: LoadTransaction, target: Int, onFinish: Boolean => Unit) = {
-        val storageObject = loadTransaction.storageObject
-        val upload = new Transfer(storageObject, packetCount(storageObject.size))
-        transactions += (storageObject -> loadTransaction)
-        transfers += upload -> new TransferTracker(target, onFinish)
-
-        send(target, Transfer, Start(upload))
-    }
-
-    def expectDownload(storeTransaction: StoreTransaction) = {
-        transactions += storeTransaction.storageObject -> storeTransaction
+    def download(transferId: String, size: Double, source: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
+        addTransfer(transferId, new TransferTracker(source, packetSize(size), packetCount(size), process, onFinish))
     }
 
     def process(source: Int, request: Object) = request match {
-        case Ack(Start(upload)) =>
-            transfers(upload).resetTimeout
-            uploadNextPacket(upload)
+        case Ack(transferId, packetNumber) =>
+            log("received ack " + packetNumber + " for transaction " + transferId)
+            transfers(transferId).resetTimeout
+            ifPartnerFinishedUploadNextPacket(transferId, packetNumber)
 
-        case Ack(Packet(upload, packetNumber, _)) =>
-            transfers(upload).resetTimeout
-            ifPartnerFinishedUploadNextPacket(upload, packetNumber)
-
-        case start @ Start(upload) =>
-            uploadRequested(upload, source)
-            send(source, Transfer, Ack(start))
-
-        case packet @ Packet(_, _, _) =>
-            packetReceived(packet)
+        case packet @ Packet(transferId, nr, size) =>
+            log("received packet " + nr + " for transaction " + transferId)
+            packetReceived(transferId, nr, size)
 
         case _ => throw new IllegalStateException("request error")
     }
 
     def reset() = {
-        transfers = Map.empty[Transfer, TransferTracker]
-        partnerFinished = Map.empty[Transfer, Int]
-        transactions = Map.empty[StorageObject, StorageTransaction]
+        transfers = Map.empty[String, TransferTracker]
+        partnerFinished = Map.empty[String, Int]
     }
 
-    private def uploadRequested(upload: Transfer, source: Int) = {
-        assert(transactions.contains(upload.storageObject))
-        transfers += (upload -> new TransferTracker(source, _ => {}))
+    private def addTransfer(id: String, tracker: TransferTracker) = {
+        val transfer = id -> tracker
+        transfers += transfer
+
+        Ticker(TickDelay, {
+            tracker.countDown match {
+                case Some(newTracker) =>
+                    transfers += id -> newTracker
+                    true
+                case _ =>
+                    transfers -= id
+                    false
+            }
+        })
     }
 
-    private def packetReceived(packet: Packet) = {
-        val transfer = packet.transfer
-        assert(transfers.contains(transfer))
-        assert(transactions.contains(transfer.storageObject))
-
-        val tracker = transfers(transfer)
-        assert(packet.number == tracker.packet)
+    private def packetReceived(transferId: String, nr: Int, size: Double) = {
+        val tracker = transfers(transferId)
+        assert(nr == tracker.packetNumber)
+        tracker.process(size, () => {
+            send(tracker.partner, 0.0, Transfer, Ack(transferId, nr))
+        })
 
         tracker.nextPacket() match {
             case Some(newTracker) =>
-                processing.addObjectDownload(packet.size, transactions(transfer.storageObject), () => {
-                    send(newTracker.partner, Transfer, Ack(packet))
-                })
-                transfers += transfer -> newTracker
+                transfers += transferId -> newTracker
             case None =>
-                transfers -= transfer
+                log("download from " + CloudSim.getEntityName(tracker.partner) + " completed")
+                transfers -= transferId
         }
     }
 
-    private def ifPartnerFinishedUploadNextPacket(transfer: Transfer, packetNumber: Int) = {
-        assert(transfers.contains(transfer))
-        assert(transactions.contains(transfer.storageObject))
+    private def uploadNextPacket(transferId: String, delay: Double = 0.0): Unit = {
+        val tracker = transfers(transferId)
+        send(tracker.partner, delay, Transfer, Packet(transferId, tracker.packetNumber, tracker.packetSize))
+        tracker.process(tracker.packetSize, () => {
+            ifPartnerFinishedUploadNextPacket(transferId, tracker.packetNumber)
+        })
+    }
 
-        if (partnerFinished.getOrElse(transfer, -1) == packetNumber) {
-            uploadNextPacket(transfer)
+    private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {
+        // packet was send and acked
+        if (partnerFinished.getOrElse(transferId, -1) == packetNumber) {
+            val tracker = transfers(transferId)
+            tracker.nextPacket() match {
+                case Some(newTracker) =>
+                    transfers += transferId -> newTracker
+                    uploadNextPacket(transferId)
+                case None =>
+                    log("upload to " + CloudSim.getEntityName(tracker.partner) + " completed")
+                    transfers -= transferId
+                    partnerFinished -= transferId
+            }
+
         } else {
-            partnerFinished += (transfer -> packetNumber)
+            partnerFinished += (transferId -> packetNumber)
         }
-    }
-
-    private def uploadNextPacket(transfer: Transfer): Unit = {
-        assert(transfers.contains(transfer))
-        assert(transactions.contains(transfer.storageObject))
-
-        transfers(transfer).nextPacket match {
-            case Some(tracker) =>
-                send(tracker.partner, Transfer, Packet(transfer, tracker.packet, packetSize(transfer.storageObject.size)))
-                processing.addObjectUpload(transfer.storageObject, transactions(transfer.storageObject), () => {
-                    ifPartnerFinishedUploadNextPacket(transfer, tracker.packet)
-                })
-            case None =>
-                transfers -= transfer
-        }
-
     }
 
     private def packetCount(byteSize: Double) = (byteSize / MaxPacketSize).ceil.intValue
@@ -124,23 +124,26 @@ class TransferModel(
 
 private[processing] class TransferTracker(
     val partner: Int,
+    val packetSize: Double,
+    val packetCount: Int,
+    val process: (Double, () => Unit) => Unit,
     onFinish: Boolean => Unit,
-    countDown: Int = TransferModel.MaxPacketTicks,
-    val packet: Int = 0) {
+    countDown: Int = MaxPacketTicks,
+    val packetNumber: Int = 0) {
 
-    def resetTimeout(): TransferTracker = new TransferTracker(partner, onFinish, TransferModel.MaxPacketTicks)
+    def resetTimeout(): TransferTracker = new TransferTracker(partner, packetSize, packetCount, process, onFinish, MaxPacketTicks)
 
     def countDown(): Option[TransferTracker] = countDown > 0 match {
         case true =>
-            Some(new TransferTracker(partner, onFinish, countDown - 1, packet))
+            Some(new TransferTracker(partner, packetSize, packetCount, process, onFinish, countDown - 1, packetNumber))
         case false =>
             onFinish(false)
             None
     }
 
-    def nextPacket(): Option[TransferTracker] = packet < TransferModel.MaxPacketTicks match {
+    def nextPacket(): Option[TransferTracker] = packetNumber < packetCount match {
         case true =>
-            Some(new TransferTracker(partner, onFinish, countDown, packet + 1))
+            Some(new TransferTracker(partner, packetSize, packetCount, process, onFinish, countDown, packetNumber + 1))
 
         case false =>
             onFinish(true)
@@ -148,9 +151,6 @@ private[processing] class TransferTracker(
     }
 }
 
-class Transfer(val storageObject: StorageObject, val packetCount: Int)
-
-private[processing] abstract sealed class Request
-case class Ack(request: Request) extends Request
-case class Start(transfer: Transfer) extends Request
-case class Packet(transfer: Transfer, number: Int, size: Double) extends Request
+private[processing] abstract sealed class Message
+case class Ack(transferId: String, number: Int) extends Message
+case class Packet(transferId: String, number: Int, size: Double) extends Message

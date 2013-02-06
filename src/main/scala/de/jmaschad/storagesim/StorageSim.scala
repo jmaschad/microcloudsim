@@ -1,28 +1,27 @@
 
 package de.jmaschad.storagesim
 
-import java.util.Calendar
 import java.io.File
+import java.util.Calendar
 import scala.util.Random
-import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.IntegerDistribution
-import org.apache.commons.math3.distribution.NormalDistribution
-import org.apache.commons.math3.distribution.ExponentialDistribution
+import org.apache.commons.math3.distribution.RealDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import com.twitter.util.Eval
-import de.jmaschad.storagesim.model.user.User
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.user.RequestType._
-import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
+import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.RequestDistributor
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.processing.StorageDevice
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.ResourceCharacteristics
+import de.jmaschad.storagesim.model.user.RequestType._
+import de.jmaschad.storagesim.model.user.User
+import de.jmaschad.storagesim.model.user.UserBehavior
+import de.jmaschad.storagesim.model.user.Request
+import de.jmaschad.storagesim.model.processing.TransferModel
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -96,10 +95,10 @@ object StorageSim {
 
             val behavior = requestType match {
                 case Get =>
-                    UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _, { TransferModel.transferId() }))
 
                 case Put =>
-                    UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _, { TransferModel.transferId() }))
 
                 case _ => throw new IllegalStateException
             }

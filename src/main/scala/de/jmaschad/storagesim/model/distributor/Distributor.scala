@@ -3,13 +3,13 @@ package de.jmaschad.storagesim.model.distributor
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-
 import Distributor._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.Log
+import de.jmaschad.storagesim.model.microcloud.ReplicateTo
 
 object Distributor {
     val StatusInterval = 1
@@ -52,7 +52,7 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
 
         case ReplicationFinished =>
             val request = event.getData() match {
-                case req: ReplicationRequest => req
+                case req: ReplicateTo => req
                 case _ => throw new IllegalArgumentException
             }
             log("replication of %s to %s finished.".format(request.bucket, CloudSim.getEntityName(event.getSource())))
@@ -64,7 +64,7 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
 
             val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
             requests.foreach(req => {
-                sendNow(req.source, MicroCloud.SendReplica, req)
+                sendNow(req.source, MicroCloud.InterCloudRequest, req)
             })
 
             send(getId(), CheckStatusInterval, Hartbeat)

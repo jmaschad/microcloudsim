@@ -14,10 +14,16 @@ import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.Download
+import de.jmaschad.storagesim.util.Ticker
 
 object User {
+    private val MaxRequestTicks = 2
+
     private val Base = 10300
-    val RequestFailed = Base + 1
+    val RequestAck = Base + 1
+    val RequestRst = RequestAck + 1
+    val RequestFailed = RequestRst + 1
     val RequestDone = RequestFailed + 1
     val ScheduleRequest = RequestDone + 1
 }
@@ -28,7 +34,9 @@ class User(
     initialObjects: Iterable[StorageObject],
     disposer: Distributor) extends ProcessingEntity(name, resources, initialObjects) {
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
-    private val tracker = new RequestTracker(log)
+    private val requestLog = new RequestLog(log)
+
+    private var openRequests = Set.empty[Request]
 
     def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
@@ -49,45 +57,74 @@ class User(
         behaviors.foreach(b => send(getId, 0.2 + b.timeToNextEvent, ScheduleRequest, b))
     }
 
-    override def shutdownEntity() = log(tracker.summary())
+    override def shutdownEntity() = log(requestLog.summary())
 
-    override def processEvent(event: SimEvent): Unit = {
-        super.processEvent(event)
-
+    override def process(event: SimEvent): Boolean = {
         event.getTag() match {
+            case RequestAck =>
+                val request = Request.fromEvent(event)
+                assert(openRequests.contains(request))
+                openRequests -= request
+                processRequest(event.getSource(), request)
+                true
+
+            case RequestRst =>
+                val request = Request.fromEvent(event)
+                assert(openRequests.contains(request))
+                openRequests -= request
+                requestLog.failed(request)
+                true
+
             case RequestDone =>
-                val request = getRequest(event)
-                tracker.completed(request)
+                requestLog.completed(Request.fromEvent(event))
+                true
 
             case RequestFailed =>
-                val request = getRequest(event)
-                tracker.failed(getRequest(event))
+                requestLog.failed(Request.fromEvent(event))
+                true
 
             case ScheduleRequest =>
-                val behavior = event.getData match {
-                    case b: UserBehavior => b
-                    case _ => throw new IllegalStateException
-                }
+                val request = getRequestAndScheduleBehavior(event)
+                openRequests += request
+                Ticker(MaxRequestTicks, {
+                    if (openRequests.contains(request)) {
+                        requestLog.failed(request)
+                        openRequests -= request
+                    }
+                    false
+                })
 
-                val request = behavior.nextRequest()
-                tracker.add(request)
-
+                requestLog.add(request)
                 sendNow(disposer.getId, Distributor.UserRequest, request)
-                send(getId, behavior.timeToNextEvent().max(0.001), ScheduleRequest, behavior)
+                true
 
-            case _ => log("dropped event" + event)
+            case _ => false
         }
     }
 
-    private def getRequest(event: SimEvent): Request = {
-        event.getData() match {
-            case req: Request => req
-            case _ => throw new IllegalArgumentException
-        }
+    private def processRequest(partner: Int, request: Request) = request.requestType match {
+        case RequestType.Get =>
+            val onFinish = (success: Boolean) => if (success) requestLog.completed(request) else requestLog.failed(request)
+            val process = processing.download _
+            transfers.download(request.transferId, request.storageObject.size, partner, process, onFinish)
+        case _ =>
+            throw new IllegalStateException
     }
+
+    private def getRequestAndScheduleBehavior(event: SimEvent): Request = {
+        val behav = getBehavior(event)
+        send(getId, behav.timeToNextEvent().max(0.001), ScheduleRequest, behav)
+        behav.nextRequest
+    }
+
+    private def getBehavior(event: SimEvent): UserBehavior =
+        event.getData match {
+            case b: UserBehavior => b
+            case _ => throw new IllegalStateException
+        }
 }
 
-private[user] class RequestTracker(log: String => Unit) {
+private[user] class RequestLog(log: String => Unit) {
     var openRequests = Set.empty[Request]
     var completedRequests = Map.empty[Request, Double]
     var failedRequests = Map.empty[Request, Double]

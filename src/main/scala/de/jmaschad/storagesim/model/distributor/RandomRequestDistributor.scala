@@ -7,6 +7,7 @@ import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.microcloud.ReplicateTo
 
 private[distributor] class RandomRequestDistributor extends RequestDistributor {
     private var bucketMapping = Map.empty[String, Set[Int]]
@@ -29,7 +30,7 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
             }
     }
 
-    override def replicationRequests(): Set[ReplicationRequest] = {
+    override def replicationRequests(): Set[ReplicateTo] = {
         val replicationNeeded = bucketMapping.filter(_._2.size < StorageSim.replicaCount)
 
         replicationNeeded.toSet.map((m: Tuple2[String, Set[Int]]) => {
@@ -40,7 +41,7 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
 
             val bucket = m._1
             val count = StorageSim.replicaCount - m._2.size
-            ReplicationRequest(replicationSource, replicationTargets(bucket, count), m._1)
+            ReplicateTo(replicationSource, replicationTargets(bucket, count), m._1)
         })
     }
 

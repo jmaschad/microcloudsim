@@ -18,43 +18,48 @@ class ProcessingModel(
     def jobCount = jobs.size
 
     def add(job: Job): Unit = {
-        if (timeSinceLastUpdae > 0.0) {
+        val timeElapsed = timeSinceLastUpdate
+        if (timeElapsed > 0.0) {
             update(false)
         }
         jobs += job
         scheduleNextUpdate()
     }
 
-    def addObjectDownload(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
+    def download(size: Double, onFinish: () => Unit) = {
+        val workloads = Set(Download(size, totalBandwidth))
+        add(Job(workloads, onFinish))
+    }
+
+    def upload(size: Double, onFinish: () => Unit) = {
+        val workloads = Set(Upload(size, totalBandwidth))
+        add(Job(workloads, onFinish))
+    }
+
+    def downloadAndStore(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
             Download(size, totalBandwidth),
             DiskIO(size, { transaction.throughput }))
-        add(Job(workloads, () => {
-            transaction.complete()
-            onFinish()
-        }))
+        add(Job(workloads, onFinish))
     }
 
-    def addObjectUpload(storageObject: StorageObject, transaction: StorageTransaction, onFinish: () => Unit) = {
+    def loadAndUpload(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
-            Upload(storageObject.size, totalBandwidth),
-            DiskIO(storageObject.size, { transaction.throughput }))
-        add(Job(workloads, () => {
-            transaction.complete()
-            onFinish()
-        }))
+            Upload(size, totalBandwidth),
+            DiskIO(size, { transaction.throughput }))
+        add(Job(workloads, onFinish))
     }
 
     def update(scheduleUpdate: Boolean = true) = {
-        jobs = jobs.map(_.process(timeSinceLastUpdae))
+        val timeElapsed = timeSinceLastUpdate
+        jobs = jobs.map(_.process(timeElapsed))
+        lastUpdate = Some(CloudSim.clock())
 
         val done = jobs.filter(_.isDone)
         done.foreach(_.onFinish())
         jobs --= done
 
         if (scheduleUpdate) { scheduleNextUpdate() }
-
-        lastUpdate = Some(CloudSim.clock())
     }
 
     def reset() = {
@@ -65,8 +70,10 @@ class ProcessingModel(
     private def scheduleNextUpdate() =
         if (jobs.nonEmpty) scheduleUpdate(jobs.map(_.expectedCompletion).min.max(0.0001))
 
-    private def timeSinceLastUpdae: Double = {
+    private def timeSinceLastUpdate: Double = {
         val clock = CloudSim.clock
-        clock - lastUpdate.getOrElse(clock)
+        val time = clock - lastUpdate.getOrElse(clock)
+        assert(time >= 0)
+        time
     }
 }
