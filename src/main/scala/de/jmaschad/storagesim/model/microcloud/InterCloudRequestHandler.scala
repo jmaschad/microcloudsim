@@ -39,7 +39,7 @@ private[microcloud] class InterCloudRequestHandler(
             targets.foreach(target => {
                 val store = Store(target, objects)
                 openStore += store
-                Ticker(StoreTimeout, {
+                Ticker(StoreTimeout, () => {
                     openStore -= store
                     false
                 })

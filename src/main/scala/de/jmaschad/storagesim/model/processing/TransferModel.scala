@@ -31,6 +31,7 @@ class TransferModel(
     var expectedDownloadTimeout = Map.empty[StorageTransaction, Int]
 
     def upload(transferId: String, size: Double, target: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
+        log("adding upload " + transferId)
         addTransfer(transferId, new TransferTracker(target, packetSize(size), packetCount(size), process, onFinish))
 
         // introduce a small delay, this allows the uploader to send some message before the transfer starts
@@ -38,17 +39,17 @@ class TransferModel(
     }
 
     def download(transferId: String, size: Double, source: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
+        log("adding download " + transferId)
         addTransfer(transferId, new TransferTracker(source, packetSize(size), packetCount(size), process, onFinish))
     }
 
     def process(source: Int, request: Object) = request match {
         case Ack(transferId, packetNumber) =>
-            log("received ack " + packetNumber + " for transaction " + transferId)
-            transfers(transferId).resetTimeout
+            transfers += transferId -> transfers(transferId).resetTimeout
             ifPartnerFinishedUploadNextPacket(transferId, packetNumber)
 
         case packet @ Packet(transferId, nr, size) =>
-            log("received packet " + nr + " for transaction " + transferId)
+            transfers += transferId -> transfers(transferId).resetTimeout
             packetReceived(transferId, nr, size)
 
         case _ => throw new IllegalStateException("request error")
@@ -63,14 +64,18 @@ class TransferModel(
         val transfer = id -> tracker
         transfers += transfer
 
-        Ticker(TickDelay, {
-            tracker.countDown match {
-                case Some(newTracker) =>
-                    transfers += id -> newTracker
-                    true
-                case _ =>
-                    transfers -= id
-                    false
+        Ticker(TickDelay, () => {
+            if (transfers.contains(id)) {
+                transfers(id).countDown match {
+                    case Some(newTracker) =>
+                        transfers += id -> newTracker
+                        true
+                    case _ =>
+                        transfers -= id
+                        false
+                }
+            } else {
+                false
             }
         })
     }
@@ -131,7 +136,8 @@ private[processing] class TransferTracker(
     countDown: Int = MaxPacketTicks,
     val packetNumber: Int = 0) {
 
-    def resetTimeout(): TransferTracker = new TransferTracker(partner, packetSize, packetCount, process, onFinish, MaxPacketTicks)
+    def resetTimeout(): TransferTracker =
+        new TransferTracker(partner, packetSize, packetCount, process, onFinish, MaxPacketTicks, packetNumber)
 
     def countDown(): Option[TransferTracker] = countDown > 0 match {
         case true =>

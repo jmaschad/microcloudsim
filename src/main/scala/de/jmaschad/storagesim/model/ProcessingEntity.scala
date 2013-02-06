@@ -21,7 +21,6 @@ abstract class ProcessingEntity(
 
     final def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcessingModel.ProcUpdate =>
-            log("chain update")
             processing.update()
 
         case TransferModel.Transfer =>
@@ -44,7 +43,7 @@ abstract class ProcessingEntity(
     }
 
     private def scheduleProcessingUpdate(delay: Double) = {
-        CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
+        CloudSim.cancel(getId(), new PredicateType(ProcessingModel.ProcUpdate))
         send(getId(), delay, ProcessingModel.ProcUpdate)
     }
 

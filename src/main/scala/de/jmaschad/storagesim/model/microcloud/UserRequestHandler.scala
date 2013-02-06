@@ -34,11 +34,9 @@ private[microcloud] class UserRequestHandler(
                         }, success => if (success) {
                             trans.complete
                             log(request + " done")
-                            sendNow(request.user.getId, User.RequestDone, request)
                         } else {
                             trans.abort
                             log(request + " failed")
-                            sendNow(request.user.getId, User.RequestFailed, request)
                         })
 
                     case None =>

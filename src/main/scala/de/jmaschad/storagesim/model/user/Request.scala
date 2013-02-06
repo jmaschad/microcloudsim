@@ -15,6 +15,7 @@ import RequestType._
 object Request {
     def get(user: User, storageObject: StorageObject, transferId: String): Request = new Request(user, Get, storageObject, transferId)
     def put(user: User, storageObject: StorageObject, transferId: String): Request = new Request(user, Put, storageObject, transferId)
+
     def fromEvent(event: SimEvent): Request = event.getData() match {
         case req: Request => req
         case _ => throw new IllegalArgumentException

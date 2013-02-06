@@ -3,14 +3,11 @@ package de.jmaschad.storagesim.model.user
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import User.RequestDone
-import User.RequestFailed
-import User.ScheduleRequest
+import org.cloudbus.cloudsim.core.predicates.PredicateType
+
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.processing.ProcessingModel
-import User._
-import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
@@ -24,9 +21,9 @@ object User {
     val RequestAck = Base + 1
     val RequestRst = RequestAck + 1
     val RequestFailed = RequestRst + 1
-    val RequestDone = RequestFailed + 1
-    val ScheduleRequest = RequestDone + 1
+    val ScheduleRequest = RequestFailed + 1
 }
+import User._
 
 class User(
     name: String,
@@ -75,10 +72,6 @@ class User(
                 requestLog.failed(request)
                 true
 
-            case RequestDone =>
-                requestLog.completed(Request.fromEvent(event))
-                true
-
             case RequestFailed =>
                 requestLog.failed(Request.fromEvent(event))
                 true
@@ -86,15 +79,15 @@ class User(
             case ScheduleRequest =>
                 val request = getRequestAndScheduleBehavior(event)
                 openRequests += request
-                Ticker(MaxRequestTicks, {
+                Ticker(MaxRequestTicks, () => {
                     if (openRequests.contains(request)) {
                         requestLog.failed(request)
                         openRequests -= request
                     }
                     false
                 })
-
                 requestLog.add(request)
+
                 sendNow(disposer.getId, Distributor.UserRequest, request)
                 true
 
