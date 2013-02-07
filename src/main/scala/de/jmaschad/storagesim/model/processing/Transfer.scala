@@ -25,7 +25,6 @@ private[processing] class Transfer(
             Some(new Transfer(partner, packetSize, packetCount, process, onFinish, packetNumber + 1))
 
         case false =>
-            onFinish(true)
             None
     }
 }

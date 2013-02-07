@@ -55,6 +55,8 @@ class Uploader(
                     sendNextPacket(transferId)
                 case None =>
                     log("upload to " + CloudSim.getEntityName(tracker.partner) + " completed")
+                    send(tracker.partner, 0.0, Downloader.Download, FinishDownload(transferId))
+                    tracker.onFinish(true)
                     uploads -= transferId
                     partnerFinished -= transferId
             }

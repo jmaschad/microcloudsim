@@ -26,6 +26,11 @@ class Downloader(
         case Packet(transferId, nr, size) =>
             packetReceived(transferId, nr, size)
 
+        case FinishDownload(transferId) =>
+            log("download " + transferId + " from " + CloudSim.getEntityName(source) + " completed.")
+            downloads(transferId).onFinish(true)
+            downloads -= transferId
+
         case TimeoutDownlad(transferId) =>
             log("TO download: " + transferId)
             downloads(transferId).onFinish(false)
@@ -49,16 +54,13 @@ class Downloader(
         tracker.process(size, () => {
             send(tracker.partner, 0.0, Uploader.Upload, Ack(transferId, nr))
         })
-        tracker.nextPacket() match {
-            case Some(newTracker) =>
-                downloads += transferId -> newTracker
-            case None =>
-                log("download " + transferId + " from " + CloudSim.getEntityName(tracker.partner) + " completed")
-                downloads -= transferId
-        }
+
+        // if there is no next packet, wait for completion message
+        tracker.nextPacket().foreach(t => downloads += transferId -> t)
     }
 }
 
 private[processing] abstract sealed class DownloadMessage
 case class TimeoutDownlad(transferId: String) extends DownloadMessage
+case class FinishDownload(transferId: String) extends DownloadMessage
 case class Packet(transferId: String, number: Int, size: Double) extends DownloadMessage

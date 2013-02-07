@@ -24,6 +24,7 @@ private[user] class RequestLog(log: String => Unit) {
         openRequests += request
 
     def finish(request: Request, summary: RequestState) = {
+        log("LOG finish " + request.storageObject + " with state " + summary)
         assert(openRequests.contains(request))
         openRequests -= request
 
