@@ -1,9 +1,13 @@
 package de.jmaschad.storagesim.model.processing
 
 import de.jmaschad.storagesim.Units
+import org.cloudbus.cloudsim.core.CloudSim
+import scala.util.Random
 
 object Transfer {
     val MaxPacketSize = 1.5 * Units.KByte
+
+    def transferId(): String = CloudSim.clock() + "-" + Random.nextLong
     def packetCount(byteSize: Double) = (byteSize / MaxPacketSize).ceil.intValue
     def packetSize(byteSize: Double) = byteSize / packetCount(byteSize)
 }

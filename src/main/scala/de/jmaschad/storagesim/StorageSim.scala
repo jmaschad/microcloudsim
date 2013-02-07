@@ -22,7 +22,6 @@ import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.processing.Downloader
-import de.jmaschad.storagesim.util.Ticker
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -31,7 +30,6 @@ object StorageSim {
 
     def main(args: Array[String]) {
         CloudSim.init(1, Calendar.getInstance(), false)
-        new Ticker
 
         val config = args.size match {
             case 0 => new StorageSimConfig {}

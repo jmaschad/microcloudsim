@@ -2,6 +2,7 @@ package de.jmaschad.storagesim.model.distributor
 
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.microcloud.ReplicateTo
+import de.jmaschad.storagesim.model.microcloud.ReplicationDescriptor
 
 private[distributor] final class ReplicationTracker(private val log: String => Unit) {
     var dueReplications = Map.empty[String, Set[Int]]
@@ -27,8 +28,10 @@ private[distributor] final class ReplicationTracker(private val log: String => U
         })
     }
 
-    def replicationRequestCompleted(request: ReplicateTo, cloud: Int) = {
-        val bucket = request.bucket
+    def requestFinished(descriptor: ReplicationDescriptor) = {
+        val bucket = descriptor.bucket
+        val cloud = descriptor.target
+
         assert(dueReplications.contains(bucket))
         assert(dueReplications(bucket).contains(cloud))
 
@@ -47,6 +50,14 @@ private[distributor] final class ReplicationTracker(private val log: String => U
                     map(bucket => bucket + " on " + dueReplications(bucket).map(CloudSim.getEntityName(_)).mkString(", "))
                 log(n + " due replication requests. " + dueDesc.mkString(", "))
         }
+    }
+
+    def targetFailed(descriptor: ReplicationDescriptor) = {
+
+    }
+
+    def sourceFailed(bucket: String) {
+
     }
 
     def cloudsWentOflline(offlineClouds: Iterable[Int]) = {

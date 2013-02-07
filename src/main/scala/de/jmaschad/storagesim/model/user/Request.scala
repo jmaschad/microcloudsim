@@ -32,13 +32,14 @@ class Request(
     override def toString = "%s request for %s".format(requestType, storageObject)
 }
 
-private object RequestState extends Enumeration {
+object RequestState extends Enumeration {
     type RequestState = Value
 
-    val Completed = Value("completed")
-    val TimedOut = Value("timed out")
+    val Complete = Value("completed")
+    val TimeOut = Value("timed out")
     val NotFound = Value("not found")
     val UnsufficientSpace = Value("unsufficient space")
+    val CloudError = Value("cloud error")
 }
 import RequestState._
 

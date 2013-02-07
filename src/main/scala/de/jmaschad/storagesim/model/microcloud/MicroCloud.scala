@@ -31,10 +31,10 @@ class MicroCloud(
     resourceCharacteristics: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
-    disposer: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
+    distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
 
-    private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, transfers, processing)
-    private val interCloudRequests = new InterCloudRequestHandler(log _, sendNow _, storageSystem, transfers, processing)
+    private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
+    private val interCloudRequests = new InterCloudHandler(log _, sendNow _, distributor, storageSystem, uploader, downloader, processing)
     private var state: MicroCloudState = new OfflineState
 
     def scheduleProcessingUpdate(delay: Double) = {
@@ -88,19 +88,20 @@ class MicroCloud(
 
         def process(event: SimEvent): Boolean = event.getTag() match {
             case MicroCloudStatus =>
-                sendNow(disposer.getId(), Distributor.MicroCloudStatus, status)
+                sendNow(distributor.getId(), Distributor.MicroCloudStatus, status)
                 send(getId(), Distributor.StatusInterval, MicroCloudStatus)
                 true
 
             case Shutdown =>
                 stateLog("received shutdown request")
-                sendNow(disposer.getId(), Distributor.MicroCloudShutdown)
+                sendNow(distributor.getId(), Distributor.MicroCloudShutdown)
                 switchState(new OfflineState)
                 true
 
             case Kill =>
                 stateLog("received kill request")
                 resetModel
+                sendNow(distributor.getId, Distributor.MicroCloudTimeout)
                 send(getId, failureBehavior.timeToCloudRepair, Boot)
                 switchState(new OfflineState)
                 true
@@ -110,7 +111,7 @@ class MicroCloud(
                 true
 
             case InterCloudRequest =>
-                interCloudRequests.processRequest(event.getData())
+                interCloudRequests.processRequest(event.getSource, event.getData)
                 true
 
             case _ => false

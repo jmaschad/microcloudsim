@@ -4,13 +4,10 @@ import de.jmaschad.storagesim.Units
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.CloudSim
 import scala.util.Random
-import de.jmaschad.storagesim.util.Ticker
 
 object Downloader {
     private val Base = 10400
     val Download = Base + 1
-
-    def transferId(): String = CloudSim.clock() + "-" + Random.nextLong
 }
 import Downloader._
 

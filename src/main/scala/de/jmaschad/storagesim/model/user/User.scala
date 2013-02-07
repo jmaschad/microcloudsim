@@ -48,7 +48,8 @@ object User {
 
     private val Base = 10300
     val RequestFailed = Base + 1
-    val ScheduleRequest = RequestFailed + 1
+    val RequestAccepted = RequestFailed + 1
+    val ScheduleRequest = RequestAccepted + 1
 }
 import User._
 
@@ -80,6 +81,10 @@ class User(
 
     override def process(event: SimEvent): Boolean = {
         event.getTag() match {
+            case RequestAccepted =>
+                processRequest(event.getSource, Request.fromEvent(event))
+                true
+
             case RequestFailed =>
                 val failed = FailedRequest.fromEvent(event)
                 requestLog.finish(failed.request, failed.state)
@@ -97,7 +102,7 @@ class User(
 
     private def processRequest(partner: Int, request: Request) = request.requestType match {
         case RequestType.Get =>
-            val onFinish = (success: Boolean) => if (success) requestLog.finish(request, Completed) else requestLog.finish(request, TimedOut)
+            val onFinish = (success: Boolean) => if (success) requestLog.finish(request, Complete) else requestLog.finish(request, TimeOut)
             val process = processing.download _
             downloader.start(request.transferId, request.storageObject.size, partner, process, onFinish)
         case _ =>
