@@ -20,6 +20,7 @@ class Downloader(
     def start(transferId: String, size: Double, source: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding download " + transferId)
         downloads += transferId -> new Transfer(source, Transfer.packetSize(size), Transfer.packetCount(size), process, onFinish)
+        TransferProbe.add(transferId, size)
     }
 
     def process(source: Int, request: Object) = request match {
@@ -27,12 +28,13 @@ class Downloader(
             packetReceived(transferId, nr, size)
 
         case FinishDownload(transferId) =>
-            log("download from " + CloudSim.getEntityName(source) + " completed.")
+            log("download from " + CloudSim.getEntityName(source) +
+                " completed. " + TransferProbe.finish(transferId))
             downloads(transferId).onFinish(true)
             downloads -= transferId
 
         case TimeoutDownlad(transferId) =>
-            log("Time out download: " + transferId)
+            log("Time out download: " + transferId + " " + TransferProbe.finish(transferId))
             downloads(transferId).onFinish(false)
             downloads -= transferId
 

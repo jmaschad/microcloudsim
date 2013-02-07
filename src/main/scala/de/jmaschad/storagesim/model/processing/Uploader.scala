@@ -19,7 +19,7 @@ class Uploader(
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding upload " + transferId)
         uploads += transferId -> new Transfer(target, Transfer.packetSize(size), Transfer.packetCount(size), processing, onFinish)
-
+        TransferProbe.add(transferId, size)
         // introduce a small delay, this allows the uploader to send some message before the transfer starts
         sendNextPacket(transferId, 0.01)
     }
@@ -29,7 +29,7 @@ class Uploader(
             ifPartnerFinishedUploadNextPacket(transferId, nr)
 
         case TimeoutUpload(transferId) =>
-            log("Time out upload: " + transferId)
+            log("Time out upload " + transferId + " " + TransferProbe.finish(transferId))
             uploads(transferId).onFinish(false)
             uploads -= transferId
 
@@ -54,7 +54,8 @@ class Uploader(
                     uploads += transferId -> newTracker
                     sendNextPacket(transferId)
                 case None =>
-                    log("upload to " + CloudSim.getEntityName(tracker.partner) + " completed")
+                    log("upload to " + CloudSim.getEntityName(tracker.partner) + " completed " +
+                        TransferProbe.finish(transferId))
                     send(tracker.partner, 0.0, Downloader.Download, FinishDownload(transferId))
                     tracker.onFinish(true)
                     uploads -= transferId
