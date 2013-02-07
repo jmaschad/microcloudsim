@@ -34,7 +34,7 @@ class MicroCloud(
     distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
 
     private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
-    private val interCloudRequests = new InterCloudHandler(log _, sendNow _, distributor, storageSystem, uploader, downloader, processing)
+    private val interCloudRequests = new InterCloudHandler(log _, sendNow _, this, distributor, storageSystem, uploader, downloader, processing)
     private var state: MicroCloudState = new OfflineState
 
     def scheduleProcessingUpdate(delay: Double) = {

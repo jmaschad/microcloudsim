@@ -22,6 +22,7 @@ import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.processing.Downloader
+import de.jmaschad.storagesim.model.processing.Transfer
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -95,10 +96,10 @@ object StorageSim {
 
             val behavior = requestType match {
                 case Get =>
-                    UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _, { Downloader.transferId() }))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _, { Transfer.transferId() }))
 
                 case Put =>
-                    UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _, { Downloader.transferId() }))
+                    UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _, { Transfer.transferId() }))
 
                 case _ => throw new IllegalStateException
             }

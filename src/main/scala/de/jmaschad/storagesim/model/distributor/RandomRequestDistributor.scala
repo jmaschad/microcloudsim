@@ -30,19 +30,20 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
             }
     }
 
-    override def replicationRequests(): Set[ReplicateTo] = {
+    override def replicationRequests(): Set[ReplicationDescriptor] = {
         val replicationNeeded = bucketMapping.filter(_._2.size < StorageSim.replicaCount)
 
-        replicationNeeded.toSet.map((m: Tuple2[String, Set[Int]]) => {
-            val replicationSource = m._2.size match {
+        replicationNeeded.flatMap(m => {
+            val source = m._2.size match {
                 case 1 => m._2.head
                 case n => m._2.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
             }
-
             val bucket = m._1
             val count = StorageSim.replicaCount - m._2.size
-            ReplicateTo(replicationSource, replicationTargets(bucket, count), m._1)
-        })
+            val targets = replicationTargets(bucket, count)
+
+            targets.map(t => new ReplicationDescriptor(bucket, source, t))
+        }).toSet
     }
 
     private def replicationTargets(bucket: String, count: Int): Set[Int] = {

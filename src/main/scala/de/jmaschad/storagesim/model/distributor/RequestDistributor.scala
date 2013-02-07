@@ -12,5 +12,5 @@ object RequestDistributor {
 trait RequestDistributor {
     def statusUpdate(onlineMicroClouds: collection.Map[Int, Status])
     def selectMicroCloud(request: Request): Option[Int]
-    def replicationRequests: Set[ReplicateTo]
+    def replicationRequests: Set[ReplicationDescriptor]
 }

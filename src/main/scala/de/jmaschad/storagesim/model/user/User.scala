@@ -37,9 +37,9 @@ private[user] class RequestLog(log: String => Unit) {
         val avgBw = requestLog.foldLeft(0.0)((sum, entry) => sum + entry.averageBandwidth) / requestLog.size
         val bySummary = requestLog.groupBy(_.state)
 
-        requestLog.size + "finished and " + openRequests.size + " active requests.\n" +
-            "average bandwidth " + avgBw + "\n" +
-            RequestState.values.map(s => bySummary(s).size + " " + s).mkString(", ")
+        requestLog.size + " finished / " + openRequests.size + " active requests.\n" +
+            "\taverage bandwidth " + (avgBw / 1024 * 8).formatted("%.2f") + "kbit/s\n" +
+            "\t" + bySummary.keys.map(key => bySummary(key).size + " " + key).mkString(", ")
     }
 }
 

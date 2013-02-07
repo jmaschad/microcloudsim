@@ -11,8 +11,6 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.FailedRequest
 import de.jmaschad.storagesim.model.user.RequestState
-import Distributor._
-import de.jmaschad.storagesim.model.microcloud.ReplicationDescriptor
 
 object Distributor {
     val StatusInterval = 1
@@ -28,6 +26,7 @@ object Distributor {
     val ReplicationTargetFailed = ReplicationFinished + 1
     val ReplicationSourceFailed = ReplicationTargetFailed + 1
 }
+import Distributor._
 
 class Distributor(name: String, distributor: RequestDistributor) extends SimEntity(name) {
     private val log = Log.line("Disposer '%s'".format(getName), _: String)
@@ -48,6 +47,7 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
             log("status update from %s: %s".format(sourceEntity(event), status))
             onlineClouds += event.getSource -> status
 
+        // detected timeout of microcloud
         case MicroCloudTimeout =>
             log(sourceEntity(event) + " timed out")
             removeCloud(event.getSource())
@@ -58,26 +58,22 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
 
         case Hartbeat =>
             distributor.statusUpdate(onlineClouds)
-
-            val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
-            requests.foreach(req => {
-                sendNow(req.source, MicroCloud.InterCloudRequest, req)
-            })
-
+            sendReplicationRequests()
             send(getId(), CheckStatusInterval, Hartbeat)
 
         case ReplicationFinished =>
-            // TODO
             val descriptor = ReplicationDescriptor.fromEvent(event)
+            replicationTracker.requestFinished(descriptor)
             log("replication of %s to %s finished.".format(descriptor.bucket, CloudSim.getEntityName(descriptor.target)))
 
         case ReplicationTargetFailed =>
-            // TODO
             val descriptor = ReplicationDescriptor.fromEvent(event)
+            replicationTracker.targetFailed(descriptor)
             log("replication of %s to %s failed.".format(descriptor.bucket, CloudSim.getEntityName(descriptor.target)))
 
         case ReplicationSourceFailed =>
-        // TODO
+            replicationTracker.sourceFailed(event.getSource)
+            log("replication failed at source " + CloudSim.getEntityName(event.getSource))
 
         case UserRequest =>
             val request = Request.fromEvent(event)
@@ -97,7 +93,16 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
     private def removeCloud(cloud: Int) = {
         assert(onlineClouds.contains(cloud))
         onlineClouds -= cloud
-        replicationTracker.cloudsWentOflline(Seq(cloud))
+        distributor.statusUpdate(onlineClouds)
+        replicationTracker.cloudWentOflline(cloud)
+        sendReplicationRequests()
+    }
+
+    private def sendReplicationRequests() = {
+        val requests = replicationTracker.trackedReplicationRequests(distributor.replicationRequests)
+        requests.foreach(req => {
+            sendNow(req.source, MicroCloud.InterCloudRequest, req)
+        })
     }
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())

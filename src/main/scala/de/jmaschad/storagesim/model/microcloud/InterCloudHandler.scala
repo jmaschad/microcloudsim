@@ -16,6 +16,7 @@ import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.Transfer
 import InterCloudHandler._
 import de.jmaschad.storagesim.model.processing.LoadTransaction
+import de.jmaschad.storagesim.model.distributor.ReplicationDescriptor
 
 abstract sealed class InterCloudRequest
 case class ReplicateTo(source: Int, targets: Set[Int], bucket: String) extends InterCloudRequest
@@ -25,15 +26,6 @@ case class StoreDenied(storeRequest: StoreReplica) extends InterCloudRequest
 case class SourceTimeout extends InterCloudRequest
 case class SinkTimeout extends InterCloudRequest
 
-object ReplicationDescriptor {
-    def fromEvent(event: SimEvent) = event.getData() match {
-        case desc: ReplicationDescriptor => desc
-        case _ => throw new IllegalStateException
-    }
-}
-
-class ReplicationDescriptor(val bucket: String, val target: Int)
-
 object InterCloudHandler {
     private val StoreTimeout = 2
     private val TransactionTimeout = 2
@@ -42,6 +34,7 @@ object InterCloudHandler {
 private[microcloud] class InterCloudHandler(
     log: String => Unit,
     sendNow: (Int, Int, Object) => Unit,
+    microCloud: MicroCloud,
     distributor: Distributor,
     storageSystem: StorageSystem,
     uploader: Uploader,
@@ -84,7 +77,7 @@ private[microcloud] class InterCloudHandler(
             ids.foreach(id => pendingLoadTransactions(id).abort)
             pendingLoadTransactions --= ids
 
-            sendNow(distributor.getId, Distributor.ReplicationTargetFailed, new ReplicationDescriptor(store.bucket, eventSource))
+            sendNow(distributor.getId, Distributor.ReplicationTargetFailed, new ReplicationDescriptor(store.bucket, microCloud.getId, eventSource))
 
         case request @ StoreReplica(bucket, transfers) =>
             log("received request to store replica for " + bucket)

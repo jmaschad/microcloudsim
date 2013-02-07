@@ -29,6 +29,7 @@ class Uploader(
             ifPartnerFinishedUploadNextPacket(transferId, nr)
 
         case TimeoutUpload(transferId) =>
+            log("TO upload: " + transferId)
             uploads(transferId).onFinish(false)
             uploads -= transferId
 
@@ -37,7 +38,7 @@ class Uploader(
 
     def killed() = {
         // send reset to avoid necessity of timeout handling 
-        uploads.foreach(d => send(d._2.partner, 0.0, Downloader.Download, TimeoutDownlad(d._1)))
+        uploads.foreach(upload => send(upload._2.partner, 0.0, Downloader.Download, TimeoutDownlad(upload._1)))
 
         // don't call the downloads onFinish, we were killed!
         uploads = Map.empty[String, Transfer]
