@@ -13,7 +13,7 @@ import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.TransferModel
+import de.jmaschad.storagesim.model.processing.Downloader
 
 object MicroCloud {
     private val Base = 10200
@@ -32,6 +32,7 @@ class MicroCloud(
     initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
     disposer: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
+
     private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, transfers, processing)
     private val interCloudRequests = new InterCloudRequestHandler(log _, sendNow _, storageSystem, transfers, processing)
     private var state: MicroCloudState = new OfflineState

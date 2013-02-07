@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.microcloud
 
 import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.model.processing.TransferModel
+import de.jmaschad.storagesim.model.processing.Downloader
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import org.cloudbus.cloudsim.core.CloudSim
@@ -23,7 +23,7 @@ private[microcloud] class InterCloudRequestHandler(
     log: String => Unit,
     sendNow: (Int, Int, Object) => Unit,
     storageSystem: StorageSystem,
-    transfers: TransferModel,
+    transfers: Downloader,
     processing: ProcessingModel) {
 
     var openStore = Set.empty[Store]

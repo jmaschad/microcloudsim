@@ -31,3 +31,22 @@ class Request(
 
     override def toString = "%s request for %s".format(requestType, storageObject)
 }
+
+private object RequestState extends Enumeration {
+    type RequestState = Value
+
+    val Completed = Value("completed")
+    val TimedOut = Value("timed out")
+    val NotFound = Value("not found")
+    val UnsufficientSpace = Value("unsufficient space")
+}
+import RequestState._
+
+object FailedRequest {
+    def fromEvent(event: SimEvent) = event.getData() match {
+        case failed: FailedRequest => failed
+        case _ => throw new IllegalStateException
+    }
+}
+
+class FailedRequest(val request: Request, val state: RequestState)

@@ -1,10 +1,10 @@
 package de.jmaschad.storagesim.model.user
 
+import scala.collection.LinearSeq
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import org.cloudbus.cloudsim.core.predicates.PredicateType
-
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.processing.ProcessingModel
@@ -12,15 +12,42 @@ import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.Download
-import de.jmaschad.storagesim.util.Ticker
+import RequestState._
+
+private[user] class RequestLog(log: String => Unit) {
+    private class LogEntry(val state: RequestState, val start: Double, val end: Double, val averageBandwidth: Double)
+
+    private var openRequests = Set.empty[Request]
+    private var requestLog = Set.empty[LogEntry]
+
+    def add(request: Request) =
+        openRequests += request
+
+    def finish(request: Request, summary: RequestState) = {
+        assert(openRequests.contains(request))
+        openRequests -= request
+
+        val start = request.time
+        val end = CloudSim.clock()
+        val avgBw = request.storageObject.size / (end - start)
+        requestLog += new LogEntry(summary, start, end, avgBw)
+    }
+
+    def summary(): String = {
+        val avgBw = requestLog.foldLeft(0.0)((sum, entry) => sum + entry.averageBandwidth) / requestLog.size
+        val bySummary = requestLog.groupBy(_.state)
+
+        requestLog.size + "finished and " + openRequests.size + " active requests.\n" +
+            "average bandwidth " + avgBw + "\n" +
+            RequestState.values.map(s => bySummary(s).size + " " + s).mkString(", ")
+    }
+}
 
 object User {
     private val MaxRequestTicks = 2
 
     private val Base = 10300
-    val RequestAck = Base + 1
-    val RequestRst = RequestAck + 1
-    val RequestFailed = RequestRst + 1
+    val RequestFailed = Base + 1
     val ScheduleRequest = RequestFailed + 1
 }
 import User._
@@ -42,11 +69,6 @@ class User(
         }
     }
 
-    def scheduleProcessingUpdate(delay: Double) = {
-        CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
-        send(getId(), delay, ProcessingModel.ProcUpdate)
-    }
-
     override def log(msg: String) = Log.line("User '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
@@ -58,36 +80,14 @@ class User(
 
     override def process(event: SimEvent): Boolean = {
         event.getTag() match {
-            case RequestAck =>
-                val request = Request.fromEvent(event)
-                assert(openRequests.contains(request))
-                openRequests -= request
-                processRequest(event.getSource(), request)
-                true
-
-            case RequestRst =>
-                val request = Request.fromEvent(event)
-                assert(openRequests.contains(request))
-                openRequests -= request
-                requestLog.failed(request)
-                true
-
             case RequestFailed =>
-                requestLog.failed(Request.fromEvent(event))
+                val failed = FailedRequest.fromEvent(event)
+                requestLog.finish(failed.request, failed.state)
                 true
 
             case ScheduleRequest =>
                 val request = getRequestAndScheduleBehavior(event)
-                openRequests += request
-                Ticker(MaxRequestTicks, () => {
-                    if (openRequests.contains(request)) {
-                        requestLog.failed(request)
-                        openRequests -= request
-                    }
-                    false
-                })
                 requestLog.add(request)
-
                 sendNow(disposer.getId, Distributor.UserRequest, request)
                 true
 
@@ -97,9 +97,9 @@ class User(
 
     private def processRequest(partner: Int, request: Request) = request.requestType match {
         case RequestType.Get =>
-            val onFinish = (success: Boolean) => if (success) requestLog.completed(request) else requestLog.failed(request)
+            val onFinish = (success: Boolean) => if (success) requestLog.finish(request, Completed) else requestLog.finish(request, TimedOut)
             val process = processing.download _
-            transfers.download(request.transferId, request.storageObject.size, partner, process, onFinish)
+            downloader.start(request.transferId, request.storageObject.size, partner, process, onFinish)
         case _ =>
             throw new IllegalStateException
     }
@@ -115,29 +115,4 @@ class User(
             case b: UserBehavior => b
             case _ => throw new IllegalStateException
         }
-}
-
-private[user] class RequestLog(log: String => Unit) {
-    var openRequests = Set.empty[Request]
-    var completedRequests = Map.empty[Request, Double]
-    var failedRequests = Map.empty[Request, Double]
-
-    def add(request: Request) =
-        openRequests += request
-
-    def completed(request: Request) = {
-        assert(openRequests.contains(request))
-        openRequests -= request
-        completedRequests += (request -> CloudSim.clock())
-    }
-
-    def failed(request: Request) = {
-        assert(openRequests.contains(request))
-        openRequests -= request
-        failedRequests += (request -> CloudSim.clock())
-    }
-
-    def summary(): String = {
-        "%d completed, %d failed, %d missing".format(completedRequests.size, failedRequests.size, openRequests.size)
-    }
 }
