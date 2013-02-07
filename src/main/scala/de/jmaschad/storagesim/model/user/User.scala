@@ -24,7 +24,6 @@ private[user] class RequestLog(log: String => Unit) {
         openRequests += request
 
     def finish(request: Request, summary: RequestState) = {
-        log("LOG finish " + request.storageObject + " with state " + summary)
         assert(openRequests.contains(request))
         openRequests -= request
 
@@ -112,7 +111,9 @@ class User(
 
     private def getRequestAndScheduleBehavior(event: SimEvent): Request = {
         val behav = getBehavior(event)
-        send(getId, behav.timeToNextEvent().max(0.001), ScheduleRequest, behav)
+        val delay = behav.timeToNextEvent().max(0.001)
+        println("delay to next behavior " + delay)
+        send(getId, delay, ScheduleRequest, behav)
         behav.nextRequest
     }
 

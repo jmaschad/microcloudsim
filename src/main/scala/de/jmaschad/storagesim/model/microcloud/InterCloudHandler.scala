@@ -49,19 +49,29 @@ private[microcloud] class InterCloudHandler(
             log("received request to send replicate of " +
                 bucket + " to " + targets.map(CloudSim.getEntityName(_)).mkString(","))
 
-            val transfers = storageSystem.bucket(bucket).map(file => file -> Transfer.transferId).toMap
-            val transactions = transfers.keys.map(so => so -> storageSystem.loadTransaction(so)).
-                collect({ case (so, Some(trans)) => so -> trans }).toMap
-            if (transactions.size == transfers.size) {
-                val replicationRequests = targets.map(t => t -> StoreReplica(bucket, transfers))
-                replicationRequests.foreach(req =>
-                    sendNow(req._1, MicroCloud.InterCloudRequest, req._2))
+            val objects = storageSystem.bucket(bucket)
+            val transactions = targets.map(
+                _ -> objects.map(o => o -> storageSystem.loadTransaction(o)).
+                    collect({ case (so, Some(trans)) => so -> trans }).toMap).toMap
 
-                // start uploads
-                transfers.foreach(transfer => {
-                    val storageObject = transfer._1
-                    val id = transfer._2
-                    val transaction = transactions(storageObject)
+            // all ore none
+            val transactionsCreated = transactions.foldLeft(Int.MaxValue)((i, trans) => i.min(trans._2.size)) == objects.size
+            if (transactionsCreated) {
+                transactions.foreach(trans => {
+                    val target = trans._1
+                    val targetTransactions = trans._2
+                    val transfers = objects.map(obj => obj -> Transfer.transferId(obj)).toMap
+                    sendNow(target, MicroCloud.InterCloudRequest, StoreReplica(bucket, transfers))
+
+                    // start uploads
+                    transfers.foreach(transfer => {
+                        val storageObject = transfer._1
+                        val id = transfer._2
+                        val transaction = targetTransactions(storageObject)
+                        uploader.start(id, storageObject.size, target,
+                            processing.loadAndUpload(_, transaction, _),
+                            success => if (success) transaction.complete else transaction.abort)
+                    })
                 })
             } else {
                 sendNow(distributor.getId, Distributor.ReplicationSourceFailed, bucket)

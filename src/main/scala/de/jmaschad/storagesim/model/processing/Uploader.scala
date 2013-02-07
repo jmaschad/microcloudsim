@@ -29,7 +29,7 @@ class Uploader(
             ifPartnerFinishedUploadNextPacket(transferId, nr)
 
         case TimeoutUpload(transferId) =>
-            log("TO upload: " + transferId)
+            log("Time out upload: " + transferId)
             uploads(transferId).onFinish(false)
             uploads -= transferId
 

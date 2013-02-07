@@ -7,6 +7,7 @@ import scala.util.Random
 object Transfer {
     val MaxPacketSize = 1.5 * Units.KByte
 
+    def transferId(something: AnyRef): String = CloudSim.clock() + "-" + something.hashCode() + "-" + Random.nextLong
     def transferId(): String = CloudSim.clock() + "-" + Random.nextLong
     def packetCount(byteSize: Double) = (byteSize / MaxPacketSize).ceil.intValue
     def packetSize(byteSize: Double) = byteSize / packetCount(byteSize)

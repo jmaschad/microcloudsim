@@ -2,6 +2,11 @@ package de.jmaschad.storagesim.model.processing
 
 import scala.collection.mutable
 
+private[processing] object StorageTransaction {
+    var active = Map.empty[StorageObject, Set[StoreTransaction]]
+}
+import StorageTransaction._
+
 trait StorageTransaction {
     def complete(): Unit
     def abort(): Unit
@@ -9,7 +14,7 @@ trait StorageTransaction {
 }
 
 class StoreTransaction(val storageObject: StorageObject, device: StorageDevice, storageSystem: StorageSystem) extends StorageTransaction {
-    storageSystem.runningTransactions += (storageObject -> this)
+    active += (storageObject -> (active.getOrElse(storageObject, Set.empty) + this))
 
     device.allocate(storageObject.size)
     device.addAccessor()
@@ -31,8 +36,15 @@ class StoreTransaction(val storageObject: StorageObject, device: StorageDevice, 
     private def finish() = {
         device.removeAccessor()
 
-        assert(storageSystem.runningTransactions.isDefinedAt(storageObject))
-        storageSystem.runningTransactions -= storageObject
+        val transactions = active(storageObject)
+        assert(transactions.contains(this))
+
+        val updatedTransactions = transactions - this
+        if (updatedTransactions.isEmpty)
+            active -= storageObject
+        else
+            active += storageObject -> updatedTransactions
+
     }
 }
 
@@ -50,7 +62,6 @@ class LoadTransaction(val storageObject: StorageObject, device: StorageDevice, s
 
 class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable[StorageObject]) {
     private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
-    private[processing] val runningTransactions = mutable.Map.empty[StorageObject, StoreTransaction]
     private var lastDeviceIdx = 0
 
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
@@ -62,7 +73,7 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
             case None => throw new IllegalStateException
         })
 
-    def reset() = runningTransactions.mapValues(_.abort)
+    def reset() = active.mapValues(_.map(_.abort))
 
     def buckets: Set[String] = bucketObjectMapping.keySet.toSet
     def bucket(name: String): Seq[StorageObject] = bucketObjectMapping.getOrElse(name, Seq.empty[StorageObject])
@@ -71,7 +82,7 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
     def storeThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).storeThroughput
 
     def contains(storageObject: StorageObject): Boolean =
-        deviceMap.isDefinedAt(storageObject) && (!runningTransactions.isDefinedAt(storageObject))
+        deviceMap.isDefinedAt(storageObject) && (!active.isDefinedAt(storageObject))
     def loadTransaction(storeageObject: StorageObject): Option[LoadTransaction] = contains(storeageObject) match {
         case true => Some(new LoadTransaction(storeageObject, deviceMap(storeageObject), this))
         case false => None

@@ -27,12 +27,12 @@ class Downloader(
             packetReceived(transferId, nr, size)
 
         case FinishDownload(transferId) =>
-            log("download " + transferId + " from " + CloudSim.getEntityName(source) + " completed.")
+            log("download from " + CloudSim.getEntityName(source) + " completed.")
             downloads(transferId).onFinish(true)
             downloads -= transferId
 
         case TimeoutDownlad(transferId) =>
-            log("TO download: " + transferId)
+            log("Time out download: " + transferId)
             downloads(transferId).onFinish(false)
             downloads -= transferId
 
