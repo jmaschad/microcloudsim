@@ -3,7 +3,7 @@ package de.jmaschad.storagesim.model.distributor
 import java.util.Objects
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.microcloud.ReplicateTo
+import de.jmaschad.storagesim.model.microcloud.Replicate
 
 object RequestDistributor {
     def randomRequestDistributor(): RequestDistributor = new RandomRequestDistributor
@@ -12,5 +12,5 @@ object RequestDistributor {
 trait RequestDistributor {
     def statusUpdate(onlineMicroClouds: collection.Map[Int, Status])
     def selectMicroCloud(request: Request): Option[Int]
-    def replicationRequests: Set[ReplicationDescriptor]
+    def replicationRequests: Set[Replicate]
 }

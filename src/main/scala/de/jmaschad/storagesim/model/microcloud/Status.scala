@@ -1,9 +1,10 @@
 package de.jmaschad.storagesim.model.microcloud
 
 import org.cloudbus.cloudsim.core.SimEvent
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 object Status {
-    def apply(buckets: Set[String]) = new Status(buckets)
+    def apply(objects: Set[StorageObject]) = new Status(objects)
 
     def fromEvent(event: SimEvent) = event.getData match {
         case status: Status => status
@@ -11,6 +12,6 @@ object Status {
     }
 }
 
-class Status(val buckets: Set[String]) {
-    override def toString = "%d buckets".format(buckets.size)
+class Status(val objects: Set[StorageObject]) {
+    override def toString = objects.size + " ovjects"
 }

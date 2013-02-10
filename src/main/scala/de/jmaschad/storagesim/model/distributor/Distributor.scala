@@ -5,7 +5,7 @@ import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.microcloud.ReplicateTo
+import de.jmaschad.storagesim.model.microcloud.Replicate
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.User
@@ -23,8 +23,7 @@ object Distributor {
     val Hartbeat = MicroCloudTimeout + 1
     val UserRequest = Hartbeat + 1
     val ReplicationFinished = UserRequest + 1
-    val ReplicationTargetFailed = ReplicationFinished + 1
-    val ReplicationSourceFailed = ReplicationTargetFailed + 1
+    val ReplicationFailed = ReplicationFinished + 1
 }
 import Distributor._
 
@@ -62,18 +61,14 @@ class Distributor(name: String, distributor: RequestDistributor) extends SimEnti
             send(getId(), CheckStatusInterval, Hartbeat)
 
         case ReplicationFinished =>
-            val descriptor = ReplicationDescriptor.fromEvent(event)
-            replicationTracker.requestFinished(descriptor)
-            log("replication of %s to %s finished.".format(descriptor.bucket, CloudSim.getEntityName(descriptor.target)))
+            val request = Replicate.fromEvent(event)
+            replicationTracker.requestFinished(request)
+            log(request + " finished.")
 
-        case ReplicationTargetFailed =>
-            val descriptor = ReplicationDescriptor.fromEvent(event)
-            replicationTracker.targetFailed(descriptor)
-            log("replication of %s to %s failed.".format(descriptor.bucket, CloudSim.getEntityName(descriptor.target)))
-
-        case ReplicationSourceFailed =>
-            replicationTracker.sourceFailed(event.getSource)
-            log("replication failed at source " + CloudSim.getEntityName(event.getSource))
+        case ReplicationFailed =>
+            val request = Replicate.fromEvent(event)
+            replicationTracker.requestFailed(request)
+            log(request + " failed.")
 
         case UserRequest =>
             val request = Request.fromEvent(event)

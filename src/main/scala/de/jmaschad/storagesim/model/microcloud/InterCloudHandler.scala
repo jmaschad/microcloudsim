@@ -16,11 +16,28 @@ import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.Transfer
 import InterCloudHandler._
 import de.jmaschad.storagesim.model.processing.LoadTransaction
-import de.jmaschad.storagesim.model.distributor.ReplicationDescriptor
 
 abstract sealed class InterCloudRequest
-case class ReplicateTo(source: Int, targets: Set[Int], bucket: String) extends InterCloudRequest
-case class StoreReplica(bucket: String, transfers: Map[StorageObject, String]) extends InterCloudRequest
+
+object Replicate {
+    def fromEvent(event: SimEvent) = event.getData() match {
+        case desc: Replicate => desc
+        case _ => throw new IllegalStateException
+    }
+}
+
+case class Replicate(source: Int, target: Int, storageObject: StorageObject) extends InterCloudRequest {
+    override def equals(obj: Any) = obj match {
+        case desc: Replicate => storageObject == desc.storageObject && source == desc.source && target == desc.target
+        case _ => false
+    }
+
+    override def hashCode() = 41 * (41 * (41 * (storageObject.hashCode() + 41) + source) + target)
+
+    override def toString = "Replicate " + storageObject + " from " + CloudSim.getEntityName(source) + " to " + CloudSim.getEntityName(target)
+}
+
+case class StoreReplica(storageObject: StorageObject, transferId: String) extends InterCloudRequest
 case class StoreAccepted(storeRequest: StoreReplica) extends InterCloudRequest
 case class StoreDenied(storeRequest: StoreReplica) extends InterCloudRequest
 case class SourceTimeout extends InterCloudRequest
@@ -45,70 +62,45 @@ private[microcloud] class InterCloudHandler(
     var pendingLoadTransactions = Map.empty[String, LoadTransaction]
 
     def processRequest(eventSource: Int, request: AnyRef) = request match {
-        case ReplicateTo(source, targets, bucket) =>
+        case req @ Replicate(source, target, obj) =>
             log("received request to send replicate of " +
-                bucket + " to " + targets.map(CloudSim.getEntityName(_)).mkString(","))
+                obj + " to " + CloudSim.getEntityName(target))
 
-            val objects = storageSystem.bucket(bucket)
-            val transactions = targets.map(
-                _ -> objects.map(o => o -> storageSystem.loadTransaction(o)).
-                    collect({ case (so, Some(trans)) => so -> trans }).toMap).toMap
-
-            // all ore none
-            val transactionsCreated = transactions.foldLeft(Int.MaxValue)((i, trans) => i.min(trans._2.size)) == objects.size
-            if (transactionsCreated) {
-                transactions.foreach(trans => {
-                    val target = trans._1
-                    val targetTransactions = trans._2
-                    val transfers = objects.map(obj => obj -> Transfer.transferId(obj)).toMap
-                    sendNow(target, MicroCloud.InterCloudRequest, StoreReplica(bucket, transfers))
-
-                    // start uploads
-                    transfers.foreach(transfer => {
-                        val storageObject = transfer._1
-                        val id = transfer._2
-                        val transaction = targetTransactions(storageObject)
-                        uploader.start(id, storageObject.size, target,
-                            processing.loadAndUpload(_, transaction, _),
-                            success => if (success) transaction.complete else transaction.abort)
-                    })
-                })
-            } else {
-                sendNow(distributor.getId, Distributor.ReplicationSourceFailed, bucket)
+            storageSystem.loadTransaction(obj) match {
+                case Some(transaction) =>
+                    val transferId = Transfer.transferId(obj)
+                    sendNow(target, MicroCloud.InterCloudRequest, StoreReplica(obj, transferId))
+                    uploader.start(transferId, obj.size, target,
+                        processing.loadAndUpload(_, transaction, _),
+                        success => if (success) transaction.complete else transaction.abort)
+                    pendingLoadTransactions += transferId -> transaction
+                case None =>
+                    sendNow(distributor.getId, Distributor.ReplicationFailed, req)
             }
 
         case StoreAccepted(store) =>
-            log(CloudSim.getEntity(eventSource) + " accepted store replica for " + store.bucket)
-            pendingLoadTransactions --= store.transfers.values
+            log(CloudSim.getEntity(eventSource) + " accepted store replica for " + store.storageObject)
+            pendingLoadTransactions -= store.transferId
 
         case StoreDenied(store) =>
-            log(CloudSim.getEntityName(eventSource) + " denied store replica for " + store.bucket)
-            val ids = store.transfers.values
-            ids.foreach(id => pendingLoadTransactions(id).abort)
-            pendingLoadTransactions --= ids
+            log(CloudSim.getEntityName(eventSource) + " denied store replica for " + store.storageObject)
+            pendingLoadTransactions(store.transferId).abort
+            pendingLoadTransactions -= store.transferId
 
-            sendNow(distributor.getId, Distributor.ReplicationTargetFailed, new ReplicationDescriptor(store.bucket, microCloud.getId, eventSource))
+            sendNow(distributor.getId, Distributor.ReplicationFailed, new Replicate(microCloud.getId, eventSource, store.storageObject))
 
-        case request @ StoreReplica(bucket, transfers) =>
-            log("received request to store replica for " + bucket)
-            val transactions = transfers.keys.map(so => so -> storageSystem.storeTransaction(so)).
-                collect({ case (so, Some(trans)) => so -> trans }).toMap
+        case request @ StoreReplica(obj, transferId) =>
+            log("received request to store replica for " + obj)
 
-            if (transactions.size == transfers.size) {
-                sendNow(eventSource, MicroCloud.InterCloudRequest, StoreAccepted(request))
-                // start downloads
-                transfers.foreach(transfer => {
-                    val storageObject = transfer._1
-                    val id = transfer._2
-                    val transaction = transactions(storageObject)
-
-                    downloader.start(id, storageObject.size, eventSource,
+            storageSystem.storeTransaction(obj) match {
+                case Some(transaction) =>
+                    sendNow(eventSource, MicroCloud.InterCloudRequest, StoreAccepted(request))
+                    // start download
+                    downloader.start(transferId, obj.size, eventSource,
                         processing.downloadAndStore(_, transaction, _),
                         success => if (success) transaction.complete else transaction.abort)
-                })
-            } else {
-                transactions.values.foreach(_.abort)
-                sendNow(eventSource, MicroCloud.InterCloudRequest, StoreDenied(request))
+                case None =>
+                    sendNow(eventSource, MicroCloud.InterCloudRequest, StoreDenied(request))
             }
 
         case _ =>

@@ -43,7 +43,7 @@ class MicroCloud(
         send(getId(), delay, ProcessingModel.ProcUpdate)
     }
 
-    def status = Status(storageSystem.buckets)
+    def status = Status(storageSystem.objects)
 
     override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 

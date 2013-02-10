@@ -7,14 +7,14 @@ import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.microcloud.Status
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.microcloud.ReplicateTo
+import de.jmaschad.storagesim.model.microcloud.Replicate
 
 private[distributor] class RandomRequestDistributor extends RequestDistributor {
-    private var bucketMapping = Map.empty[String, Set[Int]]
+    private var objectMapping = Map.empty[StorageObject, Set[Int]]
     private var onlineClouds = Set.empty[Int]
 
     override def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) = {
-        bucketMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.buckets.map(bucket => bucket -> m._1)).
+        objectMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.objects.map(obj => obj -> m._1)).
             groupBy(_._1).mapValues(_.map(_._2).toSet)
         onlineClouds = onlineMicroClouds.keys.toSet
     }
@@ -22,7 +22,6 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
     override def selectMicroCloud(request: Request): Option[Int] = onlineClouds.size match {
         case 0 => None
         case _ =>
-            val cloudsForBucket = bucketMapping.getOrElse(request.storageObject.bucket, Iterable()).toSeq
             request.requestType match {
                 case RequestType.Get => selectForLoad(request.storageObject)
                 case RequestType.Put => selectForStore(request.storageObject)
@@ -30,24 +29,24 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
             }
     }
 
-    override def replicationRequests(): Set[ReplicationDescriptor] = {
-        val replicationNeeded = bucketMapping.filter(_._2.size < StorageSim.replicaCount)
+    override def replicationRequests(): Set[Replicate] = {
+        val replicationNeeded = objectMapping.filter(_._2.size < StorageSim.replicaCount)
 
         replicationNeeded.flatMap(m => {
             val source = m._2.size match {
                 case 1 => m._2.head
                 case n => m._2.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
             }
-            val bucket = m._1
+            val obj = m._1
             val count = StorageSim.replicaCount - m._2.size
-            val targets = replicationTargets(bucket, count)
+            val targets = replicationTargets(obj, count)
 
-            targets.map(t => new ReplicationDescriptor(bucket, source, t))
+            targets.map(t => Replicate(source, t, obj))
         }).toSet
     }
 
-    private def replicationTargets(bucket: String, count: Int): Set[Int] = {
-        val possibleTargets = onlineClouds.diff(bucketMapping(bucket)).toSeq
+    private def replicationTargets(storageObject: StorageObject, count: Int): Set[Int] = {
+        val possibleTargets = onlineClouds.diff(objectMapping(storageObject)).toSeq
         val possibleTargetCount = possibleTargets.size
         assert(possibleTargetCount >= count)
 
@@ -66,8 +65,7 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
     }
 
     private def selectForLoad(storageObject: StorageObject): Option[Int] = {
-        val bucket = storageObject.bucket
-        val clouds = bucketMapping.getOrElse(bucket, Iterable()).toSeq
+        val clouds = objectMapping.getOrElse(storageObject, Iterable()).toSeq
         clouds.size match {
             case 0 => None
             case 1 => Some(clouds.head)
@@ -77,21 +75,21 @@ private[distributor] class RandomRequestDistributor extends RequestDistributor {
 
     private def selectForStore(storageObject: StorageObject): Option[Int] = {
         val bucket = storageObject.bucket
-        val clouds = bucketMapping.getOrElse(bucket, Iterable()).toSeq
+        val clouds = objectMapping.filter(_._1.bucket == bucket).values.flatten.toSet
         clouds.size match {
             case 0 =>
                 val cloud: Int = onlineClouds.size match {
                     case 1 => onlineClouds.head
                     case n => onlineClouds.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
                 }
-                bucketMapping += bucket -> Set(cloud)
+                objectMapping += storageObject -> Set(cloud)
                 Some(cloud)
 
             case 1 =>
                 Some(clouds.head)
 
             case n =>
-                Some(clouds(new UniformIntegerDistribution(0, n - 1).sample()))
+                Some(clouds.toIndexedSeq(new UniformIntegerDistribution(0, n - 1).sample()))
         }
     }
 }

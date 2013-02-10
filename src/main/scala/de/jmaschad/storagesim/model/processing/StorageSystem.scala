@@ -75,6 +75,8 @@ class StorageSystem(storageDevices: Seq[StorageDevice], initialObjects: Iterable
 
     def reset() = active.mapValues(_.map(_.abort))
 
+    def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet
+
     def buckets: Set[String] = bucketObjectMapping.keySet.toSet
     def bucket(name: String): Seq[StorageObject] = bucketObjectMapping.getOrElse(name, Seq.empty[StorageObject])
 
