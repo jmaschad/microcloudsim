@@ -9,7 +9,7 @@ import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Replicate
 
-private[distributor] class RandomRequestDistributor extends RequestDistributor {
+private[distributor] class RandomCloudSelector extends CloudSelector {
     private var objectMapping = Map.empty[StorageObject, Set[Int]]
     private var onlineClouds = Set.empty[Int]
 

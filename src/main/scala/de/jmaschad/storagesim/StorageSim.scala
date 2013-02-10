@@ -12,7 +12,7 @@ import com.twitter.util.Eval
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.distributor.RequestDistributor
+import de.jmaschad.storagesim.model.distributor.CloudSelector
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.processing.StorageDevice
@@ -40,7 +40,7 @@ object StorageSim {
 
         replicaCount = config.replicaCount
 
-        val distributor = RequestDistributor.randomRequestDistributor
+        val distributor = CloudSelector.randomRequestDistributor
 
         log("create disposer")
         val disposer = createDisposer(distributor)
@@ -66,7 +66,7 @@ object StorageSim {
         CloudSim.startSimulation();
     }
 
-    private def createDisposer(distributor: RequestDistributor): Distributor = new Distributor("dp", distributor)
+    private def createDisposer(distributor: CloudSelector): Distributor = new Distributor("dp", distributor)
 
     private def createUsers(userCount: Int, disposer: Distributor): Seq[User] =
         for (i <- 1 to userCount) yield {

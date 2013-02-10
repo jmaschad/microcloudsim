@@ -7,7 +7,7 @@ import java.util.Objects
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Replicate
 
-private[distributor] final class ReplicationTracker(private val log: String => Unit) {
+class ReplicationController(selector: CloudSelector) {
     var activeReplications = Set.empty[Replicate]
 
     def trackedReplicationRequests(descriptors: Set[Replicate]): Set[Replicate] = {
