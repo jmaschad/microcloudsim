@@ -1,5 +1,6 @@
 package de.jmaschad.storagesim.model.distributor
 
+import scala.collection.mutable
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType
@@ -8,13 +9,11 @@ import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Replicate
 
-private[distributor] class RandomRequestDistributor(bucketObjectMap: Map[String, Set[StorageObject]]) extends RequestDistributor {
-    private var cloudObjectMap = Map.empty[Int, Set[StorageObject]]
+private[distributor] class RandomRequestDistributor extends RequestDistributor {
     private var objectMapping = Map.empty[StorageObject, Set[Int]]
     private var onlineClouds = Set.empty[Int]
 
-    override def statusUpdate(onlineMicroClouds: Map[Int, Status]) = {
-        cloudObjectMap = onlineMicroClouds.map(c => c._1 -> c._2.objects)
+    override def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) = {
         objectMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.objects.map(obj => obj -> m._1)).
             groupBy(_._1).mapValues(_.map(_._2).toSet)
         onlineClouds = onlineMicroClouds.keys.toSet
@@ -31,30 +30,18 @@ private[distributor] class RandomRequestDistributor(bucketObjectMap: Map[String,
     }
 
     override def replicationRequests(): Set[Replicate] = {
-        // replace missing objects
-        val cloudRepair = cloudRepairRequests()
-        // replicate all objects of died clouds
-        val cloudReplace = cloudReplaceRequests()
+        val replicationNeeded = objectMapping.filter(_._2.size < StorageSim.replicaCount)
 
-        cloudRepair ++ cloudReplace
-    }
+        replicationNeeded.flatMap(m => {
+            val source = m._2.size match {
+                case 1 => m._2.head
+                case n => m._2.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
+            }
+            val obj = m._1
+            val count = StorageSim.replicaCount - m._2.size
+            val targets = replicationTargets(obj, count)
 
-    /*
-     * Clouds should store complete copies of buckets. So we check
-     * for each bucket the cloud has at least one object of, if there
-     * are missing objects. 
-     */
-    private def cloudRepairRequests(): Set[Replicate] = {
-        cloudObjectMap.flatMap(co => {
-            val cloud = co._1
-            val cloudBucketObjectMap = co._2.groupBy(_.bucket)
-            val missingObjects = cloudBucketObjectMap.flatMap(bo => bucketObjectMap(bo._1) diff bo._2)
-            missingObjects.map(obj => selectForLoad(obj) match {
-                case Some(source) =>
-                    Replicate(source, cloud, obj)
-                case None =>
-                    throw new IllegalStateException
-            })
+            targets.map(t => Replicate(source, t, obj))
         }).toSet
     }
 
@@ -67,7 +54,7 @@ private[distributor] class RandomRequestDistributor(bucketObjectMap: Map[String,
             case 1 => possibleTargets.toSet
             case n =>
                 val dist = new UniformIntegerDistribution(0, n - 1)
-                val uniqueSample = scala.collection.mutable.Set.empty[Int]
+                val uniqueSample = mutable.Set.empty[Int]
                 while (uniqueSample.size < count) {
                     uniqueSample += dist.sample()
                 }
