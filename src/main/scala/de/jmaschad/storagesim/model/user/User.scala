@@ -29,7 +29,9 @@ private[user] class RequestLog(log: String => Unit) {
 
         val start = request.time
         val end = CloudSim.clock()
-        val avgBw = request.storageObject.size / (end - start)
+        val duration = end - start
+        val avgBw = if (duration <= 0) 0.0 else request.storageObject.size / duration
+
         requestLog += new LogEntry(summary, start, end, avgBw)
     }
 
@@ -112,7 +114,6 @@ class User(
     private def getRequestAndScheduleBehavior(event: SimEvent): Request = {
         val behav = getBehavior(event)
         val delay = behav.timeToNextEvent().max(0.001)
-        println("delay to next behavior " + delay)
         send(getId, delay, ScheduleRequest, behav)
         behav.nextRequest
     }

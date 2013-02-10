@@ -16,6 +16,9 @@ class Uploader(
     private var uploads = Map.empty[String, Transfer]
     var partnerFinished = Map.empty[String, Int]
 
+    var partnerTimedOut = Set.empty[String]
+    var isProcessing = Set.empty[String]
+
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding upload " + transferId)
         uploads += transferId -> new Transfer(target, Transfer.packetSize(size), Transfer.packetCount(size), processing, onFinish)
@@ -30,8 +33,15 @@ class Uploader(
 
         case TimeoutUpload(transferId) =>
             log("Time out upload " + transferId + " " + TransferProbe.finish(transferId))
-            uploads(transferId).onFinish(false)
-            uploads -= transferId
+            // uploader is still processing and did not call ifPartnerFinishedUploadNextPacket
+            if (isProcessing.contains(transferId)) {
+                partnerTimedOut += transferId
+            } // uploader finished processing and is currently waiting
+            else {
+                uploads(transferId).onFinish(false)
+                uploads -= transferId
+                partnerFinished -= transferId
+            }
 
         case _ => throw new IllegalStateException("request error")
     }
@@ -43,9 +53,20 @@ class Uploader(
         // don't call the downloads onFinish, we were killed!
         uploads = Map.empty[String, Transfer]
         partnerFinished = Map.empty[String, Int]
+        isProcessing = Set.empty[String]
+        partnerTimedOut = Set.empty[String]
     }
 
     private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {
+        // partner timed out
+        if (partnerTimedOut.contains(transferId)) {
+            uploads(transferId).onFinish(false)
+
+            uploads -= transferId
+            partnerFinished -= transferId
+            partnerTimedOut -= transferId
+        }
+
         // packet was send and acked
         if (partnerFinished.getOrElse(transferId, -1) == packetNumber) {
             val tracker = uploads(transferId)
@@ -71,7 +92,9 @@ class Uploader(
         val upload = uploads(transferId)
         send(upload.partner, delay, Downloader.Download, Packet(transferId, upload.packetNumber, upload.packetSize))
 
+        isProcessing += transferId
         upload.process(upload.packetSize, () => {
+            isProcessing -= transferId
             ifPartnerFinishedUploadNextPacket(transferId, upload.packetNumber)
         })
     }

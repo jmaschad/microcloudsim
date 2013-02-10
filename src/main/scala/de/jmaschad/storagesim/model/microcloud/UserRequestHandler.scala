@@ -52,7 +52,7 @@ private[microcloud] class UserRequestHandler(
                     })
 
             case None =>
-                sendNow(request.user.getId, User.RequestFailed, new FailedRequest(request, RequestState.CloudError))
+                sendNow(request.user.getId, User.RequestFailed, new FailedRequest(request, RequestState.CloudStorageError))
         }
     }
 }

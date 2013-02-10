@@ -63,7 +63,7 @@ trait StorageSimConfig {
     var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
 
     var userCount: Int = 100
-    var bucketCountDistribution: IntegerDistributionConfiguration = PoissonDist(20)
+    var bucketCountDistribution: IntegerDistributionConfiguration = PoissonDist(3)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
 

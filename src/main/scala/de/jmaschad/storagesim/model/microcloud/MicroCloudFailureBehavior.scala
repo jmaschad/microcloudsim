@@ -3,10 +3,10 @@ package de.jmaschad.storagesim.model.microcloud
 import org.apache.commons.math3.distribution.RealDistribution
 
 class MicroCloudFailureBehavior(
-    cloudFailureDistribution: RealDistribution,
-    cloudRepairTimeDistribution: RealDistribution,
-    diskFailureDistribution: RealDistribution,
-    diskRepairTimeDistribution: RealDistribution) {
+    val cloudFailureDistribution: RealDistribution,
+    val cloudRepairTimeDistribution: RealDistribution,
+    val diskFailureDistribution: RealDistribution,
+    val diskRepairTimeDistribution: RealDistribution) {
 
     def timeToCloudFailure: Double = cloudFailureDistribution.sample().max(0.0)
 

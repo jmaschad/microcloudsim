@@ -39,7 +39,7 @@ object RequestState extends Enumeration {
     val TimeOut = Value("timed out")
     val NotFound = Value("not found")
     val UnsufficientSpace = Value("unsufficient space")
-    val CloudError = Value("cloud error")
+    val CloudStorageError = Value("cloud storage error")
 }
 import RequestState._
 

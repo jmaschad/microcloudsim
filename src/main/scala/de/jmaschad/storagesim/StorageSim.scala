@@ -75,17 +75,21 @@ object StorageSim {
             new User("u" + i, resources, Seq.empty[StorageObject], disposer)
         }
 
-    private def createObjects(bucketCountDist: IntegerDistribution, objectCountDist: IntegerDistribution, sizeDist: RealDistribution, users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
+    private def createObjects(bucketCountDist: IntegerDistribution,
+        objectCountDist: IntegerDistribution,
+        sizeDist: RealDistribution,
+        users: Seq[User]): Map[User, IndexedSeq[StorageObject]] =
+
         users.map(user => {
-            val objectCount = objectCountDist.sample().max(1)
             val bucketCount = bucketCountDist.sample().max(1)
+            val objects = (1 to bucketCount).flatMap(bucketIndex => {
+                val bucket = "bucket-" + user.getName + "-" + bucketIndex
+                val objectCount = objectCountDist.sample().max(1)
 
-            def createObject(idx: Int) = new StorageObject(
-                "obj" + idx,
-                "bucket-" + user.getName + "-" + Random.nextInt(bucketCount),
-                sizeDist.sample().max(1 * Units.Byte))
-
-            user -> (1 to objectCount).map(createObject).toIndexedSeq
+                (1 to objectCount).map(i => new StorageObject("obj" + i, bucket,
+                    sizeDist.sample().max(1 * Units.Byte))).toIndexedSeq
+            })
+            user -> objects
         }).toMap
 
     private def addBehavior(user: User, objects: IndexedSeq[StorageObject], behaviorConfigs: Seq[BehaviorConfig]) =

@@ -4,7 +4,6 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import org.cloudbus.cloudsim.core.predicates.PredicateType
-
 import MicroCloud._
 import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.ProcessingEntity
@@ -14,6 +13,7 @@ import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.Downloader
+import org.apache.commons.math3.distribution.UniformRealDistribution
 
 object MicroCloud {
     private val Base = 10200
@@ -36,6 +36,7 @@ class MicroCloud(
     private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
     private val interCloudRequests = new InterCloudHandler(log _, sendNow _, this, distributor, storageSystem, uploader, downloader, processing)
     private var state: MicroCloudState = new OfflineState
+    private var firstKill = true
 
     def scheduleProcessingUpdate(delay: Double) = {
         CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
@@ -64,6 +65,17 @@ class MicroCloud(
         state = newState
     }
 
+    private def scheduleKill() = if (firstKill) {
+        // additionally delay the first kill for a fraction of the MTTF. Otherwise MicroClouds
+        // might initially die very soon after another. 
+        firstKill = false
+        val meanTimeToFailure = failureBehavior.cloudFailureDistribution.getNumericalMean()
+        val firstKillAdditionalDelay = new UniformRealDistribution(0.0, meanTimeToFailure).sample
+        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, Kill)
+    } else {
+        send(getId, failureBehavior.timeToCloudFailure, Kill)
+    }
+
     private trait MicroCloudState {
         def process(event: SimEvent): Boolean
 
@@ -75,12 +87,13 @@ class MicroCloud(
             case MicroCloud.Boot =>
                 stateLog("received boot request")
                 sendNow(getId, MicroCloud.MicroCloudStatus)
-                send(getId, failureBehavior.timeToCloudFailure, Kill)
+                scheduleKill()
                 switchState(new OnlineState)
                 true
 
             case _ => false
         }
+
     }
 
     private class OnlineState extends MicroCloudState {
