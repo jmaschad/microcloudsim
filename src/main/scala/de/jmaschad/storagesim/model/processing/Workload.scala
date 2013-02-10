@@ -11,13 +11,11 @@ trait Workload {
 private[processing] abstract class NetworkTransfer(size: Double, totalBandwidth: Double) extends Workload {
     override def expectedCompletion: Double = size / bandwidth
     override def isDone = size < 1 * Units.Byte
-    override def process(timeSpan: Double) =
-        Upload(size - progress(timeSpan), totalBandwidth)
 
+    protected def progress(timeSpan: Double) = timeSpan * bandwidth
     protected def activeTransfers: Int
 
     private def bandwidth = totalBandwidth / activeTransfers
-    private def progress(timeSpan: Double) = timeSpan * bandwidth
 }
 
 object Upload {
@@ -35,7 +33,7 @@ private[processing] class Upload(size: Double, totalBandwidth: Double)
 
     override def process(timeSpan: Double) = {
         Upload.activeUploads -= this
-        super.process(timeSpan)
+        Upload(size - progress(timeSpan), totalBandwidth)
     }
 }
 
@@ -52,7 +50,7 @@ private[processing] class Download(size: Double, totalBandwidth: Double)
 
     override def process(timeSpan: Double) = {
         Download.activeDownloads -= this
-        super.process(timeSpan)
+        Download(size - progress(timeSpan), totalBandwidth)
     }
 
     override protected def activeTransfers = Download.activeDownloads.size

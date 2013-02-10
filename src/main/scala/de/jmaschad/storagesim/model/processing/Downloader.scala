@@ -25,7 +25,7 @@ class Downloader(
 
     def process(source: Int, request: Object) = request match {
         case Packet(transferId, nr, size) =>
-            log("packet for transfer " + transferId + " from " + CloudSim.getEntityName(source))
+            //            log("packet for transfer " + transferId + " from " + CloudSim.getEntityName(source))
             packetReceived(transferId, nr, size)
 
         case FinishDownload(transferId) =>
