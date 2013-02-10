@@ -23,8 +23,8 @@ private[distributor] class RandomCloudSelector extends CloudSelector {
         case 0 => None
         case _ =>
             request.requestType match {
-                case RequestType.Get => selectForLoad(request.storageObject)
-                case RequestType.Put => selectForStore(request.storageObject)
+                case RequestType.Get => selectForGet(request.storageObject)
+                case RequestType.Put => selectForPost(Set(request.storageObject))
                 case _ => throw new IllegalStateException
             }
     }
@@ -64,7 +64,7 @@ private[distributor] class RandomCloudSelector extends CloudSelector {
 
     }
 
-    private def selectForLoad(storageObject: StorageObject): Option[Int] = {
+    def selectForGet(storageObject: StorageObject): Option[Int] = {
         val clouds = objectMapping.getOrElse(storageObject, Iterable()).toSeq
         clouds.size match {
             case 0 => None
@@ -73,23 +73,27 @@ private[distributor] class RandomCloudSelector extends CloudSelector {
         }
     }
 
-    private def selectForStore(storageObject: StorageObject): Option[Int] = {
-        val bucket = storageObject.bucket
+    def selectForPost(storageObjects: Set[StorageObject]): Option[Int] = {
+        val bucket = storageObjects.groupBy(_.bucket).keySet match {
+            case buckets if buckets.size == 1 => buckets.head
+            case _ => throw new IllegalStateException
+        }
+
         val clouds = objectMapping.filter(_._1.bucket == bucket).values.flatten.toSet
         clouds.size match {
             case 0 =>
                 val cloud: Int = onlineClouds.size match {
                     case 1 => onlineClouds.head
-                    case n => onlineClouds.toSeq(new UniformIntegerDistribution(0, n - 1).sample())
+                    case n => onlineClouds.toSeq((new UniformIntegerDistribution(0, n - 1)).sample())
                 }
-                objectMapping += storageObject -> Set(cloud)
+                objectMapping ++= storageObjects.map(_ -> Set(cloud))
                 Some(cloud)
 
             case 1 =>
                 Some(clouds.head)
 
             case n =>
-                Some(clouds.toIndexedSeq(new UniformIntegerDistribution(0, n - 1).sample()))
+                Some(clouds.toIndexedSeq((new UniformIntegerDistribution(0, n - 1)).sample()))
         }
     }
 }

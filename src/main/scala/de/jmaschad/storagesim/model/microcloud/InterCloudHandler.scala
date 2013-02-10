@@ -72,22 +72,26 @@ private[microcloud] class InterCloudHandler(
                     sendNow(target, MicroCloud.InterCloudRequest, StoreReplica(obj, transferId))
                     uploader.start(transferId, obj.size, target,
                         processing.loadAndUpload(_, transaction, _),
-                        success => if (success) transaction.complete else transaction.abort)
+                        success => if (success) {
+                            transaction.complete
+                        } else {
+                            transaction.abort
+                            sendNow(distributor.getId(), Distributor.ReplicationTargetFailed, target: java.lang.Integer)
+                        })
                     pendingLoadTransactions += transferId -> transaction
                 case None =>
-                    sendNow(distributor.getId, Distributor.ReplicationFailed, req)
+                    throw new IllegalStateException
             }
 
         case StoreAccepted(store) =>
             log(CloudSim.getEntity(eventSource) + " accepted store replica for " + store.storageObject)
             pendingLoadTransactions -= store.transferId
 
-        case StoreDenied(store) =>
+        case req @ StoreDenied(store) =>
             log(CloudSim.getEntityName(eventSource) + " denied store replica for " + store.storageObject)
             pendingLoadTransactions(store.transferId).abort
             pendingLoadTransactions -= store.transferId
-
-            sendNow(distributor.getId, Distributor.ReplicationFailed, new Replicate(microCloud.getId, eventSource, store.storageObject))
+            sendNow(distributor.getId(), Distributor.ReplicationTargetFailed, eventSource: java.lang.Integer)
 
         case request @ StoreReplica(obj, transferId) =>
             log("received request to store replica for " + obj)
@@ -98,7 +102,13 @@ private[microcloud] class InterCloudHandler(
                     // start download
                     downloader.start(transferId, obj.size, eventSource,
                         processing.downloadAndStore(_, transaction, _),
-                        success => if (success) transaction.complete else transaction.abort)
+                        success => if (success) {
+                            transaction.complete
+                        } else {
+                            transaction.abort
+                            sendNow(distributor.getId(), Distributor.ReplicationSourceFailed, eventSource: java.lang.Integer)
+                        })
+
                 case None =>
                     sendNow(eventSource, MicroCloud.InterCloudRequest, StoreDenied(request))
             }

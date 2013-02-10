@@ -22,13 +22,14 @@ object Distributor {
     val UpdateCloudModel = MicroCloudTimeout + 1
     val UserRequest = UpdateCloudModel + 1
     val ReplicationFinished = UserRequest + 1
-    val ReplicationFailed = ReplicationFinished + 1
+    val ReplicationSourceFailed = ReplicationFinished + 1
+    val ReplicationTargetFailed = ReplicationSourceFailed + 1
 }
 import Distributor._
 
 class Distributor(name: String, selector: CloudSelector) extends SimEntity(name) {
     private var onlineClouds = Map.empty[Int, Status]
-    private val replicationTracker = new ReplicationController(selector)
+    private val replicationTracker = new ReplicationController(sendNow _, selector)
 
     override def startEntity(): Unit = {
         // wait for the first status updates
@@ -54,7 +55,6 @@ class Distributor(name: String, selector: CloudSelector) extends SimEntity(name)
 
         case UpdateCloudModel =>
             selector.statusUpdate(onlineClouds)
-            sendReplicationRequests()
             send(getId(), StatusInterval, UpdateCloudModel)
 
         case ReplicationFinished =>
@@ -62,10 +62,19 @@ class Distributor(name: String, selector: CloudSelector) extends SimEntity(name)
             replicationTracker.requestFinished(request)
             log(request + " finished.")
 
-        case ReplicationFailed =>
-            val request = Replicate.fromEvent(event)
-            replicationTracker.requestFailed(request)
-            log(request + " failed.")
+        case ReplicationSourceFailed =>
+            val source = event.getData() match {
+                case t: java.lang.Integer => t
+                case _ => throw new IllegalStateException
+            }
+            replicationTracker.requestSourceFailed(source)
+
+        case ReplicationTargetFailed =>
+            val target = event.getData() match {
+                case t: java.lang.Integer => t
+                case _ => throw new IllegalStateException
+            }
+            replicationTracker.requestTargetFailed(target)
 
         case UserRequest =>
             val request = Request.fromEvent(event)
@@ -86,17 +95,10 @@ class Distributor(name: String, selector: CloudSelector) extends SimEntity(name)
 
     private def removeCloud(cloud: Int) = {
         assert(onlineClouds.contains(cloud))
+        val objects = onlineClouds(cloud).objects
         onlineClouds -= cloud
         selector.statusUpdate(onlineClouds)
-        replicationTracker.cloudWentOflline(cloud)
-        sendReplicationRequests()
-    }
-
-    private def sendReplicationRequests() = {
-        val requests = replicationTracker.trackedReplicationRequests(selector.replicationRequests)
-        requests.foreach(req => {
-            sendNow(req.source, MicroCloud.InterCloudRequest, req)
-        })
+        replicationTracker.repairOffline(objects)
     }
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
