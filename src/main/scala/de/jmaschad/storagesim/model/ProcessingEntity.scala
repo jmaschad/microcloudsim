@@ -14,7 +14,7 @@ abstract class ProcessingEntity(
     name: String,
     resources: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject]) extends SimEntity(name) {
-    protected val storageSystem = new StorageSystem(resources.storageDevices, initialObjects)
+    protected val storageSystem = new StorageSystem(log _, resources.storageDevices, initialObjects)
     protected val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
 
     protected val downloader = new Downloader(send _, log _, getId)

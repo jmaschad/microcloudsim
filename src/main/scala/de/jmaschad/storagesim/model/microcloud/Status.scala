@@ -13,5 +13,5 @@ object Status {
 }
 
 class Status(val objects: Set[StorageObject]) {
-    override def toString = objects.size + " ovjects"
+    override def toString = objects.size + " objects"
 }

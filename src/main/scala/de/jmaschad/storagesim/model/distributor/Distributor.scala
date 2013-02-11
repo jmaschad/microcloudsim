@@ -91,7 +91,7 @@ class Distributor(name: String, selector: CloudSelector) extends SimEntity(name)
         case _ => log("[online] dropped event " + event)
     }
 
-    private def log(msg: String) = Log.line("Disposer '%s'".format(getName), msg: String)
+    private def log(msg: String) = Log.line("Distributor '%s'".format(getName), msg: String)
 
     private def removeCloud(cloud: Int) = {
         assert(onlineClouds.contains(cloud))
