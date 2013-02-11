@@ -13,7 +13,6 @@ object CloudSelector {
 trait CloudSelector {
     def statusUpdate(onlineMicroClouds: collection.Map[Int, Status])
     def selectMicroCloud(request: Request): Option[Int]
-    def replicationRequests: Set[Replicate]
     def selectForPost(storageObjects: Set[StorageObject]): Option[Int]
     def selectForGet(storageObject: StorageObject): Option[Int]
 }

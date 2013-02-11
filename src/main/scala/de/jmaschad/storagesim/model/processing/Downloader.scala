@@ -13,12 +13,16 @@ import Downloader._
 
 class Downloader(
     send: (Int, Double, Int, Object) => Unit,
-    log: String => Unit) {
+    log: String => Unit,
+    entityId: Int) {
 
     var downloads = Map.empty[String, Transfer]
 
     def start(transferId: String, size: Double, source: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding download " + transferId)
+        if (source == entityId) {
+            println
+        }
         downloads += transferId -> new Transfer(source, Transfer.packetSize(size), Transfer.packetCount(size), process, onFinish)
         TransferProbe.add(transferId, size)
     }

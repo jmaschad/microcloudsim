@@ -11,7 +11,8 @@ object Uploader {
 
 class Uploader(
     send: (Int, Double, Int, Object) => Unit,
-    log: String => Unit) {
+    log: String => Unit,
+    entityId: Int) {
 
     private var uploads = Map.empty[String, Transfer]
     var partnerFinished = Map.empty[String, Int]
@@ -21,6 +22,9 @@ class Uploader(
 
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding upload " + transferId)
+        if (target == entityId) {
+            println
+        }
         uploads += transferId -> new Transfer(target, Transfer.packetSize(size), Transfer.packetCount(size), processing, onFinish)
         TransferProbe.add(transferId, size)
         // introduce a small delay, this allows the uploader to send some message before the transfer starts

@@ -17,8 +17,8 @@ abstract class ProcessingEntity(
     protected val storageSystem = new StorageSystem(resources.storageDevices, initialObjects)
     protected val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
 
-    protected val downloader = new Downloader(send _, log _)
-    protected val uploader = new Uploader(send _, log _)
+    protected val downloader = new Downloader(send _, log _, getId)
+    protected val uploader = new Uploader(send _, log _, getId)
 
     def startEntity(): Unit = {}
 

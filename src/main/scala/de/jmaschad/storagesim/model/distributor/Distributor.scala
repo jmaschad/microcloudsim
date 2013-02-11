@@ -29,7 +29,7 @@ import Distributor._
 
 class Distributor(name: String, selector: CloudSelector) extends SimEntity(name) {
     private var onlineClouds = Map.empty[Int, Status]
-    private val replicationTracker = new ReplicationController(sendNow _, selector)
+    private val replicationTracker = new ReplicationController(log _, sendNow _, selector)
 
     override def startEntity(): Unit = {
         // wait for the first status updates
