@@ -27,9 +27,10 @@ object Distributor {
 }
 import Distributor._
 
-class Distributor(name: String, selector: CloudSelector) extends SimEntity(name) {
+class Distributor(name: String) extends SimEntity(name) {
     private var onlineClouds = Map.empty[Int, Status]
     private val replicationTracker = new ReplicationController(log _, sendNow _, selector)
+    private val selector = new RandomCloudSelector(log _, sendNow _)
 
     override def startEntity(): Unit = {
         // wait for the first status updates
@@ -95,10 +96,8 @@ class Distributor(name: String, selector: CloudSelector) extends SimEntity(name)
 
     private def removeCloud(cloud: Int) = {
         assert(onlineClouds.contains(cloud))
-        val objects = onlineClouds(cloud).objects
         onlineClouds -= cloud
-        selector.statusUpdate(onlineClouds)
-        replicationTracker.repairOffline(objects)
+        selector.repairOfflineCloud(cloud)
     }
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())

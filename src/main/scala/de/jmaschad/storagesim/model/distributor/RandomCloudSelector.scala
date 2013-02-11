@@ -9,14 +9,18 @@ import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Replicate
 
-private[distributor] class RandomCloudSelector extends CloudSelector {
-    private var objectMapping = Map.empty[StorageObject, Set[Int]]
-    private var onlineClouds = Set.empty[Int]
+private[distributor] class RandomCloudSelector(
+    log: String => Unit,
+    sendNow: (Int, Int, Object) => Unit) extends CloudSelector {
 
-    override def statusUpdate(onlineMicroClouds: collection.Map[Int, Status]) = {
+    private var objectMapping = Map.empty[StorageObject, Set[Int]]
+    private var onlineClouds = Map.empty[Int, Status]
+    private val replicationTracker = new ReplicationController(log, sendNow, this)
+
+    override def statusUpdate(onlineMicroClouds: Map[Int, Status]) = {
         objectMapping = onlineMicroClouds.toSeq.flatMap(m => m._2.objects.map(obj => obj -> m._1)).
             groupBy(_._1).mapValues(_.map(_._2).toSet)
-        onlineClouds = onlineMicroClouds.keys.toSet
+        onlineClouds = onlineMicroClouds
     }
 
     override def selectMicroCloud(request: Request): Option[Int] = onlineClouds.size match {
@@ -29,7 +33,11 @@ private[distributor] class RandomCloudSelector extends CloudSelector {
             }
     }
 
-    def selectForGet(storageObject: StorageObject): Option[Int] = {
+    override def repairOfflineCloud(cloud: Int) = {
+        replicationTracker.repairOffline(onlineClouds(cloud).objects)
+    }
+
+    override def selectForGet(storageObject: StorageObject): Option[Int] = {
         val clouds = objectMapping.getOrElse(storageObject, Iterable()).toSeq
         clouds.size match {
             case 0 => None
@@ -38,14 +46,14 @@ private[distributor] class RandomCloudSelector extends CloudSelector {
         }
     }
 
-    def selectForPost(storageObjects: Set[StorageObject]): Option[Int] = {
+    override def selectForPost(storageObjects: Set[StorageObject]): Option[Int] = {
         val bucket = storageObjects.groupBy(_.bucket).keySet match {
             case buckets if buckets.size == 1 => buckets.head
             case _ => throw new IllegalStateException
         }
 
         val storingClouds = storageObjects.flatMap(objectMapping.get(_)).flatten
-        val potentialClouds = onlineClouds -- storingClouds
+        val potentialClouds = onlineClouds.keySet -- storingClouds
 
         potentialClouds.size match {
             case 1 => Some(potentialClouds.head)

@@ -40,10 +40,8 @@ object StorageSim {
 
         replicaCount = config.replicaCount
 
-        val distributor = CloudSelector.randomRequestDistributor
-
         log("create disposer")
-        val disposer = createDisposer(distributor)
+        val disposer = createDisposer()
 
         log("create users")
         val users = createUsers(config.userCount, disposer)
@@ -66,7 +64,7 @@ object StorageSim {
         CloudSim.startSimulation();
     }
 
-    private def createDisposer(distributor: CloudSelector): Distributor = new Distributor("dp", distributor)
+    private def createDisposer(): Distributor = new Distributor("dp")
 
     private def createUsers(userCount: Int, disposer: Distributor): Seq[User] =
         for (i <- 1 to userCount) yield {
