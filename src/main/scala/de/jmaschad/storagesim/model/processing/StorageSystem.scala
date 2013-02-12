@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.processing
 
 import scala.collection.mutable
-import de.jmaschad.storagesim.model.distributor.RandomCloudSelector
+import de.jmaschad.storagesim.model.distributor.RandomBucketBasedSelector
 
 trait StorageTransaction {
     def complete(): Unit
@@ -52,21 +52,20 @@ class LoadTransaction(val storageObject: StorageObject, device: StorageDevice, s
 
 class StorageSystem(
     log: String => Unit,
-    storageDevices: Seq[StorageDevice],
-    initialObjects: Iterable[StorageObject]) {
+    storageDevices: Seq[StorageDevice]) {
     private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
     private var lastDeviceIdx = 0
     private[processing] var activeStore = Map.empty[StorageObject, StoreTransaction]
 
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
-    initialObjects.foreach(obj =>
+
+    def initialize(objects: Set[StorageObject]) = objects.foreach(obj =>
         deviceForObject(obj) match {
             case Some(dev) =>
                 deviceMap += (obj -> dev)
                 store(obj, dev)
             case None => throw new IllegalStateException
         })
-
     def reset() = activeStore.mapValues(_.abort)
 
     def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet.filter(contains(_))
@@ -79,9 +78,7 @@ class StorageSystem(
 
     def loadTransaction(storeageObject: StorageObject): Option[LoadTransaction] = contains(storeageObject) match {
         case true => Some(new LoadTransaction(storeageObject, deviceMap(storeageObject), this))
-        case false =>
-            log("Could not create load transaction for " + storeageObject)
-            None
+        case false => None
     }
 
     def storeTransaction(storageObject: StorageObject): Option[StoreTransaction] =

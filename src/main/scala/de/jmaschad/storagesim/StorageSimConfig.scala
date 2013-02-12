@@ -51,6 +51,8 @@ class BehaviorConfig(
     val objectSelectionModel: ObjectSelectionModel)
 
 trait StorageSimConfig {
+    val SystemBootDelay = 1.0
+
     var simDuration: Double = 300.0
     var replicaCount: Int = 3
 

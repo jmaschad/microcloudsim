@@ -13,6 +13,8 @@ import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.Download
 import RequestState._
+import User._
+import de.jmaschad.storagesim.StorageSim
 
 private[user] class RequestLog(log: String => Unit) {
     private class LogEntry(val state: RequestState, val start: Double, val end: Double, val averageBandwidth: Double)
@@ -36,11 +38,11 @@ private[user] class RequestLog(log: String => Unit) {
     }
 
     def summary(): String = {
-        val avgBw = requestLog.foldLeft(0.0)((sum, entry) => sum + entry.averageBandwidth) / requestLog.size
+        val avgBw = requestLog.foldLeft(0.0)((sum, entry) => sum + entry.averageBandwidth) / requestLog.count(_.averageBandwidth > 0.0)
         val bySummary = requestLog.groupBy(_.state)
 
         requestLog.size + " finished / " + openRequests.size + " active requests.\n" +
-            "\taverage bandwidth " + (avgBw / 1024 * 8).formatted("%.2f") + "kbit/s\n" +
+            "\taverage bandwidth " + (avgBw * 8).formatted("%.2f") + "Mbit/s\n" +
             "\t" + bySummary.keys.map(key => bySummary(key).size + " " + key).mkString(", ")
     }
 }
@@ -53,13 +55,12 @@ object User {
     val RequestAccepted = RequestFailed + 1
     val ScheduleRequest = RequestAccepted + 1
 }
-import User._
 
 class User(
     name: String,
     resources: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
-    disposer: Distributor) extends ProcessingEntity(name, resources, initialObjects) {
+    disposer: Distributor) extends ProcessingEntity(name, resources) {
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val requestLog = new RequestLog(log)
 
@@ -75,8 +76,8 @@ class User(
     override def log(msg: String) = Log.line("User '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
-        // wait two tenth of a second for the system to start up
-        behaviors.foreach(b => send(getId, 0.2 + b.timeToNextEvent, ScheduleRequest, b))
+        // wait for the system to boot before sending requests
+        behaviors.foreach(b => send(getId, StorageSim.configuration.SystemBootDelay + b.timeToNextEvent, ScheduleRequest, b))
     }
 
     override def shutdownEntity() = log(requestLog.summary())

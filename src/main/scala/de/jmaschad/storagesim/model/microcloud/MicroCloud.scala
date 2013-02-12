@@ -18,7 +18,8 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 object MicroCloud {
     private val Base = 10200
 
-    val Boot = Base + 1
+    val Initialize = Base + 1
+    val Boot = Initialize + 1
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
     val MicroCloudStatus = Kill + 1
@@ -29,21 +30,20 @@ object MicroCloud {
 class MicroCloud(
     name: String,
     resourceCharacteristics: ResourceCharacteristics,
-    initialObjects: Iterable[StorageObject],
     failureBehavior: MicroCloudFailureBehavior,
-    distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics, initialObjects) {
+    distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics) {
 
     private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
     private val interCloudRequests = new InterCloudHandler(log _, sendNow _, this, distributor, storageSystem, uploader, downloader, processing)
     private var state: MicroCloudState = new OfflineState
+
     private var firstKill = true
+    private var initialized = false
 
     def scheduleProcessingUpdate(delay: Double) = {
         CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
         send(getId(), delay, ProcessingModel.ProcUpdate)
     }
-
-    def status = Status(storageSystem.objects)
 
     override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 
@@ -86,6 +86,7 @@ class MicroCloud(
         def process(event: SimEvent): Boolean = event.getTag match {
             case MicroCloud.Boot =>
                 stateLog("received boot request")
+                sendNow(distributor.getId(), Distributor.MicroCloudOnline, CloudStatus(storageSystem.objects))
                 sendNow(getId, MicroCloud.MicroCloudStatus)
                 scheduleKill()
                 switchState(new OnlineState)
@@ -100,21 +101,33 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Boolean = event.getTag() match {
+            case Initialize =>
+                assert(!initialized)
+                val objects = event.getData() match {
+                    case os: Set[StorageObject] => os
+                    case _ => throw new IllegalStateException
+                }
+                storageSystem.initialize(objects)
+                objects.foreach(obj =>
+                    sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, AddedObject(obj)))
+                initialized = true
+                true
+
             case MicroCloudStatus =>
-                sendNow(distributor.getId(), Distributor.MicroCloudStatus, status)
+                sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, CloudStatus(storageSystem.objects))
                 send(getId(), Distributor.StatusInterval, MicroCloudStatus)
                 true
 
             case Shutdown =>
                 stateLog("received shutdown request")
-                sendNow(distributor.getId(), Distributor.MicroCloudShutdown)
+                sendNow(distributor.getId(), Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
                 true
 
             case Kill =>
                 stateLog("received kill request")
                 resetModel
-                sendNow(distributor.getId, Distributor.MicroCloudTimeout)
+                sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 send(getId, failureBehavior.timeToCloudRepair, Boot)
                 switchState(new OfflineState)
                 true

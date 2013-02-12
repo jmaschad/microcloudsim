@@ -8,13 +8,13 @@ object RequestType extends Enumeration {
     type RequestType = Value
 
     val Get = Value("GET")
-    val Put = Value("PUT")
+    val Post = Value("POST")
 }
 import RequestType._
 
 object Request {
     def get(user: User, storageObject: StorageObject, transferId: String): Request = new Request(user, Get, storageObject, transferId)
-    def put(user: User, storageObject: StorageObject, transferId: String): Request = new Request(user, Put, storageObject, transferId)
+    def put(user: User, storageObject: StorageObject, transferId: String): Request = new Request(user, Post, storageObject, transferId)
 
     def fromEvent(event: SimEvent): Request = event.getData() match {
         case req: Request => req
@@ -37,8 +37,10 @@ object RequestState extends Enumeration {
 
     val Complete = Value("completed")
     val TimeOut = Value("timed out")
-    val NotFound = Value("not found")
+    val ObjectNotFound = Value("object not found")
+    val ObjectExists = Value("object exists")
     val UnsufficientSpace = Value("unsufficient space")
+    val NoOnlineClouds = Value("no online clouds")
     val CloudStorageError = Value("cloud storage error")
 }
 import RequestState._

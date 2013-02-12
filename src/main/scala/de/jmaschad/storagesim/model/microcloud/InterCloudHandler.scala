@@ -76,7 +76,7 @@ private[microcloud] class InterCloudHandler(
                             transaction.complete
                         } else {
                             transaction.abort
-                            sendNow(distributor.getId(), Distributor.ReplicationTargetFailed, target: java.lang.Integer)
+                            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationTargetFailed(target))
                         })
                     pendingLoadTransactions += transferId -> transaction
                 case None =>
@@ -91,7 +91,7 @@ private[microcloud] class InterCloudHandler(
             log(CloudSim.getEntityName(eventSource) + " denied store replica for " + store.storageObject)
             pendingLoadTransactions(store.transferId).abort
             pendingLoadTransactions -= store.transferId
-            sendNow(distributor.getId(), Distributor.ReplicationTargetFailed, eventSource: java.lang.Integer)
+            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationTargetFailed(eventSource))
 
         case request @ StoreReplica(obj, transferId) =>
             log("received request to store replica for " + obj)
@@ -106,7 +106,7 @@ private[microcloud] class InterCloudHandler(
                             transaction.complete
                         } else {
                             transaction.abort
-                            sendNow(distributor.getId(), Distributor.ReplicationSourceFailed, eventSource: java.lang.Integer)
+                            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationSourceFailed(eventSource))
                         })
 
                 case None =>
