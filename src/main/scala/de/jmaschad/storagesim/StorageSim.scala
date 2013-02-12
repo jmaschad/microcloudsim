@@ -70,7 +70,7 @@ object StorageSim {
     private def createUsers(distributor: Distributor): Seq[User] =
         for (i <- 1 to configuration.userCount) yield {
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
-            val resources = new ResourceCharacteristics(bandwidth = 2 * Units.MByte, storageDevices = Seq(storage))
+            val resources = new ResourceCharacteristics(bandwidth = 12.5 * Units.MByte, storageDevices = Seq(storage))
             new User("u" + i, resources, Seq.empty[StorageObject], distributor)
         }
 

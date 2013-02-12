@@ -14,6 +14,7 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.Downloader
 import org.apache.commons.math3.distribution.UniformRealDistribution
+import de.jmaschad.storagesim.StorageSim
 
 object MicroCloud {
     private val Base = 10200
@@ -38,7 +39,6 @@ class MicroCloud(
     private var state: MicroCloudState = new OfflineState
 
     private var firstKill = true
-    private var initialized = false
 
     def scheduleProcessingUpdate(delay: Double) = {
         CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
@@ -67,11 +67,11 @@ class MicroCloud(
 
     private def scheduleKill() = if (firstKill) {
         // additionally delay the first kill for a fraction of the MTTF. Otherwise MicroClouds
-        // might initially die very soon after another. 
+        // might initially die very soon after another. Also, don't crash during the system boot
         firstKill = false
         val meanTimeToFailure = failureBehavior.cloudFailureDistribution.getNumericalMean()
         val firstKillAdditionalDelay = new UniformRealDistribution(0.0, meanTimeToFailure).sample
-        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, Kill)
+        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay + StorageSim.configuration.SystemBootDelay, Kill)
     } else {
         send(getId, failureBehavior.timeToCloudFailure, Kill)
     }
@@ -102,15 +102,13 @@ class MicroCloud(
 
         def process(event: SimEvent): Boolean = event.getTag() match {
             case Initialize =>
-                assert(!initialized)
-                val objects = event.getData() match {
-                    case os: Set[StorageObject] => os
+                // this method should only work during the system boot
+                assert(CloudSim.clock() < StorageSim.configuration.SystemBootDelay)
+                val obj = event.getData() match {
+                    case o: StorageObject => o
                     case _ => throw new IllegalStateException
                 }
-                storageSystem.initialize(objects)
-                objects.foreach(obj =>
-                    sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, AddedObject(obj)))
-                initialized = true
+                storageSystem.add(obj)
                 true
 
             case MicroCloudStatus =>

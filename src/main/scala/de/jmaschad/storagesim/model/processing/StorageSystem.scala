@@ -59,13 +59,13 @@ class StorageSystem(
 
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
 
-    def initialize(objects: Set[StorageObject]) = objects.foreach(obj =>
-        deviceForObject(obj) match {
+    def add(storageObject: StorageObject) =
+        deviceForObject(storageObject) match {
             case Some(dev) =>
-                deviceMap += (obj -> dev)
-                store(obj, dev)
+                deviceMap += (storageObject -> dev)
+                store(storageObject, dev)
             case None => throw new IllegalStateException
-        })
+        }
     def reset() = activeStore.mapValues(_.abort)
 
     def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet.filter(contains(_))
