@@ -52,8 +52,8 @@ class LoadTransaction(val storageObject: StorageObject, device: StorageDevice, s
 
 class StorageSystem(
     log: String => Unit,
-    storageDevices: Seq[StorageDevice]) {
-    private val deviceMap = mutable.Map.empty[StorageObject, StorageDevice]
+    private var storageDevices: Seq[StorageDevice]) {
+    private var deviceMap = Map.empty[StorageObject, StorageDevice]
     private var lastDeviceIdx = 0
     private[processing] var activeStore = Map.empty[StorageObject, StoreTransaction]
 
@@ -66,7 +66,8 @@ class StorageSystem(
                 store(storageObject, dev)
             case None => throw new IllegalStateException
         }
-    def reset() = activeStore.mapValues(_.abort)
+
+    def reset(): StorageSystem = new StorageSystem(log, storageDevices.map(_.reset()))
 
     def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet.filter(contains(_))
 

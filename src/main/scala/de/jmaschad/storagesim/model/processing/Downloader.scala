@@ -46,12 +46,11 @@ class Downloader(
         case _ => throw new IllegalStateException("request error")
     }
 
-    def killed() = {
+    def reset(): Downloader = {
         // send reset to avoid necessity of timeout handling 
         downloads.foreach(d => send(d._2.partner, 0.0, Uploader.Upload, TimeoutUpload(d._1)))
 
-        // don't call the downloads onFinish, we were killed!
-        downloads = Map.empty[String, Transfer]
+        new Downloader(send, log, entityId)
     }
 
     private def packetReceived(transferId: String, nr: Int, size: Double) = {

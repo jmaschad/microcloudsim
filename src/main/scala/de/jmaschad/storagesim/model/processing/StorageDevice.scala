@@ -22,5 +22,7 @@ class StorageDevice(bandwidth: Double, capacity: Double) {
 
     def removeAccessor() = accessorCount -= 1
 
+    def reset(): StorageDevice = new StorageDevice(bandwidth, capacity)
+
     override def toString = "StorageDevice [%.0fMB free]".format(capacity - allocated)
 }

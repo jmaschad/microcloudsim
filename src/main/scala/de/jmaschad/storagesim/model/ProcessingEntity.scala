@@ -1,23 +1,24 @@
 package de.jmaschad.storagesim.model
 
+import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
+import org.cloudbus.cloudsim.core.predicates.PredicateType
+
 import de.jmaschad.storagesim.model.processing.Downloader
 import de.jmaschad.storagesim.model.processing.ProcessingModel
-import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.StorageObject
-import org.cloudbus.cloudsim.core.CloudSim
-import org.cloudbus.cloudsim.core.predicates.PredicateType
+import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.Uploader
 
 abstract class ProcessingEntity(
     name: String,
     resources: ResourceCharacteristics) extends SimEntity(name) {
-    protected val storageSystem = new StorageSystem(log _, resources.storageDevices)
-    protected val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
 
-    protected val downloader = new Downloader(send _, log _, getId)
-    protected val uploader = new Uploader(send _, log _, getId)
+    protected var storageSystem = new StorageSystem(log _, resources.storageDevices)
+    protected var processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
+    protected var downloader = new Downloader(send _, log _, getId)
+    protected var uploader = new Uploader(send _, log _, getId)
 
     def startEntity(): Unit = {}
 
@@ -42,11 +43,10 @@ abstract class ProcessingEntity(
     protected def process(event: SimEvent): Boolean
 
     protected def resetModel() = {
-        uploader.killed()
-        downloader.killed()
-
-        processing.reset()
-        storageSystem.reset()
+        uploader = uploader.reset()
+        downloader = downloader.reset()
+        processing = processing.reset()
+        storageSystem = storageSystem.reset()
     }
 
     private def scheduleProcessingUpdate(delay: Double) = {

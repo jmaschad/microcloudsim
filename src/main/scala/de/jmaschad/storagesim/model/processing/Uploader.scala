@@ -50,15 +50,12 @@ class Uploader(
         case _ => throw new IllegalStateException("request error")
     }
 
-    def killed() = {
+    def reset(): Uploader = {
         // send reset to avoid necessity of timeout handling 
         uploads.foreach(upload => send(upload._2.partner, 0.0, Downloader.Download, TimeoutDownlad(upload._1)))
 
         // don't call the downloads onFinish, we were killed!
-        uploads = Map.empty[String, Transfer]
-        partnerFinished = Map.empty[String, Int]
-        isProcessing = Set.empty[String]
-        partnerTimedOut = Set.empty[String]
+        new Uploader(send, log, entityId)
     }
 
     private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {

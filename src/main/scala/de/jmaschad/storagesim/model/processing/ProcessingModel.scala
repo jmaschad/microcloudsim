@@ -62,9 +62,7 @@ class ProcessingModel(
         if (scheduleUpdate) { scheduleNextUpdate() }
     }
 
-    def reset() = {
-        jobs = Set.empty[Job]
-    }
+    def reset(): ProcessingModel = new ProcessingModel(log, scheduleUpdate, totalBandwidth)
 
     // provide a minimum delay to avoid infinite update loop with zero progress
     private def scheduleNextUpdate() =
