@@ -5,20 +5,16 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.microcloud.Replicate
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.user.RequestState._
-
-object CloudSelector {
-    def randomRequestDistributor(log: String => Unit, sendNow: (Int, Int, Object) => Unit): CloudSelector = new RandomBucketBasedSelector(log, sendNow)
-}
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 trait CloudSelector {
     val send: (Int, Int, Object) => Unit
     val log: String => Unit
 
     /**
-     * This method can be called during system boot time
-     * to initialize empty MicroClouds with some objects.
+     * Create the initial configuration of the selector and micro clouds
      */
-    def initialize(storageObjects: Set[StorageObject])
+    def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject])
 
     /**
      * If a MicroCloud comes on-line this method should

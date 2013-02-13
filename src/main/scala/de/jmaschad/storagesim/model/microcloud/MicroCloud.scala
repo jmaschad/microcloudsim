@@ -36,7 +36,7 @@ class MicroCloud(
 
     private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
     private val interCloudRequests = new InterCloudHandler(log _, sendNow _, this, distributor, storageSystem, uploader, downloader, processing)
-    private var state: MicroCloudState = new OfflineState
+    private var state: MicroCloudState = new OnlineState
 
     private var firstKill = true
 
@@ -48,7 +48,11 @@ class MicroCloud(
     override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
-        send(getId(), 0.0, Boot)
+        // start sending status messages
+        sendNow(getId, MicroCloud.MicroCloudStatus)
+
+        // schedule the next catastrophe
+        scheduleKill()
     }
 
     override def shutdownEntity() = {
@@ -71,7 +75,7 @@ class MicroCloud(
         firstKill = false
         val meanTimeToFailure = failureBehavior.cloudFailureDistribution.getNumericalMean()
         val firstKillAdditionalDelay = new UniformRealDistribution(0.0, meanTimeToFailure).sample
-        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay + StorageSim.configuration.SystemBootDelay, Kill)
+        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, Kill)
     } else {
         send(getId, failureBehavior.timeToCloudFailure, Kill)
     }
@@ -101,16 +105,6 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Boolean = event.getTag() match {
-            case Initialize =>
-                // this method should only work during the system boot
-                assert(CloudSim.clock() < StorageSim.configuration.SystemBootDelay)
-                val obj = event.getData() match {
-                    case o: StorageObject => o
-                    case _ => throw new IllegalStateException
-                }
-                storageSystem.add(obj)
-                true
-
             case MicroCloudStatus =>
                 sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, CloudStatus(storageSystem.objects))
                 send(getId(), Distributor.StatusInterval, MicroCloudStatus)

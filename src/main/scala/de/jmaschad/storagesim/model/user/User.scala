@@ -76,8 +76,7 @@ class User(
     override def log(msg: String) = Log.line("User '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
-        // wait for the system to boot before sending requests
-        behaviors.foreach(b => send(getId, StorageSim.configuration.SystemBootDelay + b.timeToNextEvent, ScheduleRequest, b))
+        behaviors.foreach(b => send(getId, b.timeToNextEvent, ScheduleRequest, b))
     }
 
     override def shutdownEntity() = log(requestLog.summary())

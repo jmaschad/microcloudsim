@@ -51,8 +51,6 @@ class BehaviorConfig(
     val objectSelectionModel: ObjectSelectionModel)
 
 trait StorageSimConfig {
-    val SystemBootDelay = 1.0
-
     var simDuration: Double = 300.0
     var replicaCount: Int = 3
 
@@ -65,7 +63,8 @@ trait StorageSimConfig {
     var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
 
     var userCount: Int = 100
-    var bucketCountDistribution: IntegerDistributionConfiguration = PoissonDist(3)
+    var bucketCount: Int = 100
+    var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(5)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
 

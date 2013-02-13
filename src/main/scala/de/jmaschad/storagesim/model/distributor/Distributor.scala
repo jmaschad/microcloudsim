@@ -17,8 +17,7 @@ object Distributor {
     val StatusInterval = 1
 
     val Base = 10100
-    val Initialize = Base + 1
-    val MicroCloudStatusMessage = Initialize + 1
+    val MicroCloudStatusMessage = Base + 1
     val MicroCloudOnline = MicroCloudStatusMessage + 1
     val MicroCloudOffline = MicroCloudOnline + 1
     val UserRequest = MicroCloudOffline + 1
@@ -27,17 +26,13 @@ object Distributor {
 class Distributor(name: String) extends SimEntity(name) {
     private val selector = new RandomBucketBasedSelector(log _, sendNow _)
 
+    def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
+        selector.initialize(initialClouds, initialObjects)
+
     override def startEntity(): Unit = {}
     override def shutdownEntity() = {}
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
-        case Initialize =>
-            val objects = event.getData() match {
-                case os: Iterable[StorageObject] => os
-                case _ => throw new IllegalStateException
-            }
-            selector.initialize(objects.toSet)
-
         case MicroCloudOnline =>
             selector.addCloud(event.getSource(), event.getData())
 
