@@ -21,6 +21,7 @@ import de.jmaschad.storagesim.model.microcloud.Copy
 import de.jmaschad.storagesim.model.microcloud.CancelCopy
 import de.jmaschad.storagesim.model.microcloud.Remove
 import de.jmaschad.storagesim.model.microcloud.RequestProcessed
+import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
@@ -95,12 +96,15 @@ class RandomBucketBasedSelector(
         prunedCurrentPlan
     }
 
-    private def createCloudRequestPlan(
+    private def createAdaptionPlan(
         distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] = {
-
-        Set.empty
-    }
+        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] =
+        distributionState.foldLeft(Set.empty[InterCloudRequest])((requestSet, objectCloudMap) => {
+            val storageObject = objectCloudMap._1
+            val currentClouds = objectCloudMap._2
+            val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
+            requestSet ++ additionalClouds.map(Copy(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
+        })
 
     override def addCloud(cloud: Int, status: Object) = {
         clouds += cloud
@@ -108,10 +112,11 @@ class RandomBucketBasedSelector(
 
     override def removeCloud(cloud: Int) = {
         clouds -= cloud
+        distributionState = distributionState.mapValues(_ - cloud)
         purgeRequests(cloud)
 
         distributionGoal = createDistributionPlan(clouds, distributionGoal.keySet, distributionGoal)
-        val adaptionPlan = createCloudRequestPlan(distributionGoal, distributionState)
+        val adaptionPlan = createAdaptionPlan(distributionGoal, distributionState)
 
         val obsoleteRequests = runningRequests -- adaptionPlan
         cancelRequests(obsoleteRequests)
