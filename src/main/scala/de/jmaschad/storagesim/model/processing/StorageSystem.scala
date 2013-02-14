@@ -59,13 +59,15 @@ class StorageSystem(
 
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
 
-    def add(storageObject: StorageObject) =
-        deviceForObject(storageObject) match {
-            case Some(dev) =>
-                deviceMap += (storageObject -> dev)
-                store(storageObject, dev)
-            case None => throw new IllegalStateException
-        }
+    def addAll(storageObjects: Set[StorageObject]) =
+        storageObjects.foreach(obj =>
+            deviceForObject(obj) match {
+                case Some(dev) =>
+                    deviceMap += (obj -> dev)
+                    store(obj, dev)
+                case None =>
+                    throw new IllegalStateException
+            })
 
     def reset(): StorageSystem = new StorageSystem(log, storageDevices.map(_.reset()))
 

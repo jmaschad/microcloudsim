@@ -19,16 +19,16 @@ import de.jmaschad.storagesim.model.processing.LoadTransaction
 
 abstract sealed class InterCloudRequest
 
-object Replicate {
+object Copy {
     def fromEvent(event: SimEvent) = event.getData() match {
-        case desc: Replicate => desc
+        case desc: Copy => desc
         case _ => throw new IllegalStateException
     }
 }
 
-case class Replicate(source: Int, target: Int, storageObject: StorageObject) extends InterCloudRequest {
+case class Copy(source: Int, target: Int, storageObject: StorageObject) extends InterCloudRequest {
     override def equals(obj: Any) = obj match {
-        case desc: Replicate => storageObject == desc.storageObject && source == desc.source && target == desc.target
+        case desc: Copy => storageObject == desc.storageObject && source == desc.source && target == desc.target
         case _ => false
     }
 
@@ -37,9 +37,9 @@ case class Replicate(source: Int, target: Int, storageObject: StorageObject) ext
     override def toString = "Replicate " + storageObject + " from " + CloudSim.getEntityName(source) + " to " + CloudSim.getEntityName(target)
 }
 
-case class StoreReplica(storageObject: StorageObject, transferId: String) extends InterCloudRequest
-case class StoreAccepted(storeRequest: StoreReplica) extends InterCloudRequest
-case class StoreDenied(storeRequest: StoreReplica) extends InterCloudRequest
+case class Store(storageObject: StorageObject, transferId: String) extends InterCloudRequest
+case class StoreAccepted(storeRequest: Store) extends InterCloudRequest
+case class StoreDenied(storeRequest: Store) extends InterCloudRequest
 case class SourceTimeout extends InterCloudRequest
 case class SinkTimeout extends InterCloudRequest
 
@@ -62,14 +62,14 @@ private[microcloud] class InterCloudHandler(
     var pendingLoadTransactions = Map.empty[String, LoadTransaction]
 
     def processRequest(eventSource: Int, request: AnyRef) = request match {
-        case req @ Replicate(source, target, obj) =>
+        case req @ Copy(source, target, obj) =>
             log("received request to send replicate of " +
                 obj + " to " + CloudSim.getEntityName(target))
 
             storageSystem.loadTransaction(obj) match {
                 case Some(transaction) =>
                     val transferId = Transfer.transferId(obj)
-                    sendNow(target, MicroCloud.InterCloudRequest, StoreReplica(obj, transferId))
+                    sendNow(target, MicroCloud.InterCloudRequest, Store(obj, transferId))
                     uploader.start(transferId, obj.size, target,
                         processing.loadAndUpload(_, transaction, _),
                         success => if (success) {
@@ -93,7 +93,7 @@ private[microcloud] class InterCloudHandler(
             pendingLoadTransactions -= store.transferId
             sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationTargetFailed(eventSource))
 
-        case request @ StoreReplica(obj, transferId) =>
+        case request @ Store(obj, transferId) =>
             log("received request to store replica for " + obj)
 
             storageSystem.storeTransaction(obj) match {

@@ -40,6 +40,8 @@ class MicroCloud(
 
     private var firstKill = true
 
+    def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
+
     def scheduleProcessingUpdate(delay: Double) = {
         CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
         send(getId(), delay, ProcessingModel.ProcUpdate)

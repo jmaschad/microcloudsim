@@ -6,7 +6,7 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.microcloud.Replicate
+import de.jmaschad.storagesim.model.microcloud.Copy
 import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.user.RequestState
 import de.jmaschad.storagesim.model.user.RequestState._
@@ -15,13 +15,87 @@ import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.AddedObject
 import sun.org.mozilla.javascript.internal.ast.Yield
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
     val send: (Int, Int, Object) => Unit) extends CloudSelector {
+    var distributionGoal = Map.empty[String, Set[Int]]
+    var distributionState = Map.empty[StorageObject, Set[Int]]
+    var runningTransfers = Set.empty[Copy]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
+        val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
+        val bucketMap = initialObjects.groupBy(_.bucket)
 
+        distributionGoal = createDistributionPlan(cloudIdMap.keySet, bucketMap.keySet)
+        val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]])((allocMap, b) => {
+            val bucket = b._1
+            val clouds = b._2
+
+            allocMap ++ clouds.map(cloud => cloud -> (allocMap.getOrElse(cloud, Set.empty) + bucket))
+        })
+        // we don't allocate to unknown clouds
+        assert(allocationPlan.keySet.subsetOf(cloudIdMap.keySet))
+        // we store exactly our buckets, with the correct replica count
+        assert(allocationPlan.foldLeft(Map.empty[String, Int])((bucketCount, allocation) => {
+            val cloud = allocation._1
+            val buckets = allocation._2
+            bucketCount ++ buckets.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
+        }).forall(_._2 == StorageSim.configuration.replicaCount))
+
+        allocationPlan.foreach(cloudBuckets => {
+            val cloud = cloudIdMap(cloudBuckets._1)
+            val buckets = cloudBuckets._2
+
+            val cloudObjects = buckets.flatMap(bucketMap(_))
+            cloud.initialize(cloudObjects)
+        })
+
+        distributionState = initialObjects.map(obj => obj -> distributionGoal(obj.bucket)).toMap
+    }
+
+    private def createDistributionPlan(
+        cloudIds: Set[Int],
+        buckets: Set[String],
+        currentPlan: Map[String, Set[Int]] = Map.empty): Map[String, Set[Int]] = {
+        // remove unknown buckets and clouds from the current plan
+        var prunedCurrentPlan = (for (bucket <- currentPlan.keys if buckets.contains(bucket)) yield {
+            bucket -> currentPlan(bucket).intersect(cloudIds)
+        }).toMap
+
+        // choose clouds for buckets which have too few replicas
+        prunedCurrentPlan ++= buckets.map(bucket => {
+            val currentlySelectedClouds = currentPlan.getOrElse(bucket, Set.empty)
+            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentlySelectedClouds.size
+            requiredTargetsCount match {
+                case 0 =>
+                    bucket -> currentlySelectedClouds
+                case n =>
+                    val possibleTargets = cloudIds -- currentlySelectedClouds
+                    bucket -> (currentlySelectedClouds ++ distinctRandomSelectN(requiredTargetsCount, possibleTargets.toIndexedSeq))
+            }
+        })
+
+        // the new plan contains exactly the given buckets
+        assert(prunedCurrentPlan.keySet == buckets)
+        // the new plan contains exactly the given cloudIds
+        assert(prunedCurrentPlan.values.flatten.toSet == cloudIds)
+        // every bucket has the correct count of replicas
+        assert(prunedCurrentPlan.values.forall(clouds => clouds.size
+            == StorageSim.configuration.replicaCount))
+
+        prunedCurrentPlan
+    }
+
+    private def createCloudRequestPlan(
+        distributionGoal: Map[String, Set[Int]],
+        distributionState: Map[StorageObject, Set[Int]],
+        runningTransfers: Set[Copy]): Map[Int, Set[StorageObject]] = {
+
+        Map.empty
     }
 
     override def addCloud(cloud: Int, status: Object) = {
@@ -50,11 +124,18 @@ class RandomBucketBasedSelector(
         Left(RequestState.UnsufficientSpace)
 
     override def selectForGet(storageObject: StorageObject): Either[RequestState, Int] =
-        Left(RequestState.ObjectNotFound)
+        distributionState.getOrElse(storageObject, Set.empty) match {
+            case targets if targets.size == 0 =>
+                Left(RequestState.ObjectNotFound)
+            case targets if targets.size == 1 =>
+                Right(targets.head)
+            case targets =>
+                Right(randomSelect1(targets.toIndexedSeq))
+        }
 
-    private def randomSelect1[T](values: IndexedSeq[T]): T = distictRandomSelectN(1, values).head
+    private def randomSelect1[T](values: IndexedSeq[T]): T = distinctRandomSelectN(1, values).head
 
-    private def distictRandomSelectN[T](count: Int, values: IndexedSeq[_ <: T]): Set[T] = {
+    private def distinctRandomSelectN[T](count: Int, values: IndexedSeq[_ <: T]): Set[T] = {
         assert(count > 0)
         assert(count <= values.size)
 
