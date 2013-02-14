@@ -26,17 +26,9 @@ object Copy {
     }
 }
 
-case class Copy(source: Int, target: Int, storageObject: StorageObject) extends InterCloudRequest {
-    override def equals(obj: Any) = obj match {
-        case desc: Copy => storageObject == desc.storageObject && source == desc.source && target == desc.target
-        case _ => false
-    }
-
-    override def hashCode() = 41 * (41 * (41 * (storageObject.hashCode() + 41) + source) + target)
-
-    override def toString = "Replicate " + storageObject + " from " + CloudSim.getEntityName(source) + " to " + CloudSim.getEntityName(target)
-}
-
+case class Copy(source: Int, target: Int, storageObject: StorageObject) extends InterCloudRequest
+case class CancelCopy(copy: Copy)
+case class Remove(storageObject: StorageObject)
 case class Store(storageObject: StorageObject, transferId: String) extends InterCloudRequest
 case class StoreAccepted(storeRequest: Store) extends InterCloudRequest
 case class StoreDenied(storeRequest: Store) extends InterCloudRequest
@@ -59,7 +51,7 @@ private[microcloud] class InterCloudHandler(
     processing: ProcessingModel) {
 
     // the key is the transfer id
-    var pendingLoadTransactions = Map.empty[String, LoadTransaction]
+    var activeCopies = Map.empty[Copy, String]
 
     def processRequest(eventSource: Int, request: AnyRef) = request match {
         case req @ Copy(source, target, obj) =>
@@ -69,29 +61,36 @@ private[microcloud] class InterCloudHandler(
             storageSystem.loadTransaction(obj) match {
                 case Some(transaction) =>
                     val transferId = Transfer.transferId(obj)
+                    activeCopies += req -> transferId
+
                     sendNow(target, MicroCloud.InterCloudRequest, Store(obj, transferId))
                     uploader.start(transferId, obj.size, target,
                         processing.loadAndUpload(_, transaction, _),
-                        success => if (success) {
-                            transaction.complete
-                        } else {
-                            transaction.abort
-                            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationTargetFailed(target))
+                        success => {
+                            assert(activeCopies.contains(req))
+                            activeCopies -= req
+
+                            if (success) {
+                                transaction.complete
+                            } else {
+                                transaction.abort
+                                sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, RequestProcessed(req))
+                            }
                         })
-                    pendingLoadTransactions += transferId -> transaction
                 case None =>
                     throw new IllegalStateException
             }
 
+        case CancelCopy(copy) =>
+            uploader.cancel(activeCopies(copy))
+
         case StoreAccepted(store) =>
             log(CloudSim.getEntity(eventSource) + " accepted store replica for " + store.storageObject)
-            pendingLoadTransactions -= store.transferId
 
         case req @ StoreDenied(store) =>
             log(CloudSim.getEntityName(eventSource) + " denied store replica for " + store.storageObject)
-            pendingLoadTransactions(store.transferId).abort
-            pendingLoadTransactions -= store.transferId
-            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationTargetFailed(eventSource))
+            uploader.cancel(store.transferId)
+            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, RequestProcessed(req))
 
         case request @ Store(obj, transferId) =>
             log("received request to store replica for " + obj)
@@ -106,7 +105,6 @@ private[microcloud] class InterCloudHandler(
                             transaction.complete
                         } else {
                             transaction.abort
-                            sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, ReplicationSourceFailed(eventSource))
                         })
 
                 case None =>

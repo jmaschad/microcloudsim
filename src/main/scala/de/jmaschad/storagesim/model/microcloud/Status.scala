@@ -15,6 +15,8 @@ case class CloudStatus(storageObjects: Set[StorageObject])
  */
 case class AddedObject(storageObject: StorageObject)
 
-case class ReplicationSourceFailed(source: Int)
-case class ReplicationTargetFailed(target: Int)
-case class ReplicationFinished(storageObject: StorageObject)
+/**
+ * Send when a MicroCloud finished (successful or not)
+ * processing of a request.
+ */
+case class RequestProcessed(request: InterCloudRequest)

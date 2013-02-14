@@ -6,25 +6,29 @@ import de.jmaschad.storagesim.model.user.Request
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.microcloud.Copy
 import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.user.RequestState
 import de.jmaschad.storagesim.model.user.RequestState._
 import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.AddedObject
-import sun.org.mozilla.javascript.internal.ast.Yield
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
+import de.jmaschad.storagesim.model.microcloud.Copy
+import de.jmaschad.storagesim.model.microcloud.CancelCopy
+import de.jmaschad.storagesim.model.microcloud.Remove
+import de.jmaschad.storagesim.model.microcloud.RequestProcessed
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
     val send: (Int, Int, Object) => Unit) extends CloudSelector {
+    var clouds = Set.empty[Int]
     var distributionGoal = Map.empty[String, Set[Int]]
     var distributionState = Map.empty[StorageObject, Set[Int]]
-    var runningTransfers = Set.empty[Copy]
+    var runningRequests = Set.empty[InterCloudRequest]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
         val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
@@ -55,6 +59,7 @@ class RandomBucketBasedSelector(
         })
 
         distributionState = initialObjects.map(obj => obj -> distributionGoal(obj.bucket)).toMap
+        clouds = cloudIdMap.keySet
     }
 
     private def createDistributionPlan(
@@ -92,33 +97,73 @@ class RandomBucketBasedSelector(
 
     private def createCloudRequestPlan(
         distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]],
-        runningTransfers: Set[Copy]): Map[Int, Set[StorageObject]] = {
+        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] = {
 
-        Map.empty
+        Set.empty
     }
 
     override def addCloud(cloud: Int, status: Object) = {
-
+        clouds += cloud
     }
 
     override def removeCloud(cloud: Int) = {
+        clouds -= cloud
+        purgeRequests(cloud)
 
+        distributionGoal = createDistributionPlan(clouds, distributionGoal.keySet, distributionGoal)
+        val adaptionPlan = createCloudRequestPlan(distributionGoal, distributionState)
+
+        val obsoleteRequests = runningRequests -- adaptionPlan
+        cancelRequests(obsoleteRequests)
+
+        val addedRequests = adaptionPlan -- runningRequests
+        sendRequests(addedRequests)
+
+        runningRequests = (runningRequests -- obsoleteRequests) ++ addedRequests
     }
+
+    private def purgeRequests(cloud: Int) =
+        runningRequests = runningRequests.filterNot(req => req match {
+            case Copy(source, _, _) => source == cloud
+
+            case _ => throw new IllegalStateException
+        })
+
+    private def cancelRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
+        case copy @ Copy(source, _, _) =>
+            send(source, MicroCloud.InterCloudRequest, CancelCopy(copy))
+
+        case _ => throw new IllegalStateException
+    })
+
+    private def sendRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
+        case copy @ Copy(source, _, _) =>
+            send(source, MicroCloud.InterCloudRequest, copy)
+
+        case _ => throw new IllegalStateException
+    })
 
     override def processStatusMessage(cloud: Int, message: Object) =
         message match {
             case CloudStatus(objects) =>
 
             case AddedObject(storageObject) =>
+                addObject(cloud, storageObject)
+
+            case RequestProcessed(request) =>
+                assert(runningRequests.contains(request))
+                runningRequests -= request
 
             case _ => throw new IllegalStateException
 
         }
 
-    private def addObject(cloud: Int, storageObject: StorageObject) = {
-
-    }
+    private def addObject(cloud: Int, storageObject: StorageObject) =
+        if (distributionGoal.isDefinedAt(storageObject.bucket) && distributionGoal(storageObject.bucket).contains(cloud)) {
+            distributionState += storageObject -> (distributionState.getOrElse(storageObject, Set.empty) + cloud)
+        } else {
+            send(cloud, MicroCloud.InterCloudRequest, Remove(storageObject))
+        }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =
         Left(RequestState.UnsufficientSpace)

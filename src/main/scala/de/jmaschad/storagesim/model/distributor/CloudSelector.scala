@@ -2,7 +2,6 @@ package de.jmaschad.storagesim.model.distributor
 
 import java.util.Objects
 import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.microcloud.Copy
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.user.RequestState._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
@@ -51,5 +50,3 @@ trait CloudSelector {
      */
     def selectForGet(storageObject: StorageObject): Either[RequestState, Int]
 }
-
-class ReplicationException extends Exception

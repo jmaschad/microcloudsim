@@ -3,6 +3,7 @@ package de.jmaschad.storagesim.model.processing
 import Uploader._
 import de.jmaschad.storagesim.Units
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 object Uploader {
     private val Base = 10450
@@ -17,7 +18,7 @@ class Uploader(
     private var uploads = Map.empty[String, Transfer]
     var partnerFinished = Map.empty[String, Int]
 
-    var partnerTimedOut = Set.empty[String]
+    var canceled = Set.empty[String]
     var isProcessing = Set.empty[String]
 
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
@@ -31,24 +32,33 @@ class Uploader(
         sendNextPacket(transferId, 0.01)
     }
 
+    def cancel(transferId: String) = {
+        val transfer = uploads(transferId)
+        send(transfer.partner, 0.0, MicroCloud.InterCloudRequest, TimeoutDownlad(transferId))
+        cancelAfterProcessing(transferId)
+    }
+
     def process(source: Int, request: Object) = request match {
         case Ack(transferId, nr) =>
             ifPartnerFinishedUploadNextPacket(transferId, nr)
 
         case TimeoutUpload(transferId) =>
             log("Time out upload " + transferId + " " + TransferProbe.finish(transferId))
-            // uploader is still processing and did not call ifPartnerFinishedUploadNextPacket
-            if (isProcessing.contains(transferId)) {
-                partnerTimedOut += transferId
-            } // uploader finished processing and is currently waiting
-            else {
-                uploads(transferId).onFinish(false)
-                uploads -= transferId
-                partnerFinished -= transferId
-            }
+            cancelAfterProcessing(transferId)
 
         case _ => throw new IllegalStateException("request error")
     }
+
+    private def cancelAfterProcessing(transferId: String) =
+        // uploader is still processing and did not call ifPartnerFinishedUploadNextPacket
+        if (isProcessing.contains(transferId)) {
+            canceled += transferId
+        } // uploader finished processing and is currently waiting
+        else {
+            uploads(transferId).onFinish(false)
+            uploads -= transferId
+            partnerFinished -= transferId
+        }
 
     def reset(): Uploader = {
         // send reset to avoid necessity of timeout handling 
@@ -60,12 +70,12 @@ class Uploader(
 
     private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {
         // partner timed out
-        if (partnerTimedOut.contains(transferId)) {
+        if (canceled.contains(transferId)) {
             uploads(transferId).onFinish(false)
 
             uploads -= transferId
             partnerFinished -= transferId
-            partnerTimedOut -= transferId
+            canceled -= transferId
         }
 
         // packet was send and acked
