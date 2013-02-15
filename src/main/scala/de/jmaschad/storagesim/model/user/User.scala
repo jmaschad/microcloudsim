@@ -90,10 +90,11 @@ class User(
                     case Right(cloud) =>
                         sendNow(cloud, MicroCloud.UserRequest, request)
 
-                        val onFinish = (success: Boolean) => if (success)
+                        val onFinish = (success: Boolean) => if (success) {
                             requestLog.finish(request, Complete)
-                        else
+                        } else {
                             requestLog.finish(request, TimeOut)
+                        }
                         downloader.start(request.transferId, request.storageObject.size, cloud, processing.download _, onFinish)
 
                     case Left(error) =>
