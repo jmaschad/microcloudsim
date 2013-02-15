@@ -29,14 +29,11 @@ private[microcloud] class UserRequestHandler(
         }
     }
 
-    private def get(request: Request) = {
+    private def get(request: Request) =
         storageSystem.loadTransaction(request.storageObject) match {
             case Some(trans) =>
                 val storageObject = request.storageObject
                 val target = request.user.getId
-
-                // ACK the request
-                sendNow(target, User.RequestAccepted, request)
 
                 // Start the upload 
                 uploader.start(request.transferId, storageObject.size, target,
@@ -51,8 +48,8 @@ private[microcloud] class UserRequestHandler(
                         log(request + " failed")
                     })
 
+            // if there is no load transaction we will just let the user timeout 
             case None =>
-                sendNow(request.user.getId, User.RequestFailed, new FailedRequest(request, RequestState.CloudStorageError))
+                log("Could not create load transaction for " + request)
         }
-    }
 }

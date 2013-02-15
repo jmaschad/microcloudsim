@@ -7,11 +7,11 @@ import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.user.FailedRequest
 import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.user.RequestState
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.user.User
-import Distributor._
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.user.RequestState
+import de.jmaschad.storagesim.model.user.RequestState._
 
 object Distributor {
     val StatusInterval = 1
@@ -22,12 +22,24 @@ object Distributor {
     val MicroCloudOffline = MicroCloudOnline + 1
     val UserRequest = MicroCloudOffline + 1
 }
+import Distributor._
 
 class Distributor(name: String) extends SimEntity(name) {
     private val selector = new RandomBucketBasedSelector(log _, sendNow _)
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)
+
+    def selectCloudFor(request: Request): Either[RequestState, Int] = request.requestType match {
+        case RequestType.Get =>
+            selector.selectForGet(request.storageObject)
+
+        case RequestType.Post =>
+            selector.selectForPost(request.storageObject)
+
+        case _ =>
+            throw new IllegalStateException
+    }
 
     override def startEntity(): Unit = {}
     override def shutdownEntity() = {}
@@ -41,27 +53,6 @@ class Distributor(name: String) extends SimEntity(name) {
 
         case MicroCloudStatusMessage =>
             selector.processStatusMessage(event.getSource(), event.getData())
-
-        case UserRequest =>
-            val request = Request.fromEvent(event)
-            val target = request.requestType match {
-                case RequestType.Get =>
-                    selector.selectForGet(request.storageObject)
-
-                case RequestType.Post =>
-                    selector.selectForPost(request.storageObject)
-
-                case _ =>
-                    throw new IllegalStateException
-            }
-
-            target match {
-                case Right(t) =>
-                    sendNow(t, MicroCloud.UserRequest, request)
-
-                case Left(state) =>
-                    sendNow(event.getSource(), User.RequestFailed, new FailedRequest(request, state))
-            }
 
         case _ => log("[online] dropped event " + event)
     }

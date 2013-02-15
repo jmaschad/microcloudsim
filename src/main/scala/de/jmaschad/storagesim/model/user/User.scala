@@ -15,6 +15,7 @@ import de.jmaschad.storagesim.model.processing.Download
 import RequestState._
 import User._
 import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 private[user] class RequestLog(log: String => Unit) {
     private class LogEntry(val state: RequestState, val start: Double, val end: Double, val averageBandwidth: Double)
@@ -51,16 +52,14 @@ object User {
     private val MaxRequestTicks = 2
 
     private val Base = 10300
-    val RequestFailed = Base + 1
-    val RequestAccepted = RequestFailed + 1
-    val ScheduleRequest = RequestAccepted + 1
+    val ScheduleRequest = Base + 1
 }
 
 class User(
     name: String,
     resources: ResourceCharacteristics,
     initialObjects: Iterable[StorageObject],
-    disposer: Distributor) extends ProcessingEntity(name, resources) {
+    distributor: Distributor) extends ProcessingEntity(name, resources) {
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val requestLog = new RequestLog(log)
 
@@ -83,32 +82,27 @@ class User(
 
     override def process(event: SimEvent): Boolean = {
         event.getTag() match {
-            case RequestAccepted =>
-                processRequest(event.getSource, Request.fromEvent(event))
-                true
-
-            case RequestFailed =>
-                val failed = FailedRequest.fromEvent(event)
-                requestLog.finish(failed.request, failed.state)
-                true
 
             case ScheduleRequest =>
                 val request = getRequestAndScheduleBehavior(event)
                 requestLog.add(request)
-                sendNow(disposer.getId, Distributor.UserRequest, request)
+                distributor.selectCloudFor(request) match {
+                    case Right(cloud) =>
+                        sendNow(cloud, MicroCloud.UserRequest, request)
+
+                        val onFinish = (success: Boolean) => if (success)
+                            requestLog.finish(request, Complete)
+                        else
+                            requestLog.finish(request, TimeOut)
+                        downloader.start(request.transferId, request.storageObject.size, cloud, processing.download _, onFinish)
+
+                    case Left(error) =>
+                        requestLog.finish(request, error)
+                }
                 true
 
             case _ => false
         }
-    }
-
-    private def processRequest(partner: Int, request: Request) = request.requestType match {
-        case RequestType.Get =>
-            val onFinish = (success: Boolean) => if (success) requestLog.finish(request, Complete) else requestLog.finish(request, TimeOut)
-            val process = processing.download _
-            downloader.start(request.transferId, request.storageObject.size, partner, process, onFinish)
-        case _ =>
-            throw new IllegalStateException
     }
 
     private def getRequestAndScheduleBehavior(event: SimEvent): Request = {
