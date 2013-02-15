@@ -63,52 +63,8 @@ class RandomBucketBasedSelector(
         clouds = cloudIdMap.keySet
     }
 
-    private def createDistributionPlan(
-        cloudIds: Set[Int],
-        buckets: Set[String],
-        currentPlan: Map[String, Set[Int]] = Map.empty): Map[String, Set[Int]] = {
-        // remove unknown buckets and clouds from the current plan
-        var prunedCurrentPlan = (for (bucket <- currentPlan.keys if buckets.contains(bucket)) yield {
-            bucket -> currentPlan(bucket).intersect(cloudIds)
-        }).toMap
-
-        // choose clouds for buckets which have too few replicas
-        prunedCurrentPlan ++= buckets.map(bucket => {
-            val currentlySelectedClouds = currentPlan.getOrElse(bucket, Set.empty)
-            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentlySelectedClouds.size
-            requiredTargetsCount match {
-                case 0 =>
-                    bucket -> currentlySelectedClouds
-                case n =>
-                    val possibleTargets = cloudIds -- currentlySelectedClouds
-                    bucket -> (currentlySelectedClouds ++ distinctRandomSelectN(requiredTargetsCount, possibleTargets.toIndexedSeq))
-            }
-        })
-
-        // the new plan contains exactly the given buckets
-        assert(prunedCurrentPlan.keySet == buckets)
-        // the new plan contains exactly the given cloudIds
-        assert(prunedCurrentPlan.values.flatten.toSet == cloudIds)
-        // every bucket has the correct count of replicas
-        assert(prunedCurrentPlan.values.forall(clouds => clouds.size
-            == StorageSim.configuration.replicaCount))
-
-        prunedCurrentPlan
-    }
-
-    private def createAdaptionPlan(
-        distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] =
-        distributionState.foldLeft(Set.empty[InterCloudRequest])((requestSet, objectCloudMap) => {
-            val storageObject = objectCloudMap._1
-            val currentClouds = objectCloudMap._2
-            val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
-            requestSet ++ additionalClouds.map(Copy(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
-        })
-
-    override def addCloud(cloud: Int, status: Object) = {
+    override def addCloud(cloud: Int, status: Object) =
         clouds += cloud
-    }
 
     override def removeCloud(cloud: Int) = {
         clouds -= cloud
@@ -126,6 +82,49 @@ class RandomBucketBasedSelector(
 
         runningRequests = (runningRequests -- obsoleteRequests) ++ addedRequests
     }
+
+    private def createDistributionPlan(
+        cloudIds: Set[Int],
+        buckets: Set[String],
+        currentPlan: Map[String, Set[Int]] = Map.empty): Map[String, Set[Int]] = {
+        // remove unknown buckets and clouds from the current plan
+        var prunedCurrentPlan = (for (bucket <- currentPlan.keys if buckets.contains(bucket)) yield {
+            bucket -> currentPlan(bucket).intersect(cloudIds)
+        }).toMap
+
+        // choose clouds for buckets which have too few replicas
+        prunedCurrentPlan ++= buckets.map(bucket => {
+            val currentReplicas = prunedCurrentPlan.getOrElse(bucket, Set.empty)
+            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
+            requiredTargetsCount match {
+                case 0 =>
+                    bucket -> currentReplicas
+                case n =>
+                    val possibleTargets = cloudIds -- currentReplicas
+                    bucket -> (currentReplicas ++ distinctRandomSelectN(requiredTargetsCount, possibleTargets.toIndexedSeq))
+            }
+        })
+
+        // the new plan does not contain unknown clouds
+        assert(prunedCurrentPlan.values.flatten.toSet.subsetOf(cloudIds))
+        // the new plan contains exactly the given buckets
+        assert(prunedCurrentPlan.keySet == buckets)
+        // every bucket has the correct count of replicas
+        assert(prunedCurrentPlan.values.forall(clouds => clouds.size
+            == StorageSim.configuration.replicaCount))
+
+        prunedCurrentPlan
+    }
+
+    private def createAdaptionPlan(
+        distributionGoal: Map[String, Set[Int]],
+        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] =
+        distributionState.foldLeft(Set.empty[InterCloudRequest])((requestSet, objectCloudMap) => {
+            val storageObject = objectCloudMap._1
+            val currentClouds = objectCloudMap._2
+            val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
+            requestSet ++ additionalClouds.map(Copy(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
+        })
 
     private def purgeRequests(cloud: Int) =
         runningRequests = runningRequests.filterNot(req => req match {
@@ -156,7 +155,7 @@ class RandomBucketBasedSelector(
                 addObject(cloud, storageObject)
 
             case RequestProcessed(request) =>
-                assert(runningRequests.contains(request))
+                assert(runningRequests.contains(request), "unknown request " + request)
                 runningRequests -= request
 
             case _ => throw new IllegalStateException

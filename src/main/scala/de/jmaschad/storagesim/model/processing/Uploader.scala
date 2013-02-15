@@ -6,6 +6,8 @@ import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 object Uploader {
+    val UploadMaxTime = 2.0
+
     private val Base = 10450
     val Upload = Base + 1
 }
@@ -23,18 +25,15 @@ class Uploader(
 
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         log("adding upload " + transferId)
-        if (target == entityId) {
-            println
-        }
-        uploads += transferId -> new Transfer(target, Transfer.packetSize(size), Transfer.packetCount(size), processing, onFinish)
+        assert(target != entityId)
+
         TransferProbe.add(transferId, size)
-        // introduce a small delay, this allows the uploader to send some message before the transfer starts
-        sendNextPacket(transferId, 0.01)
+        uploads += transferId -> new Transfer(target, Transfer.packetSize(size), Transfer.packetCount(size), processing, onFinish)
+        sendNextPacket(transferId)
     }
 
     def cancel(transferId: String) = {
         val transfer = uploads(transferId)
-        send(transfer.partner, 0.0, MicroCloud.InterCloudRequest, TimeoutDownlad(transferId))
         cancelAfterProcessing(transferId)
     }
 
@@ -42,9 +41,7 @@ class Uploader(
         case Ack(transferId, nr) =>
             ifPartnerFinishedUploadNextPacket(transferId, nr)
 
-        case TimeoutUpload(transferId) =>
-            log("Time out upload " + transferId + " " + TransferProbe.finish(transferId))
-            cancelAfterProcessing(transferId)
+        case UploadTimeout(run) => run
 
         case _ => throw new IllegalStateException("request error")
     }
@@ -60,13 +57,7 @@ class Uploader(
             partnerFinished -= transferId
         }
 
-    def reset(): Uploader = {
-        // send reset to avoid necessity of timeout handling 
-        uploads.foreach(upload => send(upload._2.partner, 0.0, Downloader.Download, TimeoutDownlad(upload._1)))
-
-        // don't call the downloads onFinish, we were killed!
-        new Uploader(send, log, entityId)
-    }
+    def reset(): Uploader = new Uploader(send, log, entityId)
 
     private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {
         // partner timed out
@@ -99,18 +90,29 @@ class Uploader(
         }
     }
 
-    private def sendNextPacket(transferId: String, delay: Double = 0.0): Unit = {
+    private def sendNextPacket(transferId: String): Unit = {
         val upload = uploads(transferId)
-        send(upload.partner, delay, Downloader.Download, Packet(transferId, upload.packetNumber, upload.packetSize))
+        send(upload.partner, 0.0, Downloader.Download, Packet(transferId, upload.packetNumber, upload.packetSize))
 
         isProcessing += transferId
         upload.process(upload.packetSize, () => {
             isProcessing -= transferId
+            scheduleTimeout(transferId, upload.packetNumber)
             ifPartnerFinishedUploadNextPacket(transferId, upload.packetNumber)
         })
+    }
+
+    private def scheduleTimeout(transferId: String, packet: Int) = {
+        send(entityId, UploadMaxTime, Uploader.Upload, UploadTimeout(() => {
+            uploads.get(transferId).foreach(transfer =>
+                if (transfer.packetNumber == packet) {
+                    log("timed out upload " + transferId)
+                    cancelAfterProcessing(transferId)
+                })
+        }))
     }
 }
 
 private[processing] abstract sealed class UploadMessage
-case class TimeoutUpload(transferId: String) extends UploadMessage
+case class UploadTimeout(run: () => Unit) extends UploadMessage
 case class Ack(transferId: String, number: Int) extends UploadMessage

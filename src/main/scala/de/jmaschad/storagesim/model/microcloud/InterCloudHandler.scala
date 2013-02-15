@@ -55,7 +55,7 @@ private[microcloud] class InterCloudHandler(
 
     def processRequest(eventSource: Int, request: AnyRef) = request match {
         case req @ Copy(source, target, obj) =>
-            log("received request to send replicate of " +
+            log("received request to copy " +
                 obj + " to " + CloudSim.getEntityName(target))
 
             storageSystem.loadTransaction(obj) match {

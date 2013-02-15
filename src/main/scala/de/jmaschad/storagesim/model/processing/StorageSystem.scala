@@ -91,9 +91,11 @@ class StorageSystem(
                     deviceMap += (storageObject -> device)
                     Some(new StoreTransaction(storageObject, device, this))
                 case _ =>
+                    log("can not create store transaction, no available storage")
                     None
             }
         } else {
+            log("can not create store transaction, object allready exists")
             None
         }
 

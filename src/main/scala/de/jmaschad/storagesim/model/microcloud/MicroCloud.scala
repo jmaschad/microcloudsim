@@ -42,11 +42,6 @@ class MicroCloud(
 
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
 
-    def scheduleProcessingUpdate(delay: Double) = {
-        CloudSim.cancelAll(getId(), new PredicateType(ProcessingModel.ProcUpdate))
-        send(getId(), delay, ProcessingModel.ProcUpdate)
-    }
-
     override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {

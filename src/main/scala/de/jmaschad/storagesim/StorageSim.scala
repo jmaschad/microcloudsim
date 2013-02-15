@@ -58,6 +58,8 @@ object StorageSim {
         log("add user behavior")
         addBehavior(users, initialObjects)
 
+        CloudSim.send(0, initialClouds.head.getId, 10, MicroCloud.Kill, null)
+
         log("will start simulation")
         CloudSim.terminateSimulation(config.simDuration)
         CloudSim.startSimulation();
