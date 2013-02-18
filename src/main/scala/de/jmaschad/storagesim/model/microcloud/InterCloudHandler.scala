@@ -17,7 +17,7 @@ class InterCloudHandler(
     downloader: Downloader,
     processing: ProcessingModel) {
 
-    def processRequest(source: Int, data: Object) = {
+    def processRequest(source: Int, request: InterCloudRequest) = {
 
     }
 }

@@ -134,14 +134,14 @@ class RandomBucketBasedSelector(
 
     private def cancelRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
         case req: InterCloudRequest =>
-            send(req.requestHandler, MicroCloud.InterCloudRequest, CancelRequest(req))
+            send(req.requestHandler, MicroCloud.CloudRequest, CancelRequest(req))
 
         case _ => throw new IllegalStateException
     })
 
     private def sendRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
         case load @ Load(_, target, _) =>
-            send(target, MicroCloud.InterCloudRequest, load)
+            send(target, MicroCloud.CloudRequest, load)
 
         case _ => throw new IllegalStateException
     })
@@ -165,7 +165,7 @@ class RandomBucketBasedSelector(
         if (distributionGoal.isDefinedAt(storageObject.bucket) && distributionGoal(storageObject.bucket).contains(cloud)) {
             distributionState += storageObject -> (distributionState.getOrElse(storageObject, Set.empty) + cloud)
         } else {
-            send(cloud, MicroCloud.InterCloudRequest, Remove(cloud, storageObject))
+            send(cloud, MicroCloud.CloudRequest, Remove(cloud, storageObject))
         }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =

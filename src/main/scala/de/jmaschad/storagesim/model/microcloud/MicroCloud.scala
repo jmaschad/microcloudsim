@@ -25,7 +25,7 @@ object MicroCloud {
     val Kill = Shutdown + 1
     val MicroCloudStatus = Kill + 1
     val UserRequest = MicroCloudStatus + 1
-    val InterCloudRequest = UserRequest + 1
+    val CloudRequest = UserRequest + 1
 }
 
 class MicroCloud(
@@ -125,8 +125,9 @@ class MicroCloud(
                 userRequests.process(event)
                 true
 
-            case InterCloudRequest =>
-                interCloudRequests.processRequest(event.getSource, event.getData)
+            case CloudRequest =>
+                val request = InterCloudRequest.fromEvent(event)
+                interCloudRequests.processRequest(event.getSource, request)
                 true
 
             case _ => false
