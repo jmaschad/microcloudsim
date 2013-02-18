@@ -16,33 +16,42 @@ import RequestState._
 import User._
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.microcloud.CloudRequest
+import de.jmaschad.storagesim.model.microcloud.Get
 
 private[user] class RequestLog(log: String => Unit) {
-    private class LogEntry(val state: RequestState, val start: Double, val end: Double, val averageBandwidth: Double)
+    private class Active(size: Double) {
+        private val start = CloudSim.clock()
+        def finish(summary: RequestState): Finished = {
+            val duration = CloudSim.clock() - start
+            new Finished(duration, size / duration, summary)
+        }
+    }
+    private class Finished(val duration: Double, val avgBandwidth: Double, val summary: RequestState)
 
-    private var openRequests = Set.empty[Request]
-    private var requestLog = Set.empty[LogEntry]
+    private var activeRequests = Map.empty[CloudRequest, Active]
+    private var finishedRequests = Set.empty[Finished]
 
-    def add(request: Request) =
-        openRequests += request
+    def add(request: CloudRequest) = request match {
+        case Get(_, obj) =>
+            assert(!activeRequests.isDefinedAt(request))
+            activeRequests += request -> new Active(obj.size)
 
-    def finish(request: Request, summary: RequestState) = {
-        assert(openRequests.contains(request))
-        openRequests -= request
+        case _ =>
+            throw new IllegalStateException
+    }
 
-        val start = request.time
-        val end = CloudSim.clock()
-        val duration = end - start
-        val avgBw = if (duration <= 0) 0.0 else request.storageObject.size / duration
-
-        requestLog += new LogEntry(summary, start, end, avgBw)
+    def finish(request: CloudRequest, summary: RequestState) = {
+        assert(activeRequests.contains(request))
+        finishedRequests += activeRequests(request).finish(summary)
+        activeRequests -= request
     }
 
     def summary(): String = {
-        val avgBw = requestLog.foldLeft(0.0)((sum, entry) => sum + entry.averageBandwidth) / requestLog.count(_.averageBandwidth > 0.0)
-        val bySummary = requestLog.groupBy(_.state)
+        val avgBw = finishedRequests.foldLeft(0.0)((sum, entry) => sum + entry.avgBandwidth) / finishedRequests.count(_.avgBandwidth > 0.0)
+        val bySummary = finishedRequests.groupBy(_.summary)
 
-        requestLog.size + " finished / " + openRequests.size + " active requests.\n" +
+        finishedRequests.size + " finished / " + activeRequests.size + " active requests.\n" +
             "\taverage bandwidth " + (avgBw * 8).formatted("%.2f") + "Mbit/s\n" +
             "\t" + bySummary.keys.map(key => bySummary(key).size + " " + key).mkString(", ")
     }
@@ -63,7 +72,7 @@ class User(
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val requestLog = new RequestLog(log)
 
-    private var openRequests = Set.empty[Request]
+    private var openRequests = Set.empty[CloudRequest]
 
     def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
@@ -80,33 +89,39 @@ class User(
 
     override def shutdownEntity() = log(requestLog.summary())
 
-    override def process(event: SimEvent): Boolean = {
+    override def process(event: SimEvent): Boolean =
         event.getTag() match {
-
             case ScheduleRequest =>
-                val request = getRequestAndScheduleBehavior(event)
-                requestLog.add(request)
-                distributor.selectCloudFor(request) match {
-                    case Right(cloud) =>
-                        sendNow(cloud, MicroCloud.UserRequest, request)
-
-                        val onFinish = (success: Boolean) => if (success) {
-                            requestLog.finish(request, Complete)
-                        } else {
-                            requestLog.finish(request, TimeOut)
-                        }
-                        downloader.start(request.transferId, request.storageObject.size, cloud, processing.download _, onFinish)
-
-                    case Left(error) =>
-                        requestLog.finish(request, error)
+                getRequestAndScheduleBehavior(event) match {
+                    case get @ Get(_, _) => handleGet(get)
                 }
                 true
 
             case _ => false
         }
+
+    private def handleGet(get: Get) = {
+        requestLog.add(get)
+        distributor.cloudForGet(get) match {
+            case Right(cloud) =>
+                sendNow(cloud, MicroCloud.Request, get)
+                downloader.start(
+                    get.transferId,
+                    get.obj.size,
+                    cloud,
+                    processing.download _,
+                    if (_) {
+                        requestLog.finish(get, Complete)
+                    } else {
+                        requestLog.finish(get, TimeOut)
+                    })
+
+            case Left(error) =>
+                requestLog.finish(get, error)
+        }
     }
 
-    private def getRequestAndScheduleBehavior(event: SimEvent): Request = {
+    private def getRequestAndScheduleBehavior(event: SimEvent): CloudRequest = {
         val behav = getBehavior(event)
         val delay = behav.timeToNextEvent().max(0.001)
         send(getId, delay, ScheduleRequest, behav)

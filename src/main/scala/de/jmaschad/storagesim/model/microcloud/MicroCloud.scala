@@ -1,20 +1,28 @@
 package de.jmaschad.storagesim.model.microcloud
 
+import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import org.cloudbus.cloudsim.core.predicates.PredicateType
-import MicroCloud._
 import de.jmaschad.storagesim.Log
+import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
+import de.jmaschad.storagesim.model.distributor.DistributorRequest
+import de.jmaschad.storagesim.model.distributor.Load
+import de.jmaschad.storagesim.model.distributor.Remove
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.Downloader
-import org.apache.commons.math3.distribution.UniformRealDistribution
-import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.model.processing.StorageSystem
+import de.jmaschad.storagesim.model.processing.Upload
+import de.jmaschad.storagesim.model.processing.DiskIO
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageSystem
+import de.jmaschad.storagesim.model.processing.Transfer
 
 object MicroCloud {
     private val Base = 10200
@@ -24,8 +32,8 @@ object MicroCloud {
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
     val MicroCloudStatus = Kill + 1
-    val UserRequest = MicroCloudStatus + 1
-    val CloudRequest = UserRequest + 1
+    val Request = MicroCloudStatus + 1
+    val DistributorRequest = Request + 1
 }
 
 class MicroCloud(
@@ -34,10 +42,7 @@ class MicroCloud(
     failureBehavior: MicroCloudFailureBehavior,
     distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics) {
 
-    private val userRequests = new UserRequestHandler(log _, sendNow _, storageSystem, uploader, processing)
-    private val interCloudRequests = new InterCloudHandler(log _, sendNow _, this, distributor, storageSystem, uploader, downloader, processing)
     private var state: MicroCloudState = new OnlineState
-
     private var firstKill = true
 
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
@@ -72,9 +77,9 @@ class MicroCloud(
         firstKill = false
         val meanTimeToFailure = failureBehavior.cloudFailureDistribution.getNumericalMean()
         val firstKillAdditionalDelay = new UniformRealDistribution(0.0, meanTimeToFailure).sample
-        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, Kill)
+        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, MicroCloud.Kill)
     } else {
-        send(getId, failureBehavior.timeToCloudFailure, Kill)
+        send(getId, failureBehavior.timeToCloudFailure, MicroCloud.Kill)
     }
 
     private trait MicroCloudState {
@@ -102,35 +107,55 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent): Boolean = event.getTag() match {
-            case MicroCloudStatus =>
+            case MicroCloud.MicroCloudStatus =>
                 sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, CloudStatus(storageSystem.objects))
-                send(getId(), Distributor.StatusInterval, MicroCloudStatus)
+                send(getId(), Distributor.StatusInterval, MicroCloud.MicroCloudStatus)
                 true
 
-            case Shutdown =>
+            case MicroCloud.Shutdown =>
                 stateLog("received shutdown request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
                 true
 
-            case Kill =>
+            case MicroCloud.Kill =>
                 stateLog("received kill request")
                 resetModel
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
-                send(getId, failureBehavior.timeToCloudRepair, Boot)
+                send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
                 switchState(new OfflineState)
                 true
 
-            case UserRequest =>
-                userRequests.process(event)
+            case MicroCloud.DistributorRequest =>
+                DistributorRequest.fromEvent(event) match {
+                    case Load(source, obj) =>
+                        val transferId = Transfer.transferId()
+                        sendNow(source, MicroCloud.Request, Get(transferId, obj))
+
+                    case Remove(obj) =>
+                        storageSystem.remove(obj)
+                }
                 true
 
-            case CloudRequest =>
-                val request = InterCloudRequest.fromEvent(event)
-                interCloudRequests.processRequest(event.getSource, request)
+            case MicroCloud.Request =>
+                handleCloudRequest(CloudRequest.fromEvent(event), event.getSource())
                 true
 
             case _ => false
+        }
+
+        private def handleCloudRequest(request: CloudRequest, source: Int) = request match {
+            case Get(transferId: String, obj: StorageObject) =>
+                val transaction = storageSystem.loadTransaction(obj)
+                uploader.start(
+                    transferId,
+                    obj.size,
+                    source,
+                    processing.loadAndUpload(_, transaction, _),
+                    if (_) transaction.complete() else transaction.abort())
+
+            case Delete(obj: StorageObject) =>
+                storageSystem.remove(obj)
         }
     }
 }

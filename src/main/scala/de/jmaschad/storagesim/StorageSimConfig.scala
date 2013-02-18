@@ -2,12 +2,12 @@ package de.jmaschad.storagesim
 
 import org.apache.commons.math3.distribution.IntegerDistribution
 import org.apache.commons.math3.distribution.RealDistribution
-import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.user.RequestType._
 import org.apache.commons.math3.distribution.NormalDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.apache.commons.math3.distribution.ExponentialDistribution
 import org.apache.commons.math3.distribution.PoissonDistribution
+import de.jmaschad.storagesim.model.user.UserBehavior
+import de.jmaschad.storagesim.model.user.RequestType._
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {

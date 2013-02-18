@@ -60,14 +60,15 @@ class StorageSystem(
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
 
     def addAll(storageObjects: Set[StorageObject]) =
-        storageObjects.foreach(obj =>
-            deviceForObject(obj) match {
-                case Some(dev) =>
-                    deviceMap += (obj -> dev)
-                    store(obj, dev)
-                case None =>
-                    throw new IllegalStateException
-            })
+        storageObjects.foreach(obj => {
+            val device = deviceForObject(obj)
+            deviceMap += (obj -> device)
+            store(obj, device)
+        })
+
+    def remove(obj: StorageObject) = {
+        throw new IllegalStateException
+    }
 
     def reset(): StorageSystem = new StorageSystem(log, storageDevices.map(_.reset()))
 
@@ -79,31 +80,22 @@ class StorageSystem(
     def contains(storageObject: StorageObject): Boolean =
         deviceMap.isDefinedAt(storageObject) && (!activeStore.isDefinedAt(storageObject))
 
-    def loadTransaction(storeageObject: StorageObject): Option[LoadTransaction] = contains(storeageObject) match {
-        case true => Some(new LoadTransaction(storeageObject, deviceMap(storeageObject), this))
-        case false => None
-    }
+    def loadTransaction(storeageObject: StorageObject): LoadTransaction =
+        new LoadTransaction(storeageObject, deviceMap(storeageObject), this)
 
-    def storeTransaction(storageObject: StorageObject): Option[StoreTransaction] =
-        if (!deviceMap.isDefinedAt(storageObject)) {
-            deviceForObject(storageObject) match {
-                case Some(device) =>
-                    deviceMap += (storageObject -> device)
-                    Some(new StoreTransaction(storageObject, device, this))
-                case _ =>
-                    log("can not create store transaction, no available storage")
-                    None
-            }
-        } else {
-            log("can not create store transaction, object allready exists")
-            None
-        }
+    def storeTransaction(storageObject: StorageObject): StoreTransaction = {
+        val device = deviceForObject(storageObject)
+        deviceMap += (storageObject -> device)
+        new StoreTransaction(storageObject, device, this)
+    }
 
     private[processing] def store(obj: StorageObject, dev: StorageDevice) = {
         bucketObjectMapping += obj.bucket -> (bucketObjectMapping.getOrElse(obj.bucket, Seq.empty[StorageObject]) :+ obj)
     }
 
-    private def deviceForObject(storageObject: StorageObject): Option[StorageDevice] = {
-        storageDevices.find(_.hasAvailableSpace(storageObject.size)).orElse(None)
-    }
+    private def deviceForObject(storageObject: StorageObject): StorageDevice =
+        storageDevices.find(_.hasAvailableSpace(storageObject.size)) match {
+            case Some(device) => device
+            case _ => throw new IllegalStateException
+        }
 }

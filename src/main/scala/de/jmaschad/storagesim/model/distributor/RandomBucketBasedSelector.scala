@@ -1,32 +1,23 @@
 package de.jmaschad.storagesim.model.distributor
 
-import scala.collection.mutable
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import de.jmaschad.storagesim.model.user.Request
-import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.CloudStatus
-import de.jmaschad.storagesim.model.user.RequestState
-import de.jmaschad.storagesim.model.user.RequestState._
-import de.jmaschad.storagesim.model.microcloud.CloudStatus
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.AddedObject
 import de.jmaschad.storagesim.model.microcloud.RequestProcessed
-import de.jmaschad.storagesim.model.microcloud.StatusMessage
-import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
-import de.jmaschad.storagesim.model.microcloud.Load
-import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
-import de.jmaschad.storagesim.model.microcloud.CancelRequest
-import de.jmaschad.storagesim.model.microcloud.Remove
+import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.user.RequestState
+import de.jmaschad.storagesim.model.user.RequestState._
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
     val send: (Int, Int, Object) => Unit) extends CloudSelector {
+
     var clouds = Set.empty[Int]
     var distributionGoal = Map.empty[String, Set[Int]]
     var distributionState = Map.empty[StorageObject, Set[Int]]
-    var runningRequests = Set.empty[InterCloudRequest]
+    var runningRequests = Set.empty[DistributorRequest]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
         val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
@@ -58,26 +49,6 @@ class RandomBucketBasedSelector(
 
         distributionState = initialObjects.map(obj => obj -> distributionGoal(obj.bucket)).toMap
         clouds = cloudIdMap.keySet
-    }
-
-    override def addCloud(cloud: Int, status: Object) =
-        clouds += cloud
-
-    override def removeCloud(cloud: Int) = {
-        clouds -= cloud
-        distributionState = distributionState.mapValues(_ - cloud)
-        purgeRequests(cloud)
-
-        distributionGoal = createDistributionPlan(clouds, distributionGoal.keySet, distributionGoal)
-        val adaptionPlan = createAdaptionPlan(distributionGoal, distributionState)
-
-        val obsoleteRequests = runningRequests -- adaptionPlan
-        cancelRequests(obsoleteRequests)
-
-        val addedRequests = adaptionPlan -- runningRequests
-        sendRequests(addedRequests)
-
-        runningRequests ++= addedRequests
     }
 
     private def createDistributionPlan(
@@ -113,59 +84,24 @@ class RandomBucketBasedSelector(
         prunedCurrentPlan
     }
 
-    private def createAdaptionPlan(
-        distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]]): Set[InterCloudRequest] =
-        distributionState.foldLeft(Set.empty[InterCloudRequest])((requestSet, objectCloudMap) => {
-            val storageObject = objectCloudMap._1
-            val currentClouds = objectCloudMap._2
-            val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
-            requestSet ++ additionalClouds.map(Load(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
-        })
-
-    private def purgeRequests(cloud: Int) = {
-        runningRequests = runningRequests.filterNot(req => req match {
-            case Load(_, target, _) => target == cloud
-
-            case _ => throw new IllegalStateException
-        })
-
+    def addCloud(cloud: Int, status: Object) = {
+        throw new IllegalStateException
     }
 
-    private def cancelRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
-        case req: InterCloudRequest =>
-            send(req.requestHandler, MicroCloud.CloudRequest, CancelRequest(req))
-
-        case _ => throw new IllegalStateException
-    })
-
-    private def sendRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
-        case load @ Load(_, target, _) =>
-            send(target, MicroCloud.CloudRequest, load)
-
-        case _ => throw new IllegalStateException
-    })
+    def removeCloud(cloud: Int) = {
+        throw new IllegalStateException
+    }
 
     override def processStatusMessage(cloud: Int, message: Object) =
         message match {
             case CloudStatus(objects) =>
 
             case AddedObject(storageObject) =>
-                addObject(cloud, storageObject)
 
             case RequestProcessed(request) =>
-                assert(runningRequests.contains(request), "unknown request " + request)
-                runningRequests -= request
 
             case _ => throw new IllegalStateException
 
-        }
-
-    private def addObject(cloud: Int, storageObject: StorageObject) =
-        if (distributionGoal.isDefinedAt(storageObject.bucket) && distributionGoal(storageObject.bucket).contains(cloud)) {
-            distributionState += storageObject -> (distributionState.getOrElse(storageObject, Set.empty) + cloud)
-        } else {
-            send(cloud, MicroCloud.CloudRequest, Remove(cloud, storageObject))
         }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =

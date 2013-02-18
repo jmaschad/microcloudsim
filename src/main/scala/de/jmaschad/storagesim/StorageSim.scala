@@ -17,13 +17,13 @@ import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.processing.StorageDevice
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.RequestType._
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.user.Request
+import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.processing.Downloader
 import de.jmaschad.storagesim.model.processing.Transfer
 import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.microcloud.Get
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -123,11 +123,8 @@ object StorageSim {
                 val objectSelectionModel = ObjectSelectionModel.toDist(objects.size, config.objectSelectionModel)
 
                 val behavior = requestType match {
-                    case Get =>
-                        UserBehavior(delayModel, objectSelectionModel, objects, Request.get(user, _, { Transfer.transferId() }))
-
-                    case Post =>
-                        UserBehavior(delayModel, objectSelectionModel, objects, Request.put(user, _, { Transfer.transferId() }))
+                    case RequestType.Get =>
+                        UserBehavior(delayModel, objectSelectionModel, objects, Get({ Transfer.transferId() }, _))
 
                     case _ => throw new IllegalStateException
                 }
