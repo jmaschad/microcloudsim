@@ -58,7 +58,9 @@ object StorageSim {
         log("add user behavior")
         addBehavior(users, initialObjects)
 
-        CloudSim.send(0, initialClouds.head.getId, 10, MicroCloud.Kill, null)
+        (1 to 2).map(i => {
+            CloudSim.send(0, initialClouds.take(i).last.getId(), 10 + 2 * i, MicroCloud.Kill, null)
+        })
 
         log("will start simulation")
         CloudSim.terminateSimulation(config.simDuration)
