@@ -2,7 +2,7 @@ package de.jmaschad.storagesim.model.distributor
 
 import java.util.Objects
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.RequestState._
+import de.jmaschad.storagesim.model.user.UserRequestSummary._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 trait CloudSelector {

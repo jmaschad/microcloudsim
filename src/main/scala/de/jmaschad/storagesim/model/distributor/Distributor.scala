@@ -7,9 +7,7 @@ import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.RequestState
-import de.jmaschad.storagesim.model.user.RequestState._
-import Distributor._
+import de.jmaschad.storagesim.model.user.UserRequestSummary._
 import de.jmaschad.storagesim.model.microcloud.Get
 
 object Distributor {
@@ -21,6 +19,7 @@ object Distributor {
     val MicroCloudOffline = MicroCloudOnline + 1
     val UserRequest = MicroCloudOffline + 1
 }
+import Distributor._
 
 class Distributor(name: String) extends SimEntity(name) {
     private val selector = new RandomBucketBasedSelector(log _, sendNow _)
