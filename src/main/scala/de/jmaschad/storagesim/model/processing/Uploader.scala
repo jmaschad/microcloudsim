@@ -24,7 +24,6 @@ class Uploader(
     var isProcessing = Set.empty[String]
 
     def start(transferId: String, size: Double, target: Int, processing: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
-        log("adding upload " + transferId)
         assert(target != entityId)
 
         TransferProbe.add(transferId, size)
@@ -76,8 +75,6 @@ class Uploader(
                     uploads += transferId -> newTracker
                     sendNextPacket(transferId)
                 case None =>
-                    log("upload to " + CloudSim.getEntityName(tracker.partner) + " completed " +
-                        TransferProbe.finish(transferId))
                     send(tracker.partner, 0.0, Downloader.Download, FinishDownload(transferId))
                     tracker.onFinish(true)
                     uploads -= transferId

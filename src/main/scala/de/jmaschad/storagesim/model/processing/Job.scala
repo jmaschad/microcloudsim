@@ -9,5 +9,5 @@ object Job {
 class Job(workloads: Set[_ <: Workload], val onFinish: () => Unit) {
     def process(timeSpan: Double): Job = Job(workloads.map(_.process(timeSpan)), onFinish)
     def isDone: Boolean = workloads.forall(_.isDone)
-    def expectedCompletion: Double = workloads.map(_.expectedCompletion).max
+    def expectedDuration: Double = workloads.map(_.expectedDuration).max
 }

@@ -16,7 +16,7 @@ abstract class ProcessingEntity(
     resources: ResourceCharacteristics) extends SimEntity(name) {
 
     protected var storageSystem = new StorageSystem(log _, resources.storageDevices)
-    protected var processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
+    protected var processing = new ProcessingModel(log _, send(getId(), _, ProcessingModel.ProcUpdate), resources.bandwidth)
     protected var downloader = new Downloader(send _, log _, getId)
     protected var uploader = new Uploader(send _, log _, getId)
 
@@ -48,10 +48,4 @@ abstract class ProcessingEntity(
         processing = processing.reset()
         storageSystem = storageSystem.reset()
     }
-
-    private def scheduleProcessingUpdate(delay: Double) = {
-        CloudSim.cancel(getId(), new PredicateType(ProcessingModel.ProcUpdate))
-        send(getId(), delay, ProcessingModel.ProcUpdate)
-    }
-
 }

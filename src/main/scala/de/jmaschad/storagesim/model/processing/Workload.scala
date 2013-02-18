@@ -4,12 +4,12 @@ import de.jmaschad.storagesim.Units
 
 trait Workload {
     def process(timeSpan: Double): Workload
-    def expectedCompletion: Double
+    def expectedDuration: Double
     def isDone: Boolean
 }
 
 private[processing] abstract class NetworkTransfer(size: Double, totalBandwidth: Double) extends Workload {
-    override def expectedCompletion: Double = size / bandwidth
+    override def expectedDuration: Double = size / bandwidth
     override def isDone = size < 1 * Units.Byte
 
     protected def progress(timeSpan: Double) = timeSpan * bandwidth
@@ -62,7 +62,7 @@ object DiskIO {
 
 private[processing] class DiskIO(size: Double, throughput: => Double) extends Workload {
     override def process(timeSpan: Double) = DiskIO(size - progress(timeSpan), throughput)
-    override def expectedCompletion: Double = size / throughput
+    override def expectedDuration: Double = size / throughput
     override def isDone = size < 1 * Units.Byte
 
     private def progress(timeSpan: Double) = timeSpan * throughput

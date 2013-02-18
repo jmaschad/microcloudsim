@@ -19,7 +19,8 @@ import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.CloudRequest
 import de.jmaschad.storagesim.model.microcloud.Get
 
-private[user] class RequestLog(log: String => Unit) {
+private[user] class RequestLog(
+    log: String => Unit) {
     private class Active(size: Double) {
         private val start = CloudSim.clock()
         def finish(summary: RequestState): Finished = {
@@ -27,7 +28,10 @@ private[user] class RequestLog(log: String => Unit) {
             new Finished(duration, size / duration, summary)
         }
     }
-    private class Finished(val duration: Double, val avgBandwidth: Double, val summary: RequestState)
+
+    private class Finished(val duration: Double, val avgBandwidth: Double, val summary: RequestState) {
+        override def toString = "%s %.3fs %.3f MBit/s".format(summary, duration, avgBandwidth * 8)
+    }
 
     private var activeRequests = Map.empty[CloudRequest, Active]
     private var finishedRequests = Set.empty[Finished]
@@ -43,6 +47,8 @@ private[user] class RequestLog(log: String => Unit) {
 
     def finish(request: CloudRequest, summary: RequestState) = {
         assert(activeRequests.contains(request))
+        val finished = activeRequests(request).finish(summary)
+        log("request finished: " + finished)
         finishedRequests += activeRequests(request).finish(summary)
         activeRequests -= request
     }
@@ -93,14 +99,15 @@ class User(
         event.getTag() match {
             case ScheduleRequest =>
                 getRequestAndScheduleBehavior(event) match {
-                    case get @ Get(_, _) => handleGet(get)
+                    case get @ Get(_, _) => sendGet(get)
+                    case _ => throw new IllegalStateException
                 }
                 true
 
             case _ => false
         }
 
-    private def handleGet(get: Get) = {
+    private def sendGet(get: Get) = {
         requestLog.add(get)
         distributor.cloudForGet(get) match {
             case Right(cloud) =>

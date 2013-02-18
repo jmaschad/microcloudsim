@@ -24,7 +24,6 @@ class Downloader(
     def start(transferId: String, size: Double, source: Int, process: (Double, () => Unit) => Unit, onFinish: Boolean => Unit) = {
         assert(source != entityId)
 
-        log("adding download " + transferId)
         val transfer = new Transfer(source, Transfer.packetSize(size), Transfer.packetCount(size), process, onFinish)
         downloads += transferId -> transfer
         scheduleTimeout(transferId, transfer.packetNumber)
@@ -37,8 +36,6 @@ class Downloader(
             packetReceived(transferId, nr, size)
 
         case FinishDownload(transferId) =>
-            log("download from " + CloudSim.getEntityName(source) +
-                " completed. " + TransferProbe.finish(transferId))
             waitingForFinish(transferId).onFinish(true)
             waitingForFinish -= transferId
 
@@ -89,7 +86,6 @@ class Downloader(
             // continue.
             downloads.get(transferId).foreach(transfer =>
                 if (transfer.packetNumber == packet) {
-                    log("timed out download " + transferId + " at packet " + packet + " of " + transfer.packetCount)
                     transfer.onFinish(false)
                     downloads -= transferId
                 })

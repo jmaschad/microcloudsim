@@ -58,9 +58,9 @@ object StorageSim {
         log("add user behavior")
         addBehavior(users, initialObjects)
 
-        (1 to 2).map(i => {
-            CloudSim.send(0, initialClouds.take(i).last.getId(), 10 + 2 * i, MicroCloud.Kill, null)
-        })
+        //        (1 to 2).map(i => {
+        //            CloudSim.send(0, initialClouds.take(i).last.getId(), 10 + 2 * i, MicroCloud.Kill, null)
+        //        })
 
         log("will start simulation")
         CloudSim.terminateSimulation(config.simDuration)
@@ -98,7 +98,7 @@ object StorageSim {
     private def createUsers(distributor: Distributor): Seq[User] =
         for (i <- 1 to configuration.userCount) yield {
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
-            val resources = new ResourceCharacteristics(bandwidth = 12.5 * Units.MByte, storageDevices = Seq(storage))
+            val resources = new ResourceCharacteristics(bandwidth = 30 * Units.MByte, storageDevices = Seq(storage))
             new User("u" + i, resources, Seq.empty[StorageObject], distributor)
         }
 

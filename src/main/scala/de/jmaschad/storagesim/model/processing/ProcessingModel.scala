@@ -12,14 +12,15 @@ class ProcessingModel(
     log: String => Unit,
     scheduleUpdate: Double => Unit,
     totalBandwidth: Double) {
-    private var lastUpdate: Option[Double] = None
+    private var lastUpdate = 0.0
+    private var nextUpdate = 0.0
     private var jobs = Set.empty[Job]
 
     def jobCount = jobs.size
 
     def add(job: Job): Unit = {
         val timeElapsed = timeSinceLastUpdate
-        if (timeElapsed > 0.0) {
+        if (timeElapsed >= nextUpdate) {
             update(false)
         }
         jobs += job
@@ -53,7 +54,7 @@ class ProcessingModel(
     def update(scheduleUpdate: Boolean = true) = {
         val timeElapsed = timeSinceLastUpdate
         jobs = jobs.map(_.process(timeElapsed))
-        lastUpdate = Some(CloudSim.clock())
+        lastUpdate = CloudSim.clock()
 
         val done = jobs.filter(_.isDone)
         done.foreach(_.onFinish())
@@ -66,11 +67,14 @@ class ProcessingModel(
 
     // provide a minimum delay to avoid infinite update loop with zero progress
     private def scheduleNextUpdate() =
-        if (jobs.nonEmpty) scheduleUpdate(jobs.map(_.expectedCompletion).min.max(0.0001))
+        if (jobs.nonEmpty) {
+            nextUpdate = jobs.map(_.expectedDuration).min.max(0.0001)
+            scheduleUpdate(nextUpdate)
+        }
 
     private def timeSinceLastUpdate: Double = {
         val clock = CloudSim.clock
-        val time = clock - lastUpdate.getOrElse(clock)
+        val time = clock - lastUpdate
         assert(time >= 0)
         time
     }
