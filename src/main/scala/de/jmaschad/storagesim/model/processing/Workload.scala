@@ -8,52 +8,36 @@ trait Workload {
     def isDone: Boolean
 }
 
-private[processing] abstract class NetworkTransfer(size: Double, totalBandwidth: Double) extends Workload {
+private[processing] abstract class NetworkTransfer(size: Double, bandwidth: => Double) extends Workload {
     override def expectedDuration: Double = size / bandwidth
     override def isDone = size < 1 * Units.Byte
 
     protected def progress(timeSpan: Double) = timeSpan * bandwidth
-    protected def activeTransfers: Int
-
-    private def bandwidth = totalBandwidth / activeTransfers
 }
 
 object Upload {
-    private var activeUploads = Set.empty[Upload];
-
-    def apply(size: Double, totalBandwidth: Double) = new Upload(size, totalBandwidth)
+    def apply(size: Double, bandwidth: => Double) = new Upload(size, bandwidth)
 }
 
-private[processing] class Upload(size: Double, totalBandwidth: Double)
-    extends NetworkTransfer(size, totalBandwidth) {
-
-    if (!isDone) Upload.activeUploads += this
-
-    override protected def activeTransfers = Upload.activeUploads.size
+private[processing] class Upload(size: Double, bandwidth: => Double)
+    extends NetworkTransfer(size, bandwidth) {
 
     override def process(timeSpan: Double) = {
-        Upload.activeUploads -= this
-        Upload(size - progress(timeSpan), totalBandwidth)
+        Upload(size - progress(timeSpan), bandwidth)
     }
 }
 
 object Download {
-    private var activeDownloads = Set.empty[Download]
-
-    def apply(size: Double, totalBandwidth: Double) = new Download(size, totalBandwidth)
+    def apply(size: Double, bandwidth: => Double) = new Download(size, bandwidth)
 }
 
-private[processing] class Download(size: Double, totalBandwidth: Double)
-    extends NetworkTransfer(size, totalBandwidth) {
-
-    if (!isDone) Download.activeDownloads += this
+private[processing] class Download(size: Double, bandwidth: => Double)
+    extends NetworkTransfer(size, bandwidth) {
 
     override def process(timeSpan: Double) = {
-        Download.activeDownloads -= this
-        Download(size - progress(timeSpan), totalBandwidth)
+        Download(size - progress(timeSpan), bandwidth)
     }
 
-    override protected def activeTransfers = Download.activeDownloads.size
 }
 
 object DiskIO {
