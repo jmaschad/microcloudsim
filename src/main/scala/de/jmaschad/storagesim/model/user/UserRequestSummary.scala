@@ -4,7 +4,7 @@ import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.processing.StorageObject
 import org.cloudbus.cloudsim.core.SimEvent
 
-object RequestState extends Enumeration {
+object UserRequestSummary extends Enumeration {
     type RequestState = Value
 
     val Complete = Value("completed")
@@ -15,4 +15,4 @@ object RequestState extends Enumeration {
     val NoOnlineClouds = Value("no online clouds")
     val CloudStorageError = Value("cloud storage error")
 }
-import RequestState._
+import UserRequestSummary._

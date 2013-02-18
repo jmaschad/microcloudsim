@@ -12,7 +12,7 @@ import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.Download
-import RequestState._
+import UserRequestSummary._
 import User._
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud

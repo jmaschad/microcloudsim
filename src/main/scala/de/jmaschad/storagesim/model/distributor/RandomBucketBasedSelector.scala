@@ -105,12 +105,12 @@ class RandomBucketBasedSelector(
         }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =
-        Left(RequestState.UnsufficientSpace)
+        Left(UserRequestSummary.UnsufficientSpace)
 
     override def selectForGet(storageObject: StorageObject): Either[RequestState, Int] =
         distributionState.getOrElse(storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
-                Left(RequestState.ObjectNotFound)
+                Left(UserRequestSummary.ObjectNotFound)
             case targets if targets.size == 1 =>
                 Right(targets.head)
             case targets =>
