@@ -33,7 +33,6 @@ class Uploader(
     }
 
     def cancel(transferId: String) = {
-        val transfer = uploads(transferId)
         cancelAfterProcessing(transferId)
     }
 
