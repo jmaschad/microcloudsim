@@ -12,16 +12,13 @@ import de.jmaschad.storagesim.model.user.RequestState._
 import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.AddedObject
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
-import de.jmaschad.storagesim.model.microcloud.Copy
-import de.jmaschad.storagesim.model.microcloud.CancelCopy
-import de.jmaschad.storagesim.model.microcloud.Remove
 import de.jmaschad.storagesim.model.microcloud.RequestProcessed
+import de.jmaschad.storagesim.model.microcloud.StatusMessage
 import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
+import de.jmaschad.storagesim.model.microcloud.Load
+import de.jmaschad.storagesim.model.microcloud.InterCloudRequest
+import de.jmaschad.storagesim.model.microcloud.CancelRequest
+import de.jmaschad.storagesim.model.microcloud.Remove
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
@@ -80,7 +77,7 @@ class RandomBucketBasedSelector(
         val addedRequests = adaptionPlan -- runningRequests
         sendRequests(addedRequests)
 
-        runningRequests = (runningRequests -- obsoleteRequests) ++ addedRequests
+        runningRequests ++= addedRequests
     }
 
     private def createDistributionPlan(
@@ -123,26 +120,28 @@ class RandomBucketBasedSelector(
             val storageObject = objectCloudMap._1
             val currentClouds = objectCloudMap._2
             val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
-            requestSet ++ additionalClouds.map(Copy(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
+            requestSet ++ additionalClouds.map(Load(randomSelect1(currentClouds.toIndexedSeq), _, storageObject))
         })
 
-    private def purgeRequests(cloud: Int) =
+    private def purgeRequests(cloud: Int) = {
         runningRequests = runningRequests.filterNot(req => req match {
-            case Copy(source, _, _) => source == cloud
+            case Load(_, target, _) => target == cloud
 
             case _ => throw new IllegalStateException
         })
 
+    }
+
     private def cancelRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
-        case copy @ Copy(source, _, _) =>
-            send(source, MicroCloud.InterCloudRequest, CancelCopy(copy))
+        case req: InterCloudRequest =>
+            send(req.requestHandler, MicroCloud.InterCloudRequest, CancelRequest(req))
 
         case _ => throw new IllegalStateException
     })
 
     private def sendRequests(requests: Set[InterCloudRequest]) = requests.foreach(req => req match {
-        case copy @ Copy(source, _, _) =>
-            send(source, MicroCloud.InterCloudRequest, copy)
+        case load @ Load(_, target, _) =>
+            send(target, MicroCloud.InterCloudRequest, load)
 
         case _ => throw new IllegalStateException
     })
@@ -166,7 +165,7 @@ class RandomBucketBasedSelector(
         if (distributionGoal.isDefinedAt(storageObject.bucket) && distributionGoal(storageObject.bucket).contains(cloud)) {
             distributionState += storageObject -> (distributionState.getOrElse(storageObject, Set.empty) + cloud)
         } else {
-            send(cloud, MicroCloud.InterCloudRequest, Remove(storageObject))
+            send(cloud, MicroCloud.InterCloudRequest, Remove(cloud, storageObject))
         }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =
