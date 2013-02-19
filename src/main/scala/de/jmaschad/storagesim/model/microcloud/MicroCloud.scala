@@ -61,7 +61,7 @@ class MicroCloud(
         log(processing.jobCount + " running jobs on shutdown")
     }
 
-    override def process(event: SimEvent): Boolean = {
+    override def process(event: SimEvent) = {
         state.process(event)
     }
 
@@ -83,22 +83,22 @@ class MicroCloud(
     }
 
     private trait MicroCloudState {
-        def process(event: SimEvent): Boolean
+        def process(event: SimEvent)
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
 
     private class OfflineState extends MicroCloudState {
-        def process(event: SimEvent): Boolean = event.getTag match {
+        def process(event: SimEvent) = event.getTag match {
             case MicroCloud.Boot =>
                 stateLog("received boot request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOnline, CloudStatus(storageSystem.objects))
                 sendNow(getId, MicroCloud.MicroCloudStatus)
                 scheduleKill()
                 switchState(new OnlineState)
-                true
 
-            case _ => false
+            case _ =>
+                log("dropoped event: " + event)
         }
 
     }
@@ -106,17 +106,15 @@ class MicroCloud(
     private class OnlineState extends MicroCloudState {
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
-        def process(event: SimEvent): Boolean = event.getTag() match {
+        def process(event: SimEvent) = event.getTag() match {
             case MicroCloud.MicroCloudStatus =>
                 sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, CloudStatus(storageSystem.objects))
                 send(getId(), Distributor.StatusInterval, MicroCloud.MicroCloudStatus)
-                true
 
             case MicroCloud.Shutdown =>
                 stateLog("received shutdown request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
-                true
 
             case MicroCloud.Kill =>
                 stateLog("received kill request")
@@ -124,7 +122,6 @@ class MicroCloud(
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
                 switchState(new OfflineState)
-                true
 
             case MicroCloud.DistributorRequest =>
                 DistributorRequest.fromEvent(event) match {
@@ -135,13 +132,12 @@ class MicroCloud(
                     case Remove(obj) =>
                         storageSystem.remove(obj)
                 }
-                true
 
             case MicroCloud.Request =>
                 handleCloudRequest(CloudRequest.fromEvent(event), event.getSource())
-                true
 
-            case _ => false
+            case _ =>
+                log("dropoped event: " + event)
         }
 
         private def handleCloudRequest(request: CloudRequest, source: Int) = request match {

@@ -22,9 +22,11 @@ abstract class ProcessingEntity(
 
     private var lastUpdate: Option[SimEvent] = None
 
-    def startEntity(): Unit = {}
+    override def startEntity(): Unit = {}
 
-    final def processEvent(event: SimEvent): Unit = event.getTag match {
+    override def shutdownEntity(): Unit
+
+    final override def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcessingModel.ProcUpdate =>
             processing.update()
 
@@ -35,14 +37,12 @@ abstract class ProcessingEntity(
             uploader.process(event.getSource, event.getData)
 
         case _ =>
-            if (!process(event)) log("dropped event " + event)
+            process(event)
     }
 
-    def shutdownEntity(): Unit
+    protected def log(message: String): Unit
 
-    def log(message: String): Unit
-
-    protected def process(event: SimEvent): Boolean
+    protected def process(event: SimEvent): Unit
 
     protected def resetModel() = {
         uploader = uploader.reset()
@@ -51,7 +51,7 @@ abstract class ProcessingEntity(
         storageSystem = storageSystem.reset()
     }
 
-    def scheduleProcessingUpdate(delay: Double) = {
+    private def scheduleProcessingUpdate(delay: Double) = {
         lastUpdate.foreach(CloudSim.cancel(_))
         lastUpdate = Some(send(getId(), delay, ProcessingModel.ProcUpdate))
     }

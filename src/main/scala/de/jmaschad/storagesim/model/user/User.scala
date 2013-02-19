@@ -95,16 +95,16 @@ class User(
 
     override def shutdownEntity() = log(requestLog.summary())
 
-    override def process(event: SimEvent): Boolean =
+    override def process(event: SimEvent) =
         event.getTag() match {
             case ScheduleRequest =>
                 getRequestAndScheduleBehavior(event) match {
                     case get @ Get(_, _) => sendGet(get)
                     case _ => throw new IllegalStateException
                 }
-                true
 
-            case _ => false
+            case _ =>
+                log("dropoped event: " + event)
         }
 
     private def sendGet(get: Get) = {
