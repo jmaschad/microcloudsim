@@ -14,7 +14,7 @@ object Downloader {
 import Downloader._
 
 class Downloader(
-    send: (Int, Double, Int, Object) => Unit,
+    send: (Int, Double, Int, Object) => _,
     log: String => Unit,
     entityId: Int) {
 

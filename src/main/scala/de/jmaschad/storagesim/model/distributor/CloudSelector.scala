@@ -6,7 +6,7 @@ import de.jmaschad.storagesim.model.user.UserRequestSummary._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
 trait CloudSelector {
-    val send: (Int, Int, Object) => Unit
+    val send: (Int, Int, Object) => _
     val log: String => Unit
 
     /**

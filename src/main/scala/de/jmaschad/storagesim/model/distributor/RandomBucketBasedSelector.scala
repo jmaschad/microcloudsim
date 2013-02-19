@@ -11,7 +11,7 @@ import de.jmaschad.storagesim.model.user.UserRequestSummary._
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
-    val send: (Int, Int, Object) => Unit) extends CloudSelector {
+    val send: (Int, Int, Object) => _) extends CloudSelector {
 
     var clouds = Set.empty[Int]
     var distributionGoal = Map.empty[String, Set[Int]]

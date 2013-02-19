@@ -13,7 +13,7 @@ object Uploader {
 }
 
 class Uploader(
-    send: (Int, Double, Int, Object) => Unit,
+    send: (Int, Double, Int, Object) => _,
     log: String => Unit,
     entityId: Int) {
 
