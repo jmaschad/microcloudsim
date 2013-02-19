@@ -15,27 +15,27 @@ private[processing] abstract class NetworkTransfer(size: Double, bandwidth: => D
     protected def progress(timeSpan: Double) = timeSpan * bandwidth
 }
 
-object Upload {
-    def apply(size: Double, bandwidth: => Double) = new Upload(size, bandwidth)
+object NetUp {
+    def apply(size: Double, bandwidth: => Double) = new NetUp(size, bandwidth)
 }
 
-private[processing] class Upload(size: Double, bandwidth: => Double)
+private[processing] class NetUp(size: Double, bandwidth: => Double)
     extends NetworkTransfer(size, bandwidth) {
 
     override def process(timeSpan: Double) = {
-        Upload(size - progress(timeSpan), bandwidth)
+        NetUp(size - progress(timeSpan), bandwidth)
     }
 }
 
-object Download {
-    def apply(size: Double, bandwidth: => Double) = new Download(size, bandwidth)
+object NetDown {
+    def apply(size: Double, bandwidth: => Double) = new NetDown(size, bandwidth)
 }
 
-private[processing] class Download(size: Double, bandwidth: => Double)
+private[processing] class NetDown(size: Double, bandwidth: => Double)
     extends NetworkTransfer(size, bandwidth) {
 
     override def process(timeSpan: Double) = {
-        Download(size - progress(timeSpan), bandwidth)
+        NetDown(size - progress(timeSpan), bandwidth)
     }
 
 }

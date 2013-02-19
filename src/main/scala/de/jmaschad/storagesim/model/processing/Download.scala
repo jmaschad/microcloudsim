@@ -5,17 +5,17 @@ import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.CloudSim
 import scala.util.Random
 
-object Downloader {
+object Download {
     val DownloadMaxTime = 2.0
 
     private val Base = 10400
     val Download = Base + 1
 }
-import Downloader._
+import Download._
 
-class Downloader(
-    send: (Int, Double, Int, Object) => _,
-    log: String => Unit,
+class Download(
+    send: (Int, Double, Int, Object) => _, 
+    log: String => Unit, 
     entityId: Int) {
 
     var downloads = Map.empty[String, Transfer]
@@ -44,8 +44,8 @@ class Downloader(
         case _ => throw new IllegalStateException("request error")
     }
 
-    def reset(): Downloader =
-        new Downloader(send, log, entityId)
+    def reset(): Download =
+        new Download(send, log, entityId)
 
     private def packetReceived(transferId: String, nr: Int, size: Double) = {
         val transfer = downloads(transferId)
@@ -56,7 +56,7 @@ class Downloader(
                 downloads += transferId -> newTracker
                 transfer.process(size, () => {
                     // ack
-                    send(transfer.partner, 0.0, Uploader.Upload, Ack(transferId, nr))
+                    send(transfer.partner, 0.0, Upload.Upload, Ack(transferId, nr))
                     // timeout
                     scheduleTimeout(transferId, newTracker.packetNumber)
                 })
@@ -66,9 +66,9 @@ class Downloader(
                 waitingForFinish += transferId -> transfer
                 transfer.process(size, () => {
                     // ack
-                    send(transfer.partner, 0.0, Uploader.Upload, Ack(transferId, nr))
+                    send(transfer.partner, 0.0, Upload.Upload, Ack(transferId, nr))
                     // timeout
-                    send(entityId, DownloadMaxTime, Downloader.Download, DownloadTimeout(() => {
+                    send(entityId, DownloadMaxTime, Download.Download, DownloadTimeout(() => {
                         waitingForFinish.get(transferId).foreach(transfer => {
                             log("timed out transfer after last packet " + transferId)
                             transfer.onFinish(false)
@@ -80,7 +80,7 @@ class Downloader(
     }
 
     private def scheduleTimeout(transferId: String, packet: Int) =
-        send(entityId, DownloadMaxTime, Downloader.Download, DownloadTimeout(() => {
+        send(entityId, DownloadMaxTime, Download.Download, DownloadTimeout(() => {
             // if the download is still active and if the current packet
             // is equal to the timeout packet kill the transfer, otherwise
             // continue.

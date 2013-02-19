@@ -20,7 +20,7 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType
-import de.jmaschad.storagesim.model.processing.Downloader
+import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.Transfer
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Get

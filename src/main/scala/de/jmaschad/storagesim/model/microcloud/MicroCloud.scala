@@ -16,13 +16,14 @@ import de.jmaschad.storagesim.model.distributor.Remove
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.Downloader
+import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.Upload
+import de.jmaschad.storagesim.model.processing.NetUp
 import de.jmaschad.storagesim.model.processing.DiskIO
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.processing.Transfer
+import de.jmaschad.storagesim.model.processing.Dialog
 
 object MicroCloud {
     private val Base = 10200
@@ -65,6 +66,10 @@ class MicroCloud(
         state.process(event)
     }
 
+    override protected def answerDialog(source: Int, message: AnyRef): Option[Dialog] = {
+        state.createDialog(source, message)
+    }
+
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
     private def switchState(newState: MicroCloudState): Unit = {
@@ -84,6 +89,7 @@ class MicroCloud(
 
     private trait MicroCloudState {
         def process(event: SimEvent)
+        def createDialog(source: Int, message: AnyRef): Option[Dialog]
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
@@ -101,6 +107,8 @@ class MicroCloud(
                 log("dropoped event: " + event)
         }
 
+        def createDialog(source: Int, message: AnyRef): Option[Dialog] =
+            None
     }
 
     private class OnlineState extends MicroCloudState {
@@ -139,6 +147,9 @@ class MicroCloud(
             case _ =>
                 log("dropoped event: " + event)
         }
+
+        def createDialog(source: Int, message: AnyRef): Option[Dialog] =
+            None
 
         private def handleCloudRequest(request: CloudRequest, source: Int) = request match {
             case Get(transferId: String, obj: StorageObject) =>

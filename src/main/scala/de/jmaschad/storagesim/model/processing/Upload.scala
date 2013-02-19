@@ -1,20 +1,20 @@
 package de.jmaschad.storagesim.model.processing
 
-import Uploader._
+import Upload._
 import de.jmaschad.storagesim.Units
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 
-object Uploader {
+object Upload {
     val UploadMaxTime = 2.0
 
     private val Base = 10450
     val Upload = Base + 1
 }
 
-class Uploader(
-    send: (Int, Double, Int, Object) => _,
-    log: String => Unit,
+class Upload(
+    send: (Int, Double, Int, Object) => _, 
+    log: String => Unit, 
     entityId: Int) {
 
     private var uploads = Map.empty[String, Transfer]
@@ -55,7 +55,7 @@ class Uploader(
             partnerFinished -= transferId
         }
 
-    def reset(): Uploader = new Uploader(send, log, entityId)
+    def reset(): Upload = new Upload(send, log, entityId)
 
     private def ifPartnerFinishedUploadNextPacket(transferId: String, packetNumber: Int) = {
         // partner timed out
@@ -75,7 +75,7 @@ class Uploader(
                     uploads += transferId -> newTracker
                     sendNextPacket(transferId)
                 case None =>
-                    send(tracker.partner, 0.0, Downloader.Download, FinishDownload(transferId))
+                    send(tracker.partner, 0.0, Download.Download, FinishDownload(transferId))
                     tracker.onFinish(true)
                     uploads -= transferId
                     partnerFinished -= transferId
@@ -88,7 +88,7 @@ class Uploader(
 
     private def sendNextPacket(transferId: String): Unit = {
         val upload = uploads(transferId)
-        send(upload.partner, 0.0, Downloader.Download, Packet(transferId, upload.packetNumber, upload.packetSize))
+        send(upload.partner, 0.0, Download.Download, Packet(transferId, upload.packetNumber, upload.packetSize))
 
         isProcessing += transferId
         upload.process(upload.packetSize, () => {
@@ -99,7 +99,7 @@ class Uploader(
     }
 
     private def scheduleTimeout(transferId: String, packet: Int) = {
-        send(entityId, UploadMaxTime, Uploader.Upload, UploadTimeout(() => {
+        send(entityId, UploadMaxTime, Upload.Upload, UploadTimeout(() => {
             uploads.get(transferId).foreach(transfer =>
                 if (transfer.packetNumber == packet) {
                     log("timed out upload " + transferId)

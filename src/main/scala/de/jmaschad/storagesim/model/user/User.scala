@@ -11,13 +11,14 @@ import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.Download
+import de.jmaschad.storagesim.model.processing.NetDown
 import UserRequestSummary._
 import User._
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.CloudRequest
 import de.jmaschad.storagesim.model.microcloud.Get
+import de.jmaschad.storagesim.model.processing.Dialog
 
 private[user] class RequestLog(
     log: String => Unit) {
@@ -106,6 +107,9 @@ class User(
             case _ =>
                 log("dropoped event: " + event)
         }
+
+    override protected def answerDialog(source: Int, message: AnyRef): Option[Dialog] =
+        None
 
     private def sendGet(get: Get) = {
         requestLog.add(get)

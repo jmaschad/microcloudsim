@@ -24,20 +24,20 @@ class ProcessingModel(
     private def downloadBandwidth: Double = totalBandwidth / downloadCount
 
     def download(size: Double, onFinish: () => Unit) = {
-        val workloads = Set(Download(size, { downloadBandwidth }))
+        val workloads = Set(NetDown(size, { downloadBandwidth }))
         downloadCount += 1
         add(Job(workloads, onFinish))
     }
 
     def upload(size: Double, onFinish: () => Unit) = {
-        val workloads = Set(Upload(size, { uploadBandwidth }))
+        val workloads = Set(NetUp(size, { uploadBandwidth }))
         uploadCount += 1
         add(Job(workloads, onFinish))
     }
 
     def downloadAndStore(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
-            Download(size, { downloadBandwidth }),
+            NetDown(size, { downloadBandwidth }),
             DiskIO(size, { transaction.throughput }))
         downloadCount += 1
         add(Job(workloads, onFinish))
@@ -45,7 +45,7 @@ class ProcessingModel(
 
     def loadAndUpload(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
         val workloads = Set[Workload](
-            Upload(size, { uploadBandwidth }),
+            NetUp(size, { uploadBandwidth }),
             DiskIO(size, { transaction.throughput }))
         uploadCount += 1
         add(Job(workloads, onFinish))
@@ -59,8 +59,8 @@ class ProcessingModel(
         val done = jobs.filter(_.isDone)
         done.foreach(job => {
             job.onFinish()
-            if (job.workloads.collect({ case dl: Download => dl }).size > 0) downloadCount -= 1
-            if (job.workloads.collect({ case ul: Upload => ul }).size > 0) uploadCount -= 1
+            if (job.workloads.collect({ case dl: NetDown => dl }).size > 0) downloadCount -= 1
+            if (job.workloads.collect({ case ul: NetUp => ul }).size > 0) uploadCount -= 1
         })
         jobs --= done
 
