@@ -7,8 +7,8 @@ import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.UserRequestSummary._
 import de.jmaschad.storagesim.model.microcloud.Get
+import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 
 object Distributor {
     val StatusInterval = 1
@@ -27,7 +27,7 @@ class Distributor(name: String) extends SimEntity(name) {
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)
 
-    def cloudForGet(get: Get): Either[RequestState, Int] =
+    def cloudForGet(get: Get): Either[RequestSummary, Int] =
         selector.selectForGet(get.obj)
 
     override def startEntity(): Unit = {}

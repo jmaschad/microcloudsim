@@ -3,16 +3,12 @@ package de.jmaschad.storagesim.model
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import org.cloudbus.cloudsim.core.predicates.PredicateType
-import de.jmaschad.storagesim.model.processing.Download
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.Upload
-import de.jmaschad.storagesim.model.processing.Dialog
-import de.jmaschad.storagesim.model.processing.Message
-import de.jmaschad.storagesim.model.processing.Message
-import de.jmaschad.storagesim.model.processing.Timeout
+import de.jmaschad.storagesim.model.transfer.Message
+import de.jmaschad.storagesim.model.transfer.Timeout
+import de.jmaschad.storagesim.model.transfer.DialogCenter
 
 object ProcessingEntity {
     private val Base = 30000
@@ -26,10 +22,7 @@ abstract class ProcessingEntity(
 
     protected var storageSystem = new StorageSystem(log _, resources.storageDevices)
     protected var processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
-    protected var downloader = new Download(send _, log _, getId)
-    protected var uploader = new Upload(send _, log _, getId)
-
-    private var dialogs = Map.empty[String, Dialog]
+    protected var dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
 
     private var lastUpdate: Option[SimEvent] = None
 
@@ -43,23 +36,17 @@ abstract class ProcessingEntity(
                 case m: Message => m
                 case _ => throw new IllegalStateException
             }
-            processDialogMessage(event.getSource(), message)
+            dialogCenter.handleMessage(event.getSource(), message)
 
         case ProcessingEntity.DialogTimeout =>
             val timeout = event.getData match {
                 case t: Timeout => t
                 case _ => throw new IllegalStateException
             }
-            processTimeout(timeout)
+            dialogCenter.handleTimeout(timeout)
 
         case ProcessingModel.ProcUpdate =>
             processing.update()
-
-        case Download.Download =>
-            downloader.process(event.getSource(), event.getData())
-
-        case Upload.Upload =>
-            uploader.process(event.getSource, event.getData)
 
         case _ =>
             process(event)
@@ -69,45 +56,13 @@ abstract class ProcessingEntity(
 
     protected def process(event: SimEvent): Unit
 
-    protected def answerDialog(source: Int, message: AnyRef): Option[Dialog]
-
-    protected def addDialog(dialog: Dialog) = dialogs += dialog.dialogId -> dialog
-
-    protected def removeDialog(dialogId: String) = {
-        assert(dialogs.isDefinedAt(dialogId))
-        dialogs -= dialogId
-    }
+    protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler]
 
     protected def resetModel() = {
-        uploader = uploader.reset()
-        downloader = downloader.reset()
+        dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
         processing = processing.reset()
         storageSystem = storageSystem.reset()
     }
-
-    private def processDialogMessage(source: Int, message: Message) =
-        dialogs.get(message.dialogId) match {
-            case Some(dialog) if message.messageId == dialog.messageId =>
-                dialog.processMessage(message.content)
-
-            case Some(dialog) =>
-                throw new IllegalStateException("received message for timed out dialog")
-
-            case None if message.messageId == 0 =>
-                answerDialog(source, message.content).
-                    foreach(dialog => dialogs += dialog.dialogId -> dialog)
-
-            case _ =>
-                throw new IllegalStateException
-        }
-
-    private def processTimeout(timeout: Timeout) =
-        dialogs.get(timeout.dialogId).foreach(dialog => {
-            if (timeout.isTimeout(dialog.messageId)) {
-                dialog.onTimeout()
-                dialogs -= timeout.dialogId
-            }
-        })
 
     private def scheduleProcessingUpdate(delay: Double) = {
         lastUpdate.foreach(CloudSim.cancel(_))

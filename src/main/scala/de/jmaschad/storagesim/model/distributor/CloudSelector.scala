@@ -1,9 +1,8 @@
 package de.jmaschad.storagesim.model.distributor
 
-import java.util.Objects
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.UserRequestSummary._
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 
 trait CloudSelector {
     val send: (Int, Int, Object) => _
@@ -41,11 +40,11 @@ trait CloudSelector {
      * Returns a cloud id or a POST request, if the request
      * is satisfiable or None otherwise.
      */
-    def selectForPost(storageObjects: StorageObject): Either[RequestState, Int]
+    def selectForPost(storageObjects: StorageObject): Either[RequestSummary, Int]
 
     /**
      * Returns a cloud id or a GET request, if the request
      * is satisfiable or None otherwise.
      */
-    def selectForGet(storageObject: StorageObject): Either[RequestState, Int]
+    def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int]
 }

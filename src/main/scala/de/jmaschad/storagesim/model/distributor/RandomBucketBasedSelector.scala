@@ -7,7 +7,7 @@ import de.jmaschad.storagesim.model.microcloud.AddedObject
 import de.jmaschad.storagesim.model.microcloud.RequestProcessed
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.UserRequestSummary._
+import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
@@ -103,10 +103,10 @@ class RandomBucketBasedSelector(
 
         }
 
-    override def selectForPost(storageObject: StorageObject): Either[RequestState, Int] =
+    override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
         Left(UnsufficientSpace)
 
-    override def selectForGet(storageObject: StorageObject): Either[RequestState, Int] =
+    override def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState.getOrElse(storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
                 Left(ObjectNotFound)

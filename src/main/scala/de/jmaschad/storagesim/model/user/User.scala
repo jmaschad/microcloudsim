@@ -12,57 +12,18 @@ import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.NetDown
-import UserRequestSummary._
-import User._
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.microcloud.CloudRequest
 import de.jmaschad.storagesim.model.microcloud.Get
-import de.jmaschad.storagesim.model.processing.Dialog
-
-private[user] class RequestLog(
-    log: String => Unit) {
-    private class Active(size: Double) {
-        private val start = CloudSim.clock()
-        def finish(summary: RequestState): Finished = {
-            val duration = CloudSim.clock() - start
-            new Finished(duration, size / duration, summary)
-        }
-    }
-
-    private class Finished(val duration: Double, val avgBandwidth: Double, val summary: RequestState) {
-        override def toString = "%s %.3fs %.3f MBit/s".format(summary, duration, avgBandwidth * 8)
-    }
-
-    private var activeRequests = Map.empty[CloudRequest, Active]
-    private var finishedRequests = Set.empty[Finished]
-
-    def add(request: CloudRequest) = request match {
-        case Get(_, obj) =>
-            assert(!activeRequests.isDefinedAt(request))
-            activeRequests += request -> new Active(obj.size)
-
-        case _ =>
-            throw new IllegalStateException
-    }
-
-    def finish(request: CloudRequest, summary: RequestState) = {
-        assert(activeRequests.contains(request))
-        val finished = activeRequests(request).finish(summary)
-        log("request finished: " + finished)
-        finishedRequests += activeRequests(request).finish(summary)
-        activeRequests -= request
-    }
-
-    def summary(): String = {
-        val avgBw = finishedRequests.foldLeft(0.0)((sum, entry) => sum + entry.avgBandwidth) / finishedRequests.count(_.avgBandwidth > 0.0)
-        val bySummary = finishedRequests.groupBy(_.summary)
-
-        finishedRequests.size + " finished / " + activeRequests.size + " active requests.\n" +
-            "\taverage bandwidth " + (avgBw * 8).formatted("%.2f") + "Mbit/s\n" +
-            "\t" + bySummary.keys.map(key => bySummary(key).size + " " + key).mkString(", ")
-    }
-}
+import de.jmaschad.storagesim.model.transfer.Dialog
+import de.jmaschad.storagesim.model.microcloud.RequestAck
+import de.jmaschad.storagesim.model.transfer.Download
+import de.jmaschad.storagesim.model.transfer.Dialog
+import de.jmaschad.storagesim.model.microcloud.RequestSummary._
+import User._
+import de.jmaschad.storagesim.model.transfer.Message
+import de.jmaschad.storagesim.model.transfer.DialogCenter
 
 object User {
     private val MaxRequestTicks = 2
@@ -99,37 +60,52 @@ class User(
     override def process(event: SimEvent) =
         event.getTag() match {
             case ScheduleRequest =>
-                getRequestAndScheduleBehavior(event) match {
-                    case get @ Get(_, _) => sendGet(get)
-                    case _ => throw new IllegalStateException
-                }
+                val request = getRequestAndScheduleBehavior(event)
+                sendRequest(request)
 
             case _ =>
                 log("dropoped event: " + event)
         }
 
-    override protected def answerDialog(source: Int, message: AnyRef): Option[Dialog] =
-        None
+    override protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
+        throw new IllegalStateException
 
-    private def sendGet(get: Get) = {
-        requestLog.add(get)
-        distributor.cloudForGet(get) match {
-            case Right(cloud) =>
-                sendNow(cloud, MicroCloud.Request, get)
-                downloader.start(
-                    get.transferId,
-                    get.obj.size,
-                    cloud,
-                    processing.download _,
-                    if (_) {
-                        requestLog.finish(get, Complete)
-                    } else {
-                        requestLog.finish(get, TimeOut)
-                    })
+    private def sendRequest(request: CloudRequest) =
+        request match {
+            case get @ Get(obj) =>
+                requestLog.add(get)
+                distributor.cloudForGet(get) match {
+                    case Right(cloud) =>
+                        sendGet(cloud, get)
 
-            case Left(error) =>
-                requestLog.finish(get, error)
+                    case Left(error) =>
+                        requestLog.finish(get, error)
+                }
+
+            case _ => throw new IllegalStateException
         }
+
+    private def sendGet(target: Int, get: Get) = {
+        val messageHandler: DialogCenter.MessageHandler = _ match {
+            case _ => throw new IllegalStateException
+        }
+        dialogCenter.openDialog(target, messageHandler)
+
+        dialog.process = (data: AnyRef) => data match {
+            case RequestAck(req) if req == get =>
+                new Download(dialog, get.obj.size, processing.download _,
+                    if (_)
+                        requestLog.finish(get, Complete)
+                    else
+                        requestLog.finish(get, TimeOut))
+
+            case _ =>
+                throw new IllegalStateException
+        }
+
+        dialog.onTimeout = () => requestLog.finish(get, TimeOut)
+
+        dialog.say(get)
     }
 
     private def getRequestAndScheduleBehavior(event: SimEvent): CloudRequest = {

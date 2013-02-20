@@ -10,7 +10,6 @@ import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import com.twitter.util.Eval
 import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.CloudSelector
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
@@ -20,9 +19,7 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType
-import de.jmaschad.storagesim.model.processing.Download
-import de.jmaschad.storagesim.model.processing.Transfer
-import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.transfer.Transfer
 import de.jmaschad.storagesim.model.microcloud.Get
 
 object StorageSim {
@@ -124,7 +121,7 @@ object StorageSim {
 
                 val behavior = requestType match {
                     case RequestType.Get =>
-                        UserBehavior(delayModel, objectSelectionModel, objects, Get({ Transfer.transferId() }, _))
+                        UserBehavior(delayModel, objectSelectionModel, objects, Get(_))
 
                     case _ => throw new IllegalStateException
                 }

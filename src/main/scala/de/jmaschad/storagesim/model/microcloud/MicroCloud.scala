@@ -1,29 +1,19 @@
 package de.jmaschad.storagesim.model.microcloud
 
 import org.apache.commons.math3.distribution.UniformRealDistribution
-import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import org.cloudbus.cloudsim.core.predicates.PredicateType
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.distributor.DistributorRequest
-import de.jmaschad.storagesim.model.distributor.Load
-import de.jmaschad.storagesim.model.distributor.Remove
+import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.Download
-import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.NetUp
-import de.jmaschad.storagesim.model.processing.DiskIO
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.processing.Transfer
-import de.jmaschad.storagesim.model.processing.Dialog
+import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.transfer.Message
+import de.jmaschad.storagesim.model.transfer.DialogCenter
 
 object MicroCloud {
     private val Base = 10200
@@ -58,23 +48,19 @@ class MicroCloud(
         scheduleKill()
     }
 
-    override def shutdownEntity() = {
+    override def shutdownEntity() =
         log(processing.jobCount + " running jobs on shutdown")
-    }
 
-    override def process(event: SimEvent) = {
+    override def process(event: SimEvent) =
         state.process(event)
-    }
 
-    override protected def answerDialog(source: Int, message: AnyRef): Option[Dialog] = {
-        state.createDialog(source, message)
-    }
+    override protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
+        state.createMessageHandler(source, message)
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
-    private def switchState(newState: MicroCloudState): Unit = {
+    private def switchState(newState: MicroCloudState): Unit =
         state = newState
-    }
 
     private def scheduleKill() = if (firstKill) {
         // additionally delay the first kill for a fraction of the MTTF. Otherwise MicroClouds
@@ -89,7 +75,7 @@ class MicroCloud(
 
     private trait MicroCloudState {
         def process(event: SimEvent)
-        def createDialog(source: Int, message: AnyRef): Option[Dialog]
+        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler]
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
@@ -107,8 +93,10 @@ class MicroCloud(
                 log("dropoped event: " + event)
         }
 
-        def createDialog(source: Int, message: AnyRef): Option[Dialog] =
+        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] = {
+            log("ignored dialog because it is offline")
             None
+        }
     }
 
     private class OnlineState extends MicroCloudState {
@@ -132,38 +120,22 @@ class MicroCloud(
                 switchState(new OfflineState)
 
             case MicroCloud.DistributorRequest =>
-                DistributorRequest.fromEvent(event) match {
-                    case Load(source, obj) =>
-                        val transferId = Transfer.transferId()
-                        sendNow(source, MicroCloud.Request, Get(transferId, obj))
-
-                    case Remove(obj) =>
-                        storageSystem.remove(obj)
-                }
 
             case MicroCloud.Request =>
-                handleCloudRequest(CloudRequest.fromEvent(event), event.getSource())
 
             case _ =>
                 log("dropoped event: " + event)
         }
 
-        def createDialog(source: Int, message: AnyRef): Option[Dialog] =
-            None
+        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
+            message.content match {
+                case req @ Get(obj) =>
+                    throw new IllegalStateException("not implemented")
 
-        private def handleCloudRequest(request: CloudRequest, source: Int) = request match {
-            case Get(transferId: String, obj: StorageObject) =>
-                val transaction = storageSystem.loadTransaction(obj)
-                uploader.start(
-                    transferId,
-                    obj.size,
-                    source,
-                    processing.loadAndUpload(_, transaction, _),
-                    if (_) transaction.complete() else transaction.abort())
+                case _ =>
+                    throw new IllegalStateException("unknown message " + message)
+            }
 
-            case Delete(obj: StorageObject) =>
-                storageSystem.remove(obj)
-        }
     }
 }
 
