@@ -86,8 +86,11 @@ class User(
         }
 
     private def sendGet(target: Int, get: Get) = {
-        val messageHandler: DialogCenter.MessageHandler = _ match {
-            case _ => throw new IllegalStateException
+        val messageHandler: DialogCenter.MessageHandler = message => {
+            
+            message.content match {
+                
+            }
         }
         dialogCenter.openDialog(target, messageHandler)
 

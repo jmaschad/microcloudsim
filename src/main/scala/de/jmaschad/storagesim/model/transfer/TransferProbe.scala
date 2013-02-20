@@ -1,4 +1,4 @@
-package de.jmaschad.storagesim.model.processing
+package de.jmaschad.storagesim.model.transfer
 
 import org.cloudbus.cloudsim.core.CloudSim
 
