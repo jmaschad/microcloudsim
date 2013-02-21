@@ -1,6 +1,7 @@
 package de.jmaschad.storagesim.model.transfer
 
 class Download(
+    log: String => Unit,
     dialog: Dialog,
     size: Double,
     process: (Double, () => Unit) => Unit,
@@ -12,7 +13,10 @@ class Download(
     TransferProbe.add(dialog.id, size)
     dialog.messageHandler = processMessage _
 
-    val timeoutHandler = () => { onFinish(false) }
+    val timeoutHandler = () => {
+        log("download timed out " + TransferProbe.finish(dialog.id))
+        onFinish(false)
+    }
     dialog.say(DownloadReady, timeoutHandler)
 
     private def processMessage(message: Message) = message.content match {
@@ -21,6 +25,7 @@ class Download(
 
         case FinishDownload =>
             assert(remainingPackets == 0)
+            log("download finished " + TransferProbe.finish(dialog.id))
             onFinish(true)
 
         case _ => throw new IllegalStateException("request error")

@@ -1,6 +1,7 @@
 package de.jmaschad.storagesim.model.transfer
 
 class Upload(
+    log: String => Unit,
     dialog: Dialog,
     size: Double,
     process: (Double, () => Unit) => Unit,
@@ -14,7 +15,10 @@ class Upload(
     var isCanceled = false
 
     dialog.messageHandler = processMessage _
-    val timeoutHandler = () => { onFinish(false) }
+    val timeoutHandler = () => {
+        log("upload timed out " + TransferProbe.finish(dialog.id))
+        onFinish(false)
+    }
 
     TransferProbe.add(dialog.id, size)
     sendNextPacket
@@ -44,6 +48,7 @@ class Upload(
             if (remainingPackets > 0) {
                 sendNextPacket()
             } else {
+                log("upload finished " + TransferProbe.finish(dialog.id))
                 dialog.say(FinishDownload, timeoutHandler)
                 onFinish(true)
             }
@@ -54,6 +59,7 @@ class Upload(
         if (!processingFinished) {
             isCanceled = true
         } else {
+            log("upload canceled " + TransferProbe.finish(dialog.id))
             onFinish(false)
         }
 

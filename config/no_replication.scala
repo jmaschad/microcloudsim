@@ -3,11 +3,11 @@ import de.jmaschad.storagesim.model.user.RequestType._
 
 new StorageSimConfig {
   simDuration = 20
-  userCount = 100
+  userCount = 10000
   cloudCount = 100
-  cloudBandwidthDistribution = NormalDist(125 * Units.MByte, 20 * Units.MByte);
-  objectSizeDistribution = ExponentialDist(1 * Units.MByte)
+  cloudBandwidthDistribution = NormalDist(125 * Units.MByte, 0.01 * Units.MByte);
+  objectSizeDistribution = ExponentialDist(5 * Units.MByte)
   cloudFailureDistribution = NormalDist(100 * 60, 1)
   diskFailureDistribution = NormalDist(100 * 60, 1)
-  behaviors = Seq(BehaviorConfig(Get, NormalDist(1.0, 0.3), UniformSelection()))
+  behaviors = Seq(BehaviorConfig(Get, NormalDist(0.5, 0.1), UniformSelection()))
 }

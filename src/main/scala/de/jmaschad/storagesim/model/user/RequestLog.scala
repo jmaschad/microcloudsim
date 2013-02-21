@@ -33,8 +33,6 @@ class RequestLog(
 
     def finish(request: CloudRequest, summary: RequestSummary) = {
         assert(activeRequests.contains(request.id))
-        val finished = activeRequests(request.id).finish(summary)
-        log("request finished: " + finished)
         finishedRequests += activeRequests(request.id).finish(summary)
         activeRequests -= request.id
     }

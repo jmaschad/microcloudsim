@@ -140,7 +140,7 @@ class MicroCloud(
 
                             case DownloadReady =>
                                 val transaction = storageSystem.loadTransaction(obj)
-                                new Upload(dialog, obj.size, processing.loadAndUpload(_, transaction, _), (success) => {
+                                new Upload(log _, dialog, obj.size, processing.loadAndUpload(_, transaction, _), (success) => {
                                     dialog.close
                                     if (success) transaction.complete else transaction.abort
                                 })

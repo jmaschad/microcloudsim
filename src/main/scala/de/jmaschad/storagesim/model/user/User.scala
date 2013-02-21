@@ -99,7 +99,7 @@ class User(
                         requestLog.finish(get, TimeOut)
                 }
 
-                new Download(dialog, get.obj.size, processing.download _, onFinish)
+                new Download(log _, dialog, get.obj.size, processing.download _, onFinish)
 
             case _ =>
                 throw new IllegalStateException
