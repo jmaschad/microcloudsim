@@ -24,6 +24,10 @@ import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 import User._
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.DialogEntity
+import de.jmaschad.storagesim.model.BaseEntity
+import de.jmaschad.storagesim.model.distributor.Result
+import de.jmaschad.storagesim.model.distributor.Lookup
 
 object User {
     private val MaxRequestTicks = 2
@@ -35,12 +39,12 @@ object User {
 class User(
     name: String,
     resources: ResourceCharacteristics,
-    initialObjects: Iterable[StorageObject],
-    distributor: Distributor) extends ProcessingEntity(name, resources) {
+    distributor: Distributor) extends BaseEntity(name) with DialogEntity with ProcessingEntity {
+    protected val storageDevices = resources.storageDevices
+    protected val bandwidth = resources.bandwidth
+
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val requestLog = new RequestLog(log)
-
-    private var openRequests = Set.empty[CloudRequest]
 
     def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
@@ -49,50 +53,52 @@ class User(
         }
     }
 
-    override def log(msg: String) = Log.line("User '%s'".format(getName), msg: String)
-
     override def startEntity(): Unit = {
         behaviors.foreach(b => send(getId, b.timeToNextEvent, ScheduleRequest, b))
     }
 
     override def shutdownEntity() = log(requestLog.summary())
 
-    override def process(event: SimEvent) =
+    override def processEvent(event: SimEvent) =
         event.getTag() match {
             case ScheduleRequest =>
                 val request = getRequestAndScheduleBehavior(event)
                 sendRequest(request)
 
             case _ =>
-                log("dropoped event: " + event)
+                super.processEvent(event)
         }
 
-    override protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
+    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
         throw new IllegalStateException
 
     private def sendRequest(request: CloudRequest) =
         request match {
             case get @ Get(obj) =>
                 requestLog.add(get)
-                distributor.cloudForGet(get) match {
-                    case Right(cloud) =>
-                        sendGet(cloud, get)
-
-                    case Left(error) =>
-                        requestLog.finish(get, error)
-                }
+                lookupCloud(get, sendGet _)
 
             case _ => throw new IllegalStateException
         }
 
-    private def sendGet(target: Int, get: Get) = {
+    private def lookupCloud[T <: CloudRequest](request: T, onSuccess: (Int, T) => Unit): Unit = {
+        val dialog = dialogCenter.openDialog(distributor.getId())
+        dialog.messageHandler = (message) => message match {
+            case Result(cloud) => onSuccess(cloud, request)
+            case _ => throw new IllegalStateException
+        }
+        dialog.say(Lookup(request), () => {
+            throw new IllegalStateException
+        })
+    }
+
+    private def sendGet(target: Int, get: Get): Unit = {
         val dialog = dialogCenter.openDialog(target)
 
-        dialog.messageHandler = (message) => message.content match {
+        dialog.messageHandler = (message) => message match {
             case RequestAck(req) if req == get =>
                 val onFinish = (success: Boolean) => {
-                    dialogCenter.closeDialog(dialog)
-
+                    dialog.close()
                     if (success)
                         requestLog.finish(get, Complete)
                     else
@@ -105,7 +111,10 @@ class User(
                 throw new IllegalStateException
         }
 
-        dialog.say(get, () => requestLog.finish(get, TimeOut))
+        dialog.say(get, () => {
+            dialog.close()
+            requestLog.finish(get, TimeOut)
+        })
     }
 
     private def getRequestAndScheduleBehavior(event: SimEvent): CloudRequest = {

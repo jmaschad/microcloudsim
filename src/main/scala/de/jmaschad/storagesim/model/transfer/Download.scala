@@ -19,7 +19,7 @@ class Download(
     }
     dialog.say(DownloadReady, timeoutHandler)
 
-    private def processMessage(message: Message) = message.content match {
+    private def processMessage(content: AnyRef) = content match {
         case Packet(size) =>
             packetReceived(size)
 

@@ -9,6 +9,14 @@ import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.microcloud.Get
 import de.jmaschad.storagesim.model.microcloud.RequestSummary._
+import de.jmaschad.storagesim.model.BaseEntity
+import de.jmaschad.storagesim.model.ProcessingEntity
+import de.jmaschad.storagesim.model.DialogEntity
+import Distributor._
+import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.transfer.Dialog
+import de.jmaschad.storagesim.model.transfer.Message
+import de.jmaschad.storagesim.model.microcloud.CloudRequest
 
 object Distributor {
     val StatusInterval = 1
@@ -19,19 +27,12 @@ object Distributor {
     val MicroCloudOffline = MicroCloudOnline + 1
     val UserRequest = MicroCloudOffline + 1
 }
-import Distributor._
 
-class Distributor(name: String) extends SimEntity(name) {
+class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
     private val selector = new RandomBucketBasedSelector(log _, sendNow _)
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)
-
-    def cloudForGet(get: Get): Either[RequestSummary, Int] =
-        selector.selectForGet(get.obj)
-
-    override def startEntity(): Unit = {}
-    override def shutdownEntity() = {}
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
         case MicroCloudOnline =>
@@ -43,9 +44,26 @@ class Distributor(name: String) extends SimEntity(name) {
         case MicroCloudStatusMessage =>
             selector.processStatusMessage(event.getSource(), event.getData())
 
-        case _ => log("[online] dropped event " + event)
+        case _ => super.processEvent(event)
     }
 
-    private def log(msg: String) = Log.line("Distributor '%s'".format(getName), msg: String)
+    protected override def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+        Some((content) => content match {
+            case Lookup(Get(obj)) =>
+                selector.selectForGet(obj) match {
+                    case Right(cloud) =>
+                        dialog.say(Result(cloud), () => {})
+                        dialog.close()
+
+                    case _ => throw new IllegalStateException
+                }
+
+            case _ => throw new IllegalStateException
+        })
+
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
 }
+
+abstract sealed class DistributorDialog
+case class Lookup(request: CloudRequest) extends DistributorDialog
+case class Result(cloud: Int) extends DistributorDialog

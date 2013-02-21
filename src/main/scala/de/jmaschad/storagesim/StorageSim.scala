@@ -96,7 +96,7 @@ object StorageSim {
         for (i <- 1 to configuration.userCount) yield {
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
             val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
-            new User("u" + i, resources, Seq.empty[StorageObject], distributor)
+            new User("u" + i, resources, distributor)
         }
 
     private def addBehavior(users: Seq[User], storageObjects: Set[StorageObject]) = {

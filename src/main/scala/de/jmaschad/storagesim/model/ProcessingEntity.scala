@@ -11,60 +11,24 @@ import de.jmaschad.storagesim.model.transfer.Timeout
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.Dialog
 
-object ProcessingEntity {
-    private val Base = 30000
-    val DialogMessage = Base + 1
-    val DialogTimeout = DialogMessage + 1
-}
-
-abstract class ProcessingEntity(
-    name: String,
-    resources: ResourceCharacteristics) extends SimEntity(name) {
-
-    protected var storageSystem = new StorageSystem(log _, resources.storageDevices)
-    protected var processing = new ProcessingModel(log _, scheduleProcessingUpdate _, resources.bandwidth)
-    protected var dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
+trait ProcessingEntity extends SimEntity {
+    protected val bandwidth: Double
+    protected lazy val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, bandwidth)
 
     private var lastUpdate: Option[SimEvent] = None
 
-    override def startEntity(): Unit = {}
-
-    override def shutdownEntity(): Unit
-
-    final override def processEvent(event: SimEvent): Unit = event.getTag match {
-        case ProcessingEntity.DialogMessage if dialogsEnabled =>
-            val message = event.getData() match {
-                case m: Message => m
-                case _ => throw new IllegalStateException
-            }
-            dialogCenter.handleMessage(event.getSource(), message)
-
-        case ProcessingEntity.DialogTimeout =>
-            val timeout = event.getData match {
-                case t: Timeout => t
-                case _ => throw new IllegalStateException
-            }
-            dialogCenter.handleTimeout(timeout)
-
+    abstract override def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcessingModel.ProcUpdate =>
             processing.update()
 
         case _ =>
-            process(event)
+            super.processEvent(event)
     }
-
-    protected def dialogsEnabled: Boolean = true
 
     protected def log(message: String): Unit
 
-    protected def process(event: SimEvent): Unit
-
-    protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler]
-
-    protected def resetModel() = {
-        dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
-        processing = processing.reset()
-        storageSystem = storageSystem.reset()
+    protected def reset() = {
+        processing.reset()
     }
 
     private def scheduleProcessingUpdate(delay: Double) = {

@@ -27,7 +27,7 @@ class Upload(
         cancelAfterProcessing(transferId)
     }
 
-    private def processMessage(message: Message) = message.content match {
+    private def processMessage(content: AnyRef) = content match {
         case Ack =>
             ackReceived = true
             synchronizeAndContinue()

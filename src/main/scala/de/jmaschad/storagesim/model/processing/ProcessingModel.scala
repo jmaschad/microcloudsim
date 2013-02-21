@@ -12,8 +12,8 @@ class ProcessingModel(
     log: String => Unit,
     scheduleUpdate: Double => Unit,
     totalBandwidth: Double) {
-    private var lastUpdate = 0.0
 
+    private var lastUpdate = 0.0
     private var jobs = Set.empty[Job]
     private var uploadCount = 0
     private var downloadCount = 0
@@ -67,7 +67,12 @@ class ProcessingModel(
         if (scheduleUpdate) { scheduleNextUpdate() }
     }
 
-    def reset(): ProcessingModel = new ProcessingModel(log, scheduleUpdate, totalBandwidth)
+    def reset(): Unit = {
+        lastUpdate = 0.0
+        jobs = Set.empty
+        uploadCount = 0
+        downloadCount = 0
+    }
 
     private def add(job: Job): Unit = {
         val timeElapsed = timeSinceLastUpdate
@@ -81,7 +86,8 @@ class ProcessingModel(
     // provide a minimum delay to avoid infinite update loop with zero progress
     private def scheduleNextUpdate() =
         if (jobs.nonEmpty) {
-            scheduleUpdate(jobs.map(_.expectedDuration).min.max(0.0001))
+            val expected = jobs.map(_.expectedDuration).min.max(0.0001)
+            scheduleUpdate(expected)
         }
 
     private def timeSinceLastUpdate: Double = {

@@ -4,17 +4,18 @@ import scala.util.Random
 import org.cloudbus.cloudsim.core.SimEvent
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.ProcessingEntity
+import DialogCenter._
+import de.jmaschad.storagesim.model.DialogEntity
 
 object DialogCenter {
     val Timeout = 2.0
     type TimeoutHandler = () => Unit
-    type MessageHandler = Message => Unit
+    type MessageHandler = AnyRef => Unit
 }
-import DialogCenter._
 
 class DialogCenter(
-    entity: ProcessingEntity,
-    handlerFactory: (Dialog, Message) => Option[MessageHandler],
+    entity: DialogEntity,
+    handlerFactory: (Dialog, AnyRef) => Option[MessageHandler],
     send: (Int, Double, Int, Object) => SimEvent) {
 
     private var dialogs = Map.empty[String, Dialog]
@@ -33,8 +34,8 @@ class DialogCenter(
 
     def say(message: AnyRef, timeoutHandler: TimeoutHandler, dialog: Dialog): Unit = {
         val init = dialog.messageId == 0
-        send(dialog.partner, 0.0, ProcessingEntity.DialogMessage, new Message(dialog.id, message, init))
-        send(entity.getId(), DialogCenter.Timeout, ProcessingEntity.DialogTimeout,
+        send(dialog.partner, 0.0, DialogEntity.DialogMessage, new Message(dialog.id, message, init))
+        send(entity.getId(), DialogCenter.Timeout, DialogEntity.DialogTimeout,
             new Timeout(dialog.id, dialog.messageId, timeoutHandler))
     }
 
@@ -42,12 +43,12 @@ class DialogCenter(
         // message for existing dialog
         case Some(dialog) =>
             dialog.messageId += 1
-            dialog.messageHandler(message)
+            dialog.messageHandler(message.content)
 
         // first message of new dialog
         case None if message.init =>
             val dialog = answerDialog(source, message)
-            handlerFactory(dialog, message) match {
+            handlerFactory(dialog, message.content) match {
                 case Some(handler) =>
                     dialog.messageHandler = handler
                     handleMessage(source, message)

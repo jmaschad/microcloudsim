@@ -4,6 +4,7 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
+import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
@@ -11,12 +12,13 @@ import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.transfer.Upload
-import de.jmaschad.storagesim.model.transfer.Message
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.transfer.Dialog
+import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.DownloadReady
+import de.jmaschad.storagesim.model.transfer.Message
+import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.BaseEntity
 
 object MicroCloud {
     private val Base = 10200
@@ -34,14 +36,15 @@ class MicroCloud(
     name: String,
     resourceCharacteristics: ResourceCharacteristics,
     failureBehavior: MicroCloudFailureBehavior,
-    distributor: Distributor) extends ProcessingEntity(name, resourceCharacteristics) {
+    distributor: Distributor) extends BaseEntity(name) with DialogEntity with ProcessingEntity {
 
+    protected val bandwidth = resourceCharacteristics.bandwidth
+
+    private var storageSystem = new StorageSystem(log _, resourceCharacteristics.storageDevices)
     private var state: MicroCloudState = new OnlineState
     private var firstKill = true
 
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
-
-    override def log(msg: String) = Log.line("MicroCloud '%s'".format(getName), msg: String)
 
     override def startEntity(): Unit = {
         // start sending status messages
@@ -54,7 +57,7 @@ class MicroCloud(
     override def shutdownEntity() =
         log(processing.jobCount + " running jobs on shutdown")
 
-    override def process(event: SimEvent) =
+    override def processEvent(event: SimEvent) =
         state.process(event)
 
     override protected def dialogsEnabled: Boolean =
@@ -63,8 +66,8 @@ class MicroCloud(
             case _ => false
         }
 
-    override protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
-        state.createMessageHandler(dialog, message)
+    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+        state.createMessageHandler(dialog, content)
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
@@ -84,7 +87,7 @@ class MicroCloud(
 
     private trait MicroCloudState {
         def process(event: SimEvent)
-        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler]
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler]
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
@@ -99,10 +102,10 @@ class MicroCloud(
                 switchState(new OnlineState)
 
             case _ =>
-                log("droped event: " + event)
+                MicroCloud.super.processEvent(event)
         }
 
-        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] = {
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] = {
             log("ignored dialog because it is offline")
             None
         }
@@ -123,24 +126,20 @@ class MicroCloud(
 
             case MicroCloud.Kill =>
                 stateLog("received kill request")
-                resetModel
+                reset
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
                 switchState(new OfflineState)
 
-            case MicroCloud.DistributorRequest =>
-
-            case MicroCloud.Request =>
-
             case _ =>
-                log("dropoped event: " + event)
+                MicroCloud.super.processEvent(event)
         }
 
-        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
-            message.content match {
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+            content match {
                 case req @ Get(obj) =>
-                    val handler: Message => Unit =
-                        message => message.content match {
+                    val handler: DialogCenter.MessageHandler =
+                        content => content match {
                             case Get(obj) =>
                                 dialog.say(RequestAck(req), () => dialog.close)
 
@@ -156,7 +155,7 @@ class MicroCloud(
                     Some(handler)
 
                 case _ =>
-                    throw new IllegalStateException("unknown message " + message)
+                    throw new IllegalStateException("unknown message " + content)
             }
 
     }
