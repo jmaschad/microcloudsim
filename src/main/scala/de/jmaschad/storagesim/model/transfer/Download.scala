@@ -9,14 +9,13 @@ class Download(
     val packetSize = Transfer.packetSize(size)
     var remainingPackets = Transfer.packetCount(size)
 
-    TransferProbe.add(dialog.dialogId, size)
-    dialog.process = processMessage _
-    dialog.onTimeout = () => { onFinish(false) }
+    TransferProbe.add(dialog.id, size)
+    dialog.messageHandler = processMessage _
 
-    assert(dialog.canSay)
-    dialog.say(DownloadReady)
+    val timeoutHandler = () => { onFinish(false) }
+    dialog.say(DownloadReady, timeoutHandler)
 
-    private def processMessage(message: AnyRef) = message match {
+    private def processMessage(message: Message) = message.content match {
         case Packet(size) =>
             packetReceived(size)
 
@@ -29,7 +28,7 @@ class Download(
 
     private def packetReceived(size: Double) = {
         remainingPackets -= 1
-        process(size, () => dialog.say(Ack))
+        process(size, () => dialog.say(Ack, timeoutHandler))
     }
 }
 

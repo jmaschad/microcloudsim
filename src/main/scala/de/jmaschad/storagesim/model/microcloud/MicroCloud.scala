@@ -14,6 +14,9 @@ import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.transfer.Dialog
+import de.jmaschad.storagesim.model.transfer.DownloadReady
 
 object MicroCloud {
     private val Base = 10200
@@ -54,8 +57,8 @@ class MicroCloud(
     override def process(event: SimEvent) =
         state.process(event)
 
-    override protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
-        state.createMessageHandler(source, message)
+    override protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
+        state.createMessageHandler(dialog, message)
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
@@ -75,7 +78,7 @@ class MicroCloud(
 
     private trait MicroCloudState {
         def process(event: SimEvent)
-        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler]
+        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler]
 
         protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
@@ -93,7 +96,7 @@ class MicroCloud(
                 log("dropoped event: " + event)
         }
 
-        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] = {
+        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] = {
             log("ignored dialog because it is offline")
             None
         }
@@ -127,10 +130,24 @@ class MicroCloud(
                 log("dropoped event: " + event)
         }
 
-        def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
+        def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
             message.content match {
                 case req @ Get(obj) =>
-                    throw new IllegalStateException("not implemented")
+                    val handler: Message => Unit =
+                        message => message.content match {
+                            case Get(obj) =>
+                                dialog.say(RequestAck(req), () => dialog.close)
+
+                            case DownloadReady =>
+                                val transaction = storageSystem.loadTransaction(obj)
+                                new Upload(dialog, obj.size, processing.loadAndUpload(_, transaction, _), (success) => {
+                                    dialog.close
+                                    if (success) transaction.complete else transaction.abort
+                                })
+
+                            case _ => throw new IllegalStateException
+                        }
+                    Some(handler)
 
                 case _ =>
                     throw new IllegalStateException("unknown message " + message)

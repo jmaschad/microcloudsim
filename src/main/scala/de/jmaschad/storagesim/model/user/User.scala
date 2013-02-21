@@ -67,7 +67,7 @@ class User(
                 log("dropoped event: " + event)
         }
 
-    override protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler] =
+    override protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
         throw new IllegalStateException
 
     private def sendRequest(request: CloudRequest) =
@@ -86,29 +86,26 @@ class User(
         }
 
     private def sendGet(target: Int, get: Get) = {
-        val messageHandler: DialogCenter.MessageHandler = message => {
-            
-            message.content match {
-                
-            }
-        }
-        dialogCenter.openDialog(target, messageHandler)
+        val dialog = dialogCenter.openDialog(target)
 
-        dialog.process = (data: AnyRef) => data match {
+        dialog.messageHandler = (message) => message.content match {
             case RequestAck(req) if req == get =>
-                new Download(dialog, get.obj.size, processing.download _,
-                    if (_)
+                val onFinish = (success: Boolean) => {
+                    dialogCenter.closeDialog(dialog)
+
+                    if (success)
                         requestLog.finish(get, Complete)
                     else
-                        requestLog.finish(get, TimeOut))
+                        requestLog.finish(get, TimeOut)
+                }
+
+                new Download(dialog, get.obj.size, processing.download _, onFinish)
 
             case _ =>
                 throw new IllegalStateException
         }
 
-        dialog.onTimeout = () => requestLog.finish(get, TimeOut)
-
-        dialog.say(get)
+        dialog.say(get, () => requestLog.finish(get, TimeOut))
     }
 
     private def getRequestAndScheduleBehavior(event: SimEvent): CloudRequest = {

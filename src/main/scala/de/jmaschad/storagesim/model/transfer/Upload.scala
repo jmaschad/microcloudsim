@@ -11,31 +11,26 @@ class Upload(
 
     var ackReceived = false
     var processingFinished = false
-
     var isCanceled = false
 
-    TransferProbe.add(dialog.dialogId, size)
-    dialog.process = processMessage _
-    dialog.onTimeout = () => { onFinish(false) }
+    dialog.messageHandler = processMessage _
+    val timeoutHandler = () => { onFinish(false) }
 
-    assert(!dialog.canSay)
+    TransferProbe.add(dialog.id, size)
+    sendNextPacket
 
     def cancel(transferId: String) = {
         cancelAfterProcessing(transferId)
     }
 
-    private def processMessage(something: AnyRef) =
-        something match {
-            case DownloadReady =>
-                sendNextPacket()
+    private def processMessage(message: Message) = message.content match {
+        case Ack =>
+            ackReceived = true
+            synchronizeAndContinue()
 
-            case Ack =>
-                ackReceived = true
-                synchronizeAndContinue()
-
-            case _ =>
-                throw new IllegalStateException
-        }
+        case _ =>
+            throw new IllegalStateException
+    }
 
     private def synchronizeAndContinue() = {
         // partner timed out
@@ -49,7 +44,7 @@ class Upload(
             if (remainingPackets > 0) {
                 sendNextPacket()
             } else {
-                dialog.say(FinishDownload)
+                dialog.say(FinishDownload, timeoutHandler)
                 onFinish(true)
             }
         }
@@ -63,7 +58,7 @@ class Upload(
         }
 
     private def sendNextPacket(): Unit = {
-        dialog.say(Packet(packetSize))
+        dialog.say(Packet(packetSize), timeoutHandler)
         ackReceived = false
 
         processingFinished = false

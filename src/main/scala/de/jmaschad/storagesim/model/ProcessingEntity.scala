@@ -9,6 +9,7 @@ import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Timeout
 import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.transfer.Dialog
 
 object ProcessingEntity {
     private val Base = 30000
@@ -56,7 +57,7 @@ abstract class ProcessingEntity(
 
     protected def process(event: SimEvent): Unit
 
-    protected def createMessageHandler(source: Int, message: Message): Option[DialogCenter.MessageHandler]
+    protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler]
 
     protected def resetModel() = {
         dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
