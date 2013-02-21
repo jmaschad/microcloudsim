@@ -57,6 +57,12 @@ class MicroCloud(
     override def process(event: SimEvent) =
         state.process(event)
 
+    override protected def dialogsEnabled: Boolean =
+        state match {
+            case _: OnlineState => true
+            case _ => false
+        }
+
     override protected def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] =
         state.createMessageHandler(dialog, message)
 
@@ -93,7 +99,7 @@ class MicroCloud(
                 switchState(new OnlineState)
 
             case _ =>
-                log("dropoped event: " + event)
+                log("droped event: " + event)
         }
 
         def createMessageHandler(dialog: Dialog, message: Message): Option[DialogCenter.MessageHandler] = {

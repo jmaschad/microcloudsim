@@ -32,7 +32,7 @@ abstract class ProcessingEntity(
     override def shutdownEntity(): Unit
 
     final override def processEvent(event: SimEvent): Unit = event.getTag match {
-        case ProcessingEntity.DialogMessage =>
+        case ProcessingEntity.DialogMessage if dialogsEnabled =>
             val message = event.getData() match {
                 case m: Message => m
                 case _ => throw new IllegalStateException
@@ -52,6 +52,8 @@ abstract class ProcessingEntity(
         case _ =>
             process(event)
     }
+
+    protected def dialogsEnabled: Boolean = true
 
     protected def log(message: String): Unit
 

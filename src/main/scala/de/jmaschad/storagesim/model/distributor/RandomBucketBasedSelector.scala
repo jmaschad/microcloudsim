@@ -84,11 +84,11 @@ class RandomBucketBasedSelector(
     }
 
     def addCloud(cloud: Int, status: Object) = {
-        throw new IllegalStateException
+
     }
 
     def removeCloud(cloud: Int) = {
-        throw new IllegalStateException
+
     }
 
     override def processStatusMessage(cloud: Int, message: Object) =
