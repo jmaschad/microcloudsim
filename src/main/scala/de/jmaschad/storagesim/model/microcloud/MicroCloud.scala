@@ -126,7 +126,7 @@ class MicroCloud(
 
             case MicroCloud.Kill =>
                 stateLog("received kill request")
-                reset
+                reset()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
                 switchState(new OfflineState)

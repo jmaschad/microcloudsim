@@ -14,7 +14,7 @@ object DialogEntity {
     val DialogTimeout = DialogMessage + 1
 }
 
-trait DialogEntity extends SimEntity {
+trait DialogEntity extends Entity {
     protected var dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
 
     abstract override def processEvent(event: SimEvent): Unit = event.getTag match {
@@ -34,6 +34,11 @@ trait DialogEntity extends SimEntity {
 
         case _ =>
             super.processEvent(event)
+    }
+
+    abstract override protected def reset() = {
+        dialogCenter = new DialogCenter(this, createMessageHandler _, send _)
+        super.reset()
     }
 
     protected def dialogsEnabled: Boolean = true

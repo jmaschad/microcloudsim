@@ -11,7 +11,7 @@ import de.jmaschad.storagesim.model.transfer.Timeout
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.Dialog
 
-trait ProcessingEntity extends SimEntity {
+trait ProcessingEntity extends Entity {
     protected val bandwidth: Double
     protected lazy val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, bandwidth)
 
@@ -25,10 +25,9 @@ trait ProcessingEntity extends SimEntity {
             super.processEvent(event)
     }
 
-    protected def log(message: String): Unit
-
-    protected def reset() = {
+    abstract override protected def reset() = {
         processing.reset()
+        super.reset()
     }
 
     private def scheduleProcessingUpdate(delay: Double) = {
