@@ -1,9 +1,9 @@
 package de.jmaschad.storagesim.model.user
 
 import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.model.microcloud.Get
-import de.jmaschad.storagesim.model.microcloud.CloudRequest
-import de.jmaschad.storagesim.model.microcloud.RequestSummary._
+import de.jmaschad.storagesim.model.transfer.dialogs.Get
+import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 
 class RequestLog(
     log: String => Unit) {
@@ -22,7 +22,7 @@ class RequestLog(
     private var activeRequests = Map.empty[Long, Active]
     private var finishedRequests = Set.empty[Finished]
 
-    def add(request: CloudRequest) = request match {
+    def add(request: RestDialog) = request match {
         case Get(obj) =>
             assert(!activeRequests.isDefinedAt(request.id))
             activeRequests += request.id -> new Active(obj.size)
@@ -31,7 +31,7 @@ class RequestLog(
             throw new IllegalStateException
     }
 
-    def finish(request: CloudRequest, summary: RequestSummary) = {
+    def finish(request: RestDialog, summary: RequestSummary) = {
         assert(activeRequests.contains(request.id))
         finishedRequests += activeRequests(request.id).finish(summary)
         activeRequests -= request.id

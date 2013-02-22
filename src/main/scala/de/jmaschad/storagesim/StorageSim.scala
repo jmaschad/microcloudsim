@@ -20,7 +20,7 @@ import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.transfer.Transfer
-import de.jmaschad.storagesim.model.microcloud.Get
+import de.jmaschad.storagesim.model.transfer.dialogs.Get
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)

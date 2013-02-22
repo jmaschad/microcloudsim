@@ -7,16 +7,17 @@ import de.jmaschad.storagesim.Log
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.microcloud.Get
-import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.DialogEntity
-import Distributor._
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Message
-import de.jmaschad.storagesim.model.microcloud.CloudRequest
+import de.jmaschad.storagesim.model.transfer.dialogs.Get
+import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import Distributor._
+import de.jmaschad.storagesim.model.transfer.dialogs.Result
+import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
 
 object Distributor {
     val StatusInterval = 1
@@ -63,7 +64,3 @@ class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
 
     private def sourceEntity(event: SimEvent) = CloudSim.getEntity(event.getSource())
 }
-
-abstract sealed class DistributorDialog
-case class Lookup(request: CloudRequest) extends DistributorDialog
-case class Result(cloud: Int) extends DistributorDialog

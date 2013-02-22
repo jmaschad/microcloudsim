@@ -1,7 +1,6 @@
-package de.jmaschad.storagesim.model.microcloud
+package de.jmaschad.storagesim.model.transfer.dialogs
 
 import de.jmaschad.storagesim.model.processing.StorageObject
-import org.cloudbus.cloudsim.core.SimEvent
 
 object RequestSummary extends Enumeration {
     type RequestSummary = Value
@@ -15,12 +14,7 @@ object RequestSummary extends Enumeration {
 }
 import RequestSummary._
 
-object CloudRequest {
-    def fromEvent(event: SimEvent): CloudRequest = event.getData() match {
-        case req: CloudRequest => req
-        case _ => throw new IllegalStateException
-    }
-
+object RestDialog {
     var requestId = 0L
     def nextId: Long = {
         val id = requestId
@@ -29,7 +23,7 @@ object CloudRequest {
     }
 }
 
-abstract sealed class CloudRequest(val id: Long = CloudRequest.nextId)
-case class Get(obj: StorageObject) extends CloudRequest
-case class Delete(obj: StorageObject) extends CloudRequest
-case class RequestAck(request: CloudRequest) extends CloudRequest
+abstract sealed class RestDialog(val id: Long = RestDialog.nextId)
+case class Get(obj: StorageObject) extends RestDialog
+case class Delete(obj: StorageObject) extends RestDialog
+case class RequestAck(request: RestDialog) extends RestDialog

@@ -1,5 +1,6 @@
 package de.jmaschad.storagesim.model.microcloud
 
+import scala.Enumeration
 import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
@@ -8,7 +9,6 @@ import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.microcloud.RequestSummary._
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
@@ -19,6 +19,8 @@ import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.BaseEntity
+import de.jmaschad.storagesim.model.transfer.dialogs.RequestAck
+import de.jmaschad.storagesim.model.transfer.dialogs.Get
 
 object MicroCloud {
     private val Base = 10200
@@ -88,14 +90,12 @@ class MicroCloud(
     private trait MicroCloudState {
         def process(event: SimEvent)
         def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler]
-
-        protected def stateLog(message: String): Unit = log("[%s] %s".format(getClass().getSimpleName(), message))
     }
 
     private class OfflineState extends MicroCloudState {
         def process(event: SimEvent) = event.getTag match {
             case MicroCloud.Boot =>
-                stateLog("received boot request")
+                log("received boot request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOnline, CloudStatus(storageSystem.objects))
                 sendNow(getId, MicroCloud.MicroCloudStatus)
                 scheduleKill()
@@ -120,12 +120,12 @@ class MicroCloud(
                 send(getId(), Distributor.StatusInterval, MicroCloud.MicroCloudStatus)
 
             case MicroCloud.Shutdown =>
-                stateLog("received shutdown request")
+                log("received shutdown request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
 
             case MicroCloud.Kill =>
-                stateLog("received kill request")
+                log("received kill request")
                 reset()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
@@ -157,7 +157,6 @@ class MicroCloud(
                 case _ =>
                     throw new IllegalStateException("unknown message " + content)
             }
-
     }
 }
 
