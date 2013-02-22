@@ -15,17 +15,22 @@ import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
 import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
-import Distributor._
 import de.jmaschad.storagesim.model.transfer.dialogs.Result
 import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudLookupDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
+import Distributor._
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 
 object Distributor {
     val StatusInterval = 1
 
     val Base = 10100
-    val MicroCloudStatusMessage = Base + 1
-    val MicroCloudOnline = MicroCloudStatusMessage + 1
-    val MicroCloudOffline = MicroCloudOnline + 1
+    val MicroCloudOffline = Base + 1
     val UserRequest = MicroCloudOffline + 1
 }
 
@@ -36,19 +41,20 @@ class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
         selector.initialize(initialClouds, initialObjects)
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
-        case MicroCloudOnline =>
-            selector.addCloud(event.getSource(), event.getData())
-
         case MicroCloudOffline =>
             selector.removeCloud(event.getSource())
-
-        case MicroCloudStatusMessage =>
-            selector.processStatusMessage(event.getSource(), event.getData())
 
         case _ => super.processEvent(event)
     }
 
     protected override def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+        content match {
+            case _: CloudLookupDialog => createLookupHandler(dialog)
+            case _: CloudStatusDialog => createStatusHandler(dialog)
+            case _ => throw new IllegalStateException
+        }
+
+    private def createLookupHandler(dialog: Dialog): Option[DialogCenter.MessageHandler] =
         Some((content) => content match {
             case Lookup(Get(obj)) =>
                 selector.selectForGet(obj) match {
@@ -57,6 +63,21 @@ class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
 
                     case _ => throw new IllegalStateException
                 }
+
+            case _ => throw new IllegalStateException
+        })
+
+    private def createStatusHandler(dialog: Dialog): Option[DialogCenter.MessageHandler] =
+        Some((content) => content match {
+            case CloudOnline() =>
+                selector.addCloud(dialog.partner)
+                dialog.sayAndClose(CloudStatusAck())
+
+            case DownloadStarted(obj) =>
+                dialog.sayAndClose(CloudStatusAck())
+
+            case DownloadFinished(obj) =>
+                dialog.sayAndClose(CloudStatusAck())
 
             case _ => throw new IllegalStateException
         })

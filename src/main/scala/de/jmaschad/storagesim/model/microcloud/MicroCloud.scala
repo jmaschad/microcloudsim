@@ -17,7 +17,6 @@ import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.DownloadReady
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Upload
-import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
@@ -26,6 +25,11 @@ import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 import de.jmaschad.storagesim.model.transfer.Download
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
 
 object MicroCloud {
     private val Base = 10200
@@ -34,8 +38,7 @@ object MicroCloud {
     val Boot = Initialize + 1
     val Shutdown = Boot + 1
     val Kill = Shutdown + 1
-    val MicroCloudStatus = Kill + 1
-    val Request = MicroCloudStatus + 1
+    val Request = Kill + 1
     val DistributorRequest = Request + 1
 }
 
@@ -54,8 +57,7 @@ class MicroCloud(
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
 
     override def startEntity(): Unit = {
-        // start sending status messages
-        sendNow(getId, MicroCloud.MicroCloudStatus)
+        anounce(CloudOnline())
 
         // schedule the next catastrophe
         scheduleKill()
@@ -92,6 +94,15 @@ class MicroCloud(
         send(getId, failureBehavior.timeToCloudFailure, MicroCloud.Kill)
     }
 
+    private def anounce(content: CloudStatusDialog): Unit = {
+        val dialog = dialogCenter.openDialog(distributor.getId)
+        dialog.messageHandler = content => content match {
+            case CloudStatusAck() => dialog.close
+            case _ => throw new IllegalStateException
+        }
+        dialog.say(content, () => { throw new IllegalStateException })
+    }
+
     private trait MicroCloudState {
         def process(event: SimEvent)
         def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler]
@@ -101,8 +112,7 @@ class MicroCloud(
         def process(event: SimEvent) = event.getTag match {
             case MicroCloud.Boot =>
                 log("received boot request")
-                sendNow(distributor.getId(), Distributor.MicroCloudOnline, CloudStatus(storageSystem.objects))
-                sendNow(getId, MicroCloud.MicroCloudStatus)
+                anounce(CloudOnline())
                 scheduleKill()
                 switchState(new OnlineState)
 
@@ -120,10 +130,6 @@ class MicroCloud(
         private var dueReplicationAcks = scala.collection.mutable.Map.empty[String, Seq[StorageObject]]
 
         def process(event: SimEvent) = event.getTag() match {
-            case MicroCloud.MicroCloudStatus =>
-                sendNow(distributor.getId(), Distributor.MicroCloudStatusMessage, CloudStatus(storageSystem.objects))
-                send(getId(), Distributor.StatusInterval, MicroCloud.MicroCloudStatus)
-
             case MicroCloud.Shutdown =>
                 log("received shutdown request")
                 sendNow(distributor.getId(), Distributor.MicroCloudOffline)
@@ -179,7 +185,7 @@ class MicroCloud(
                 case _ => throw new IllegalStateException
             })
 
-        private def openGetDialog(target: Int, obj: StorageObject) = {
+        private def openGetDialog(target: Int, obj: StorageObject): Unit = {
             val dialog = dialogCenter.openDialog(target)
 
             dialog.messageHandler = (message) => message match {
@@ -188,11 +194,12 @@ class MicroCloud(
                     val onFinish = (success: Boolean) => {
                         dialog.close()
                         transaction.complete
-
+                        anounce(DownloadFinished(obj))
                         if (!success) throw new IllegalStateException
                     }
 
                     new Download(log _, dialog, obj.size, processing.downloadAndStore(_, transaction, _), onFinish)
+                    anounce(DownloadStarted(obj))
 
                 case _ =>
                     throw new IllegalStateException

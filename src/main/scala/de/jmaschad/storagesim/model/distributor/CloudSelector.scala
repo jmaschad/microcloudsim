@@ -20,7 +20,7 @@ trait CloudSelector {
      * the StorageObjects which must be replicated to
      * this cloud in order to fulfill replication constraints.
      */
-    def addCloud(cloud: Int, status: Object)
+    def addCloud(cloud: Int)
 
     /**
      * If a MicroCloud goes off-line this method should

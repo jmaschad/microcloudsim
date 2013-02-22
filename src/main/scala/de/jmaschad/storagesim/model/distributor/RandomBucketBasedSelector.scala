@@ -2,10 +2,7 @@ package de.jmaschad.storagesim.model.distributor
 
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.microcloud.AddedObject
-import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.microcloud.RequestProcessed
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
@@ -17,9 +14,23 @@ class RandomBucketBasedSelector(
     val log: String => Unit,
     val dialogCenter: DialogCenter) extends CloudSelector {
 
-    var clouds = Set.empty[Int]
-    var distributionGoal = Map.empty[String, Set[Int]]
-    var distributionState = Map.empty[StorageObject, Set[Int]]
+    private var clouds = Set.empty[Int]
+    private var distributionGoal = Map.empty[String, Set[Int]]
+    private var distributionState = Map.empty[StorageObject, Set[Int]]
+
+    private class OperationTracker(var downloads: Set[ActiveDownload], val onFinish: () => Unit) {
+        def complete(download: ActiveDownload) = {
+            downloads -= download
+            if (downloads.isEmpty) {
+                onFinish()
+                activeOperations -= this
+            }
+        }
+    }
+    private var activeOperations = Set.empty[OperationTracker]
+
+    private case class ActiveDownload(cloud: Int, obj: StorageObject)
+    private var activeTransaction = Set.empty[ActiveDownload]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
         val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
@@ -54,8 +65,8 @@ class RandomBucketBasedSelector(
         clouds = cloudIdMap.keySet
     }
 
-    def addCloud(cloud: Int, status: Object) = {
-
+    def addCloud(cloud: Int) = {
+        clouds += cloud
     }
 
     def removeCloud(cloud: Int) = {
@@ -83,11 +94,6 @@ class RandomBucketBasedSelector(
 
     override def processStatusMessage(cloud: Int, message: Object) =
         message match {
-            case CloudStatus(objects) =>
-
-            case AddedObject(storageObject) =>
-
-            case RequestProcessed(request) =>
 
             case _ => throw new IllegalStateException
 
