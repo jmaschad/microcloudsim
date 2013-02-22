@@ -21,7 +21,7 @@ import de.jmaschad.storagesim.model.transfer.Download
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.dialogs.RequestAck
+import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
 import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
@@ -76,7 +76,7 @@ class User(
         request match {
             case get @ Get(obj) =>
                 requestLog.add(get)
-                lookupCloud(get, sendGet _)
+                lookupCloud(get, openGetDialog _)
 
             case _ => throw new IllegalStateException
         }
@@ -92,11 +92,11 @@ class User(
         })
     }
 
-    private def sendGet(target: Int, get: Get): Unit = {
+    private def openGetDialog(target: Int, get: Get): Unit = {
         val dialog = dialogCenter.openDialog(target)
 
         dialog.messageHandler = (message) => message match {
-            case RequestAck(req) if req == get =>
+            case RestAck =>
                 val onFinish = (success: Boolean) => {
                     dialog.close()
                     if (success)

@@ -32,9 +32,13 @@ class DialogCenter(
         dialogs -= dialog.id
     }
 
-    def say(message: AnyRef, timeoutHandler: TimeoutHandler, dialog: Dialog): Unit = {
+    def say(message: AnyRef, dialog: Dialog): Unit = {
         val init = dialog.messageId == 0
         send(dialog.partner, 0.0, DialogEntity.DialogMessage, new Message(dialog.id, message, init))
+    }
+
+    def sayWithTimeout(message: AnyRef, timeoutHandler: TimeoutHandler, dialog: Dialog): Unit = {
+        say(message, dialog)
         send(entity.getId(), DialogCenter.Timeout, DialogEntity.DialogTimeout,
             new Timeout(dialog.id, dialog.messageId, timeoutHandler))
     }
@@ -89,10 +93,15 @@ class Dialog(
     var messageId = 0L
 
     def say(message: AnyRef, timeoutHandler: TimeoutHandler) = {
-        dialogCenter.say(message, timeoutHandler, this)
+        dialogCenter.sayWithTimeout(message, timeoutHandler, this)
     }
 
     def close() = dialogCenter.closeDialog(this)
+
+    def sayAndClose(message: AnyRef) = {
+        dialogCenter.say(message, this)
+        close()
+    }
 }
 
 class Message(val dialog: String, val content: AnyRef, val init: Boolean)

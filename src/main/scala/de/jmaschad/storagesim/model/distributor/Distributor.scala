@@ -30,7 +30,7 @@ object Distributor {
 }
 
 class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
-    private val selector = new RandomBucketBasedSelector(log _, sendNow _)
+    private val selector = new RandomBucketBasedSelector(log _, dialogCenter)
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)
@@ -53,8 +53,7 @@ class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
             case Lookup(Get(obj)) =>
                 selector.selectForGet(obj) match {
                     case Right(cloud) =>
-                        dialog.say(Result(cloud), () => {})
-                        dialog.close()
+                        dialog.sayAndClose(Result(cloud))
 
                     case _ => throw new IllegalStateException
                 }

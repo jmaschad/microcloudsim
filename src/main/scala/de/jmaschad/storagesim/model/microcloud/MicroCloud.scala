@@ -19,8 +19,13 @@ import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.BaseEntity
-import de.jmaschad.storagesim.model.transfer.dialogs.RequestAck
+import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
+import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.Load
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
+import de.jmaschad.storagesim.model.transfer.Download
 
 object MicroCloud {
     private val Base = 10200
@@ -137,11 +142,19 @@ class MicroCloud(
 
         def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
             content match {
-                case req @ Get(obj) =>
+                case restDialog: RestDialog => restDialogHandler(dialog, restDialog)
+                case placementDialog: PlacementDialog => placementDialogHandler(dialog, placementDialog)
+                case _ =>
+                    throw new IllegalStateException("unknown message " + content)
+            }
+
+        private def restDialogHandler(dialog: Dialog, content: RestDialog): Option[DialogCenter.MessageHandler] =
+            content match {
+                case Get(obj) =>
                     val handler: DialogCenter.MessageHandler =
                         content => content match {
                             case Get(obj) =>
-                                dialog.say(RequestAck(req), () => dialog.close)
+                                dialog.say(RestAck, () => dialog.close)
 
                             case DownloadReady =>
                                 val transaction = storageSystem.loadTransaction(obj)
@@ -154,9 +167,41 @@ class MicroCloud(
                         }
                     Some(handler)
 
-                case _ =>
-                    throw new IllegalStateException("unknown message " + content)
+                case _ => throw new IllegalStateException
             }
+
+        private def placementDialogHandler(dialog: Dialog, content: PlacementDialog): Option[DialogCenter.MessageHandler] =
+            Some(content => content match {
+                case Load(objSourceMap) =>
+                    dialog.sayAndClose(PlacementAck)
+                    objSourceMap.map(objSrc => openGetDialog(objSrc._2, objSrc._1))
+
+                case _ => throw new IllegalStateException
+            })
+
+        private def openGetDialog(target: Int, obj: StorageObject) = {
+            val dialog = dialogCenter.openDialog(target)
+
+            dialog.messageHandler = (message) => message match {
+                case RestAck =>
+                    val transaction = storageSystem.storeTransaction(obj)
+                    val onFinish = (success: Boolean) => {
+                        dialog.close()
+                        transaction.complete
+
+                        if (!success) throw new IllegalStateException
+                    }
+
+                    new Download(log _, dialog, obj.size, processing.downloadAndStore(_, transaction, _), onFinish)
+
+                case _ =>
+                    throw new IllegalStateException
+            }
+
+            dialog.say(Get(obj), () => {
+                throw new IllegalStateException
+            })
+        }
     }
 }
 

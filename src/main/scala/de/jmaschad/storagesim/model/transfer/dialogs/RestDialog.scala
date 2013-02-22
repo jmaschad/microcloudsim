@@ -26,4 +26,4 @@ object RestDialog {
 abstract sealed class RestDialog(val id: Long = RestDialog.nextId)
 case class Get(obj: StorageObject) extends RestDialog
 case class Delete(obj: StorageObject) extends RestDialog
-case class RequestAck(request: RestDialog) extends RestDialog
+case class RestAck extends RestDialog

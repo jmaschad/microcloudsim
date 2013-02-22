@@ -2,17 +2,20 @@ package de.jmaschad.storagesim.model.distributor
 
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.microcloud.AddedObject
-import de.jmaschad.storagesim.model.microcloud.RequestProcessed
+import de.jmaschad.storagesim.model.microcloud.CloudStatus
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.microcloud.RequestProcessed
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.Load
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
+import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
-    val send: (Int, Int, Object) => _) extends CloudSelector {
+    val dialogCenter: DialogCenter) extends CloudSelector {
 
     var clouds = Set.empty[Int]
     var distributionGoal = Map.empty[String, Set[Int]]
@@ -139,7 +142,7 @@ class RandomBucketBasedSelector(
 
     private def createActionPlan(
         distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]]): Map[Int, Set[RestDialog]] = {
+        distributionState: Map[StorageObject, Set[Int]]): Map[Int, PlacementDialog] = {
 
         val additionalCloudMap = distributionState.map(objectCloudMap => {
             val storageObject = objectCloudMap._1
@@ -151,11 +154,21 @@ class RandomBucketBasedSelector(
         val additionalObjectMap = additionalCloudMap.toSeq.flatMap(objClouds => objClouds._2.map(objClouds._1 -> _)).
             groupBy(_._2).mapValues(_.map(_._1).toSet)
 
-        Map.empty
+        additionalObjectMap.mapValues(objects => {
+            val objectSourceMap = objects.map(obj => {
+                obj -> randomSelect1(distributionState(obj).toIndexedSeq)
+            }).toMap
+            Load(objectSourceMap)
+        })
     }
 
-    private def sendActions(cloud: Int, requests: Set[RestDialog]): Unit = {
+    private def sendActions(cloud: Int, request: PlacementDialog): Unit = {
+        val dialog = dialogCenter.openDialog(cloud)
+        dialog.messageHandler = (content) => content match {
+            case PlacementAck => dialog.close()
+        }
 
+        dialog.say(request, () => { throw new IllegalStateException })
     }
 
     private def randomSelect1[T](values: IndexedSeq[T]): T = distinctRandomSelectN(1, values).head
