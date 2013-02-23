@@ -33,7 +33,9 @@ class RequestLog(
 
     def finish(request: RestDialog, summary: RequestSummary) = {
         assert(activeRequests.contains(request.id))
-        finishedRequests += activeRequests(request.id).finish(summary)
+        val finished = activeRequests(request.id).finish(summary)
+        log("Request: " + finished)
+        finishedRequests += finished
         activeRequests -= request.id
     }
 

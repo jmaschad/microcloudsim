@@ -9,6 +9,8 @@ import de.jmaschad.storagesim.model.transfer.dialogs.Load
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
+import de.jmaschad.storagesim.model.transfer.dialogs.Load
+import org.cloudbus.cloudsim.core.CloudSim
 
 class RandomBucketBasedSelector(
     val log: String => Unit,
@@ -18,19 +20,33 @@ class RandomBucketBasedSelector(
     private var distributionGoal = Map.empty[String, Set[Int]]
     private var distributionState = Map.empty[StorageObject, Set[Int]]
 
-    private class OperationTracker(var downloads: Set[ActiveDownload], val onFinish: () => Unit) {
-        def complete(download: ActiveDownload) = {
+    private class RepairTracker(var downloads: Set[DownloadRequest]) {
+        val totalTransferSize = downloads.map(_.obj.size).sum
+        val startOfRepair = CloudSim.clock
+
+        log("starting repair [%.2fMB]".format(totalTransferSize))
+
+        def complete(download: DownloadRequest) = {
             downloads -= download
             if (downloads.isEmpty) {
-                onFinish()
+                logSummary()
                 activeOperations -= this
             }
         }
-    }
-    private var activeOperations = Set.empty[OperationTracker]
 
-    private case class ActiveDownload(cloud: Int, obj: StorageObject)
-    private var activeTransaction = Set.empty[ActiveDownload]
+        def removeCloud(cloud: Int) =
+            if (downloads.count(_.cloud == cloud) > 0) throw new IllegalStateException
+
+        private def logSummary() = {
+            val repairTime = CloudSim.clock - startOfRepair
+            val averageBandwidth = (totalTransferSize * 8) / repairTime
+            log("finished repair in %.3fs with avg. %.3fMbit/s".format(repairTime, averageBandwidth))
+        }
+    }
+    private var activeOperations = Set.empty[RepairTracker]
+
+    private case class DownloadRequest(cloud: Int, obj: StorageObject)
+    private var activeDownloads = Set.empty[DownloadRequest]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
         val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
@@ -65,6 +81,20 @@ class RandomBucketBasedSelector(
         clouds = cloudIdMap.keySet
     }
 
+    def startedDownload(cloud: Int, obj: StorageObject): Unit = {
+        val download = DownloadRequest(cloud, obj)
+        assert(!activeDownloads.contains(download))
+        activeDownloads += download
+    }
+
+    def finishedDownload(cloud: Int, obj: StorageObject): Unit = {
+        val download = DownloadRequest(cloud, obj)
+        assert(activeDownloads.contains(download))
+        activeDownloads -= download
+
+        activeOperations.map(_.complete(download))
+    }
+
     def addCloud(cloud: Int) = {
         clouds += cloud
     }
@@ -74,6 +104,9 @@ class RandomBucketBasedSelector(
         assert(clouds.contains(cloud))
         clouds -= cloud
         distributionState = distributionState.mapValues(_ - cloud)
+
+        activeDownloads = activeDownloads.filterNot(_.cloud == cloud)
+        activeOperations.map(_.removeCloud(cloud))
 
         // throw if objects were lost
         val lostObjects = distributionState.filter(_._2.isEmpty)
@@ -88,16 +121,14 @@ class RandomBucketBasedSelector(
         distributionGoal = createDistributionPlan(clouds, buckets, distributionGoal)
 
         // create an action plan and inform the involved clouds
-        val actionPlan = createActionPlan(distributionGoal, distributionState)
+        val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
+        val newDownloads = actionPlan.flatMap(m => {
+            m._2.objSourceMap.keys.map(DownloadRequest(m._1, _))
+        }).toSet
+        activeOperations += new RepairTracker(newDownloads)
+
         actionPlan.foreach(cloudPlan => sendActions(cloudPlan._1, cloudPlan._2))
     }
-
-    override def processStatusMessage(cloud: Int, message: Object) =
-        message match {
-
-            case _ => throw new IllegalStateException
-
-        }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
         Left(UnsufficientSpace)
@@ -148,7 +179,8 @@ class RandomBucketBasedSelector(
 
     private def createActionPlan(
         distributionGoal: Map[String, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]]): Map[Int, PlacementDialog] = {
+        distributionState: Map[StorageObject, Set[Int]],
+        activeTransactions: Set[DownloadRequest]): Map[Int, Load] = {
 
         val additionalCloudMap = distributionState.map(objectCloudMap => {
             val storageObject = objectCloudMap._1

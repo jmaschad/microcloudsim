@@ -16,7 +16,6 @@ class Upload(
 
     dialog.messageHandler = processMessage _
     val timeoutHandler = () => {
-        log("upload timed out " + TransferProbe.finish(dialog.id))
         onFinish(false)
     }
 
@@ -48,7 +47,6 @@ class Upload(
             if (remainingPackets > 0) {
                 sendNextPacket()
             } else {
-                log("upload finished " + TransferProbe.finish(dialog.id))
                 dialog.say(FinishDownload, timeoutHandler)
                 onFinish(true)
             }

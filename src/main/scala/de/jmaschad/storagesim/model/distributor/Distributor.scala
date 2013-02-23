@@ -74,9 +74,11 @@ class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
                 dialog.sayAndClose(CloudStatusAck())
 
             case DownloadStarted(obj) =>
+                selector.startedDownload(dialog.partner, obj)
                 dialog.sayAndClose(CloudStatusAck())
 
             case DownloadFinished(obj) =>
+                selector.finishedDownload(dialog.partner, obj)
                 dialog.sayAndClose(CloudStatusAck())
 
             case _ => throw new IllegalStateException

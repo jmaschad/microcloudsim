@@ -21,6 +21,7 @@ import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.transfer.Transfer
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
+import org.cloudbus.cloudsim.NetworkTopology
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -52,11 +53,15 @@ object StorageSim {
         log("create users")
         val users = createUsers(distributor)
 
+        log("init network")
+        val topology = getClass().getResource("ba_10k_hs_15k_n.brite").getPath()
+        NetworkTopology.buildNetworkTopology(topology)
+
         log("add user behavior")
         addBehavior(users, initialObjects)
 
         (1 to 1).map(i => {
-            CloudSim.send(0, initialClouds.take(i).last.getId(), 1 + i, MicroCloud.Kill, null)
+            CloudSim.send(0, initialClouds.take(i).last.getId(), 5 + i, MicroCloud.Kill, null)
         })
 
         log("will start simulation")

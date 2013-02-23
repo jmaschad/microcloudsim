@@ -14,7 +14,6 @@ class Download(
     dialog.messageHandler = processMessage _
 
     val timeoutHandler = () => {
-        log("download timed out " + TransferProbe.finish(dialog.id))
         onFinish(false)
     }
     dialog.say(DownloadReady, timeoutHandler)
@@ -25,7 +24,6 @@ class Download(
 
         case FinishDownload =>
             assert(remainingPackets == 0)
-            log("download finished " + TransferProbe.finish(dialog.id))
             onFinish(true)
 
         case _ => throw new IllegalStateException("request error")
