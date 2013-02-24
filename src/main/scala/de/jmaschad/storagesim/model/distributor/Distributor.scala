@@ -35,7 +35,7 @@ object Distributor {
 }
 
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
-    private val selector = new RandomBucketBasedSelector(log _, dialogCenter)
+    private val selector = new RandomFileBasedSelector(log _, dialogCenter)
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)
