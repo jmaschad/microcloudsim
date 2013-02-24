@@ -7,9 +7,11 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 class GreedyFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractFileBasedSelector(log, dialogCenter) {
 
-    def createDistributionPlan(cloudIds: Set[Int],
-        objects: Set[StorageObject],
-        currentPlan: Map[StorageObject, Set[Int]] = Map.empty): Map[StorageObject, Set[Int]] = {
-        Map.empty
+    override protected def selectReplicationTargets(
+        obj: StorageObject,
+        count: Int,
+        clouds: Set[Int],
+        preselectedClouds: Set[Int]): Set[Int] = {
+        Set.empty
     }
 }

@@ -110,10 +110,40 @@ abstract class AbstractFileBasedSelector(
                 Right(RandomUtils.randomSelect1(targets.toIndexedSeq))
         }
 
-    protected def createDistributionPlan(
+    protected def selectReplicationTargets(obj: StorageObject, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int]
+
+    private def createDistributionPlan(
         cloudIds: Set[Int],
         objects: Set[StorageObject],
-        currentPlan: Map[StorageObject, Set[Int]] = Map.empty): Map[StorageObject, Set[Int]]
+        currentPlan: Map[StorageObject, Set[Int]] = Map.empty): Map[StorageObject, Set[Int]] = {
+
+        // remove unknown objects and clouds from the current plan
+        var distributionPlan = (for (obj <- currentPlan.keys if objects.contains(obj)) yield {
+            obj -> currentPlan(obj).intersect(cloudIds)
+        }).toMap
+
+        // choose clouds for buckets which have too few replicas
+        distributionPlan ++= objects.map(obj => {
+            val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
+            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
+            requiredTargetsCount match {
+                case 0 =>
+                    obj -> currentReplicas
+                case n =>
+                    obj -> (currentReplicas ++ selectReplicationTargets(obj, requiredTargetsCount, cloudIds, currentReplicas))
+            }
+        })
+
+        // the new plan does not contain unknown clouds
+        assert(distributionPlan.values.flatten.toSet.subsetOf(cloudIds))
+        // the new plan contains exactly the given buckets
+        assert(distributionPlan.keySet == objects)
+        // every bucket has the correct count of replicas
+        assert(distributionPlan.values.forall(clouds => clouds.size
+            == StorageSim.configuration.replicaCount))
+
+        distributionPlan
+    }
 
     private def createActionPlan(
         distributionGoal: Map[StorageObject, Set[Int]],

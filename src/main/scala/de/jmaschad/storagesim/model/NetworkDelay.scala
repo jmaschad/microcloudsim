@@ -11,7 +11,7 @@ object NetworkDelay {
      *
      * If one of the regions is 0 the delay will be 0 as well.
      */
-    def delayBetween(regionA: Int, regionB: Int): Double =
+    def between(regionA: Int, regionB: Int): Double =
         if (regionA == 0 || regionB == 0) {
             0.0f
         } else {

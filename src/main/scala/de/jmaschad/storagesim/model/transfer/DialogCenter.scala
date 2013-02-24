@@ -23,7 +23,7 @@ class DialogCenter(
     private var dialogs = Map.empty[String, Dialog]
 
     def openDialog(target: Int): Dialog = {
-        val avgDelay = NetworkDelay.delayBetween(entity.region, Entity.entityForId(target).region)
+        val avgDelay = NetworkDelay.between(entity.region, Entity.entityForId(target).region)
         val dialog = new Dialog(target, this, avgDelay)
         assert(!dialogs.isDefinedAt(dialog.id))
         dialogs += dialog.id -> dialog
@@ -80,7 +80,7 @@ class DialogCenter(
     }
 
     private def answerDialog(source: Int, message: Message): Dialog = {
-        val avgDelay = NetworkDelay.delayBetween(entity.region, Entity.entityForId(source).region)
+        val avgDelay = NetworkDelay.between(entity.region, Entity.entityForId(source).region)
         val dialog = new Dialog(source, this, avgDelay, message.dialog)
 
         assert(!dialogs.isDefinedAt(message.dialog))
