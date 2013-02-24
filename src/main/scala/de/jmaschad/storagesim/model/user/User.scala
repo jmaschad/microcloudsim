@@ -1,6 +1,7 @@
 package de.jmaschad.storagesim.model.user
 
 import scala.collection.LinearSeq
+import org.apache.commons.math3.distribution.IntegerDistribution
 import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
@@ -27,20 +28,24 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.transfer.dialogs.Result
 import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
-import User._
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
+import de.jmaschad.storagesim.model.user.RequestType._
 
 object User {
-    private val MaxRequestTicks = 2
+    private var users = Set.empty[User]
+    def allUsers: Set[User] = users
 
     private val Base = 10300
     val ScheduleRequest = Base + 1
 }
+import User._
 
 class User(
     name: String,
     region: Int,
+    val objects: IndexedSeq[StorageObject],
+    val getObjectIndex: IntegerDistribution,
     resources: ResourceCharacteristics,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
     protected val storageDevices = resources.storageDevices
@@ -49,15 +54,23 @@ class User(
     private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
     private val requestLog = new RequestLog(log)
 
+    User.users += this
+
     def addBehavior(behavior: UserBehavior) = {
         behaviors += behavior
         if (CloudSim.running()) {
-            send(getId, behavior.timeToNextEvent(), ScheduleRequest, behavior)
+            send(getId, behavior.delayModel.sample(), ScheduleRequest, behavior)
         }
     }
 
+    def demand(obj: StorageObject): Double =
+        objects.indexOf(obj) match {
+            case -1 => 0.0
+            case n => getObjectIndex.probability(n)
+        }
+
     override def startEntity(): Unit = {
-        behaviors.foreach(b => send(getId, b.timeToNextEvent, ScheduleRequest, b))
+        behaviors.foreach(b => send(getId, b.delayModel.sample(), ScheduleRequest, b))
     }
 
     override def shutdownEntity() = log(requestLog.summary())
@@ -65,8 +78,8 @@ class User(
     override def processEvent(event: SimEvent) =
         event.getTag() match {
             case ScheduleRequest =>
-                val request = getRequestAndScheduleBehavior(event)
-                sendRequest(request)
+                val reqType = getRequestAndScheduleBehavior(event)
+                scheduleRequest(reqType)
 
             case _ =>
                 super.processEvent(event)
@@ -75,14 +88,15 @@ class User(
     override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
         throw new IllegalStateException
 
-    private def sendRequest(request: RestDialog) =
-        request match {
-            case get @ Get(obj) =>
-                requestLog.add(get)
-                lookupCloud(get, openGetDialog _)
+    private def scheduleRequest(requestType: RequestType): Unit = requestType match {
+        case RequestType.Get =>
+            val obj = objects(getObjectIndex.sample())
+            val get = Get(obj)
+            requestLog.add(get)
+            lookupCloud(get, openGetDialog _)
 
-            case _ => throw new IllegalStateException
-        }
+        case _ => throw new IllegalStateException
+    }
 
     private def lookupCloud[T <: RestDialog](request: T, onSuccess: (Int, T) => Unit): Unit = {
         val dialog = dialogCenter.openDialog(distributor.getId())
@@ -119,11 +133,11 @@ class User(
         })
     }
 
-    private def getRequestAndScheduleBehavior(event: SimEvent): RestDialog = {
+    private def getRequestAndScheduleBehavior(event: SimEvent): RequestType = {
         val behav = getBehavior(event)
-        val delay = behav.timeToNextEvent().max(0.001)
+        val delay = behav.delayModel.sample().max(0.001)
         send(getId, delay, ScheduleRequest, behav)
-        behav.nextRequest
+        behav.requestType
     }
 
     private def getBehavior(event: SimEvent): UserBehavior =

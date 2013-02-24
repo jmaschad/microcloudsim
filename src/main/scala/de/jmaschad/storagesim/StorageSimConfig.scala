@@ -42,15 +42,12 @@ case class UniformSelection extends ObjectSelectionModel
 
 object BehaviorConfig {
     def apply(requestType: RequestType,
-        delayModel: RealDistributionConfiguration,
-        objectSelectioModel: ObjectSelectionModel) =
-        new BehaviorConfig(requestType, delayModel, objectSelectioModel)
+        delayModel: RealDistributionConfiguration) =
+        new BehaviorConfig(requestType, delayModel)
 }
-
 class BehaviorConfig(
     val requestType: RequestType,
-    val delayModel: RealDistributionConfiguration,
-    val objectSelectionModel: ObjectSelectionModel)
+    val delayModel: RealDistributionConfiguration)
 
 trait StorageSimConfig {
     var simDuration: Double = 300.0
@@ -71,5 +68,6 @@ trait StorageSimConfig {
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
 
-    var behaviors: Seq[BehaviorConfig] = Seq(BehaviorConfig(Get, NormalDist(1.0, 0.3), UniformSelection()))
+    var behaviors: Seq[BehaviorConfig] = Seq(BehaviorConfig(Get, NormalDist(1.0, 0.3)))
+    var objectForGetDistribution: ObjectSelectionModel = UniformSelection()
 }

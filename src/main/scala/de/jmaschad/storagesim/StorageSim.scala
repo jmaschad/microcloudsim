@@ -51,10 +51,7 @@ object StorageSim {
         distributor.initialize(initialClouds, initialObjects)
 
         log("create users")
-        val users = createUsers(distributor)
-
-        log("add user behavior")
-        addBehavior(users, initialObjects)
+        val users = createUsers(distributor, initialObjects)
 
         (1 to 1).map(i => {
             CloudSim.send(0, initialClouds.take(i).last.getId(), 5 + i, MicroCloud.Kill, null)
@@ -94,46 +91,42 @@ object StorageSim {
         }).toSet
     }
 
-    private def createUsers(distributor: Distributor): Seq[User] = {
+    private def createUsers(distributor: Distributor, storageObjects: Set[StorageObject]): Seq[User] = {
         val regionDist = IntegerDistributionConfiguration.toDist(configuration.regionDistribution)
-        for (i <- 1 to configuration.userCount) yield {
-            val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
-            val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
-            new User("u" + i, regionDist.sample(), resources, distributor)
-        }
-    }
 
-    private def addBehavior(users: Seq[User], storageObjects: Set[StorageObject]) = {
         val bucketMap = storageObjects.groupBy(_.bucket)
         val bucketSeq = bucketMap.keys.toIndexedSeq
         val bucketCount = bucketMap.keySet.size
         val bucketCountDist = IntegerDistributionConfiguration.toDist(configuration.accessedBucketCountDist)
 
-        users.foreach(user => {
+        for (i <- 1 to configuration.userCount) yield {
             val userBuckets = if (bucketCount == 1) {
                 bucketMap.keySet
             } else {
                 val userBucketCount = bucketCountDist.sample().max(1)
                 new UniformIntegerDistribution(0, bucketCount - 1).sample(userBucketCount).map(bucketSeq(_)).toSet
             }
-
             val objects = userBuckets.flatMap(bucketMap(_)).toIndexedSeq
+            val objectForGetDist = ObjectSelectionModel.toDist(objects.size, configuration.objectForGetDistribution)
+
+            val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
+            val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
+
+            val user = new User("u" + i, regionDist.sample(), objects, objectForGetDist, resources, distributor)
             configuration.behaviors.foreach(config => {
                 val requestType = config.requestType
                 val delayModel = RealDistributionConfiguration.toDist(config.delayModel)
-                val objectSelectionModel = ObjectSelectionModel.toDist(objects.size, config.objectSelectionModel)
 
                 val behavior = requestType match {
                     case RequestType.Get =>
-                        UserBehavior(delayModel, objectSelectionModel, objects, Get(_))
+                        UserBehavior(delayModel, RequestType.Get)
 
                     case _ => throw new IllegalStateException
                 }
 
                 user.addBehavior(behavior)
             })
-        })
-
+            user
+        }
     }
-
 }

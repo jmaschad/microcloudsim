@@ -8,33 +8,13 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 object RequestType extends Enumeration {
     type RequestType = Value
     val Get = Value("GET")
-    val Delete = Value("DELETE")
 }
+import RequestType._
 
 object UserBehavior {
-    def apply(delayModel: RealDistribution,
-        objectSelectionModel: IntegerDistribution,
-        objects: IndexedSeq[StorageObject],
-        generator: StorageObject => RestDialog) =
-        new ConfigurableBehavior(delayModel,
-            objectSelectionModel,
-            objects: IndexedSeq[StorageObject],
-            generator: StorageObject => RestDialog)
+    def apply(delayModel: RealDistribution, requestType: RequestType) =
+        new UserBehavior(delayModel, requestType)
 }
 
-trait UserBehavior {
-    def timeToNextEvent(): Double
-    def nextRequest(): RestDialog
-}
-
-private[user] class ConfigurableBehavior(
-    delayModel: RealDistribution,
-    objectSelectionModel: IntegerDistribution,
-    objects: IndexedSeq[StorageObject],
-    generator: StorageObject => RestDialog) extends UserBehavior {
-
-    override def timeToNextEvent(): Double = delayModel.sample()
-
-    override def nextRequest(): RestDialog = generator(objects(objectSelectionModel.sample()))
-}
+class UserBehavior(val delayModel: RealDistribution, val requestType: RequestType)
 
