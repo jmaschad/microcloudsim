@@ -9,14 +9,14 @@ class RequestLog(
     log: String => Unit) {
     private class Active(size: Double) {
         private val start = CloudSim.clock()
-        def finish(summary: RequestSummary): Finished = {
+        def finish(averageLatency: Double, summary: RequestSummary): Finished = {
             val duration = CloudSim.clock() - start
-            new Finished(duration, size / duration, summary)
+            new Finished(duration, size / duration, averageLatency, summary)
         }
     }
 
-    private class Finished(val duration: Double, val avgBandwidth: Double, val summary: RequestSummary) {
-        override def toString = "%s %.3fs %.3f MBit/s".format(summary, duration, avgBandwidth * 8)
+    private class Finished(val duration: Double, val avgBandwidth: Double, val avgLatency: Double, val summary: RequestSummary) {
+        override def toString = "%s in %.3fs [%.0fms latency] @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, avgBandwidth * 8)
     }
 
     private var activeRequests = Map.empty[Long, Active]
@@ -31,13 +31,15 @@ class RequestLog(
             throw new IllegalStateException
     }
 
-    def finish(request: RestDialog, summary: RequestSummary) = {
+    def finish(request: RestDialog, averageLatency: Double, summary: RequestSummary): Unit = {
         assert(activeRequests.contains(request.id))
-        val finished = activeRequests(request.id).finish(summary)
+        val finished = activeRequests(request.id).finish(averageLatency, summary)
         log("Request: " + finished)
         finishedRequests += finished
         activeRequests -= request.id
     }
+
+    def finish(request: RestDialog, summary: RequestSummary): Unit = finish(request, 0.0, summary)
 
     def summary(): String = {
         val avgBw = finishedRequests.foldLeft(0.0)((sum, entry) => sum + entry.avgBandwidth) / finishedRequests.count(_.avgBandwidth > 0.0)

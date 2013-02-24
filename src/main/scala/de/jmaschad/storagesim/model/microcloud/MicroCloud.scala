@@ -14,7 +14,6 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.DownloadReady
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Upload
 import de.jmaschad.storagesim.model.BaseEntity
@@ -30,6 +29,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
 
 object MicroCloud {
     private val Base = 10200
@@ -44,9 +44,10 @@ object MicroCloud {
 
 class MicroCloud(
     name: String,
+    region: Int,
     resourceCharacteristics: ResourceCharacteristics,
     failureBehavior: MicroCloudFailureBehavior,
-    distributor: Distributor) extends BaseEntity(name) with DialogEntity with ProcessingEntity {
+    distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     protected val bandwidth = resourceCharacteristics.bandwidth
 

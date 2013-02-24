@@ -23,11 +23,13 @@ case class ExponentialDist(mean: Double) extends RealDistributionConfiguration
 object IntegerDistributionConfiguration {
     def toDist(config: IntegerDistributionConfiguration): IntegerDistribution = config match {
         case PoissonDist(mean) => new PoissonDistribution(mean)
+        case UniformIntDist(min, max) => new UniformIntegerDistribution(min, max)
         case _ => throw new IllegalStateException
     }
 }
 sealed abstract class IntegerDistributionConfiguration
 case class PoissonDist(mean: Double) extends IntegerDistributionConfiguration
+case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfiguration
 
 object ObjectSelectionModel {
     def toDist(objectCount: Int, config: ObjectSelectionModel): IntegerDistribution = config match {
@@ -54,9 +56,10 @@ trait StorageSimConfig {
     var simDuration: Double = 300.0
     var replicaCount: Int = 3
 
+    var regionDistribution: IntegerDistributionConfiguration = UniformIntDist(1, 10)
     var cloudCount: Int = 10
     var storageDevicesPerCloud: Int = 10
-    var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte);
+    var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
     var cloudFailureDistribution: RealDistributionConfiguration = NormalDist(5 * 60, 2 * 60)
     var cloudRepairDistribution: RealDistributionConfiguration = NormalDist(30, 5)
     var diskFailureDistribution: RealDistributionConfiguration = NormalDist(60, 10)

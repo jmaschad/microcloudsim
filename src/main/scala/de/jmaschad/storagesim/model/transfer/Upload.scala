@@ -1,5 +1,10 @@
 package de.jmaschad.storagesim.model.transfer
 
+import de.jmaschad.storagesim.model.transfer.dialogs.FinishDownload
+import de.jmaschad.storagesim.model.transfer.dialogs.Packet
+import de.jmaschad.storagesim.model.transfer.dialogs.Ack
+import org.cloudbus.cloudsim.core.CloudSim
+
 class Upload(
     log: String => Unit,
     dialog: Dialog,
@@ -7,12 +12,12 @@ class Upload(
     process: (Double, () => Unit) => Unit,
     onFinish: Boolean => Unit) {
 
-    val packetSize = Transfer.packetSize(size)
-    var remainingPackets = Transfer.packetCount(size)
+    private val packetSize = Transfer.packetSize(size)
+    private var remainingPackets = Transfer.packetCount(size)
 
-    var ackReceived = false
-    var processingFinished = false
-    var isCanceled = false
+    private var ackReceived = false
+    private var processingFinished = false
+    private var isCanceled = false
 
     dialog.messageHandler = processMessage _
     val timeoutHandler = () => {
@@ -62,7 +67,7 @@ class Upload(
         }
 
     private def sendNextPacket(): Unit = {
-        dialog.say(Packet(packetSize), timeoutHandler)
+        dialog.say(Packet(packetSize, CloudSim.clock), timeoutHandler)
         ackReceived = false
 
         processingFinished = false
@@ -72,7 +77,3 @@ class Upload(
         })
     }
 }
-
-private[transfer] abstract sealed class UploadMessage
-case class DownloadReady extends UploadMessage
-case class Ack extends UploadMessage

@@ -27,6 +27,9 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.transfer.dialogs.Result
 import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
+import User._
+import de.jmaschad.storagesim.model.NetworkDelay
+import de.jmaschad.storagesim.model.Entity
 
 object User {
     private val MaxRequestTicks = 2
@@ -34,12 +37,12 @@ object User {
     private val Base = 10300
     val ScheduleRequest = Base + 1
 }
-import User._
 
 class User(
     name: String,
+    region: Int,
     resources: ResourceCharacteristics,
-    distributor: Distributor) extends BaseEntity(name) with DialogEntity with ProcessingEntity {
+    distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
     protected val storageDevices = resources.storageDevices
     protected val bandwidth = resources.bandwidth
 
@@ -99,10 +102,9 @@ class User(
             case RestAck =>
                 val onFinish = (success: Boolean) => {
                     dialog.close()
-                    if (success)
-                        requestLog.finish(get, Complete)
-                    else
-                        requestLog.finish(get, TimeOut)
+                    val requestState = if (success) Complete else TimeOut
+
+                    requestLog.finish(get, dialog.averageDelay, requestState)
                 }
 
                 new Download(log _, dialog, get.obj.size, processing.download _, onFinish)

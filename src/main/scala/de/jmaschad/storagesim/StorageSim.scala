@@ -53,10 +53,6 @@ object StorageSim {
         log("create users")
         val users = createUsers(distributor)
 
-        log("init network")
-        val topology = getClass().getResource("ba_10k_hs_15k_n.brite").getPath()
-        NetworkTopology.buildNetworkTopology(topology)
-
         log("add user behavior")
         addBehavior(users, initialObjects)
 
@@ -82,6 +78,7 @@ object StorageSim {
     private def createMicroClouds(disposer: Distributor): Set[MicroCloud] = {
         assert(configuration.cloudCount >= configuration.replicaCount)
 
+        val regionDist = IntegerDistributionConfiguration.toDist(configuration.regionDistribution)
         val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidthDistribution)
         (for (i <- 0 until configuration.cloudCount) yield {
             val storageDevices = for (i <- 1 to configuration.storageDevicesPerCloud)
@@ -93,16 +90,18 @@ object StorageSim {
                 RealDistributionConfiguration.toDist(configuration.diskFailureDistribution),
                 RealDistributionConfiguration.toDist(configuration.diskRepairDistribution))
 
-            new MicroCloud("mc" + (i + 1), charact, failureBehavior, disposer)
+            new MicroCloud("mc" + (i + 1), regionDist.sample(), charact, failureBehavior, disposer)
         }).toSet
     }
 
-    private def createUsers(distributor: Distributor): Seq[User] =
+    private def createUsers(distributor: Distributor): Seq[User] = {
+        val regionDist = IntegerDistributionConfiguration.toDist(configuration.regionDistribution)
         for (i <- 1 to configuration.userCount) yield {
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
             val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
-            new User("u" + i, resources, distributor)
+            new User("u" + i, regionDist.sample(), resources, distributor)
         }
+    }
 
     private def addBehavior(users: Seq[User], storageObjects: Set[StorageObject]) = {
         val bucketMap = storageObjects.groupBy(_.bucket)

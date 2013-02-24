@@ -34,7 +34,7 @@ object Distributor {
     val UserRequest = MicroCloudOffline + 1
 }
 
-class Distributor(name: String) extends BaseEntity(name) with DialogEntity {
+class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     private val selector = new RandomBucketBasedSelector(log _, dialogCenter)
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =

@@ -6,6 +6,8 @@ import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.ProcessingEntity
 import DialogCenter._
 import de.jmaschad.storagesim.model.DialogEntity
+import de.jmaschad.storagesim.model.Entity
+import de.jmaschad.storagesim.model.NetworkDelay
 
 object DialogCenter {
     val Timeout = 2.0
@@ -21,7 +23,8 @@ class DialogCenter(
     private var dialogs = Map.empty[String, Dialog]
 
     def openDialog(target: Int): Dialog = {
-        val dialog = new Dialog(target, this)
+        val avgDelay = NetworkDelay.delayBetween(entity.region, Entity.entityForId(target).region)
+        val dialog = new Dialog(target, this, avgDelay)
         assert(!dialogs.isDefinedAt(dialog.id))
         dialogs += dialog.id -> dialog
         dialog
@@ -34,7 +37,9 @@ class DialogCenter(
 
     def say(message: AnyRef, dialog: Dialog): Unit = {
         val init = dialog.messageId == 0
-        send(dialog.partner, 0.0, DialogEntity.DialogMessage, new Message(dialog.id, message, init))
+        // add the message delay once to every dialog
+        val delay = if (init) dialog.averageDelay else 0.0
+        send(dialog.partner, delay, DialogEntity.DialogMessage, new Message(dialog.id, message, init))
     }
 
     def sayWithTimeout(message: AnyRef, timeoutHandler: TimeoutHandler, dialog: Dialog): Unit = {
@@ -75,7 +80,8 @@ class DialogCenter(
     }
 
     private def answerDialog(source: Int, message: Message): Dialog = {
-        val dialog = new Dialog(source, this, message.dialog)
+        val avgDelay = NetworkDelay.delayBetween(entity.region, Entity.entityForId(source).region)
+        val dialog = new Dialog(source, this, avgDelay, message.dialog)
 
         assert(!dialogs.isDefinedAt(message.dialog))
         dialogs += dialog.id -> dialog
@@ -87,6 +93,7 @@ class DialogCenter(
 class Dialog(
     val partner: Int,
     val dialogCenter: DialogCenter,
+    val averageDelay: Double,
     val id: String = hashCode() + "-" + Random.nextInt) {
 
     var messageHandler: MessageHandler = (_) => throw new IllegalStateException
