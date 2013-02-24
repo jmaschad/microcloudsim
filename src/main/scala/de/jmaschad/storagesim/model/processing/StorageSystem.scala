@@ -72,6 +72,8 @@ class StorageSystem(
 
     def reset(): StorageSystem = new StorageSystem(log, storageDevices.map(_.reset()))
 
+    def isEmpty = bucketObjectMapping.isEmpty
+
     def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet.filter(contains(_))
 
     def loadThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).loadThroughput

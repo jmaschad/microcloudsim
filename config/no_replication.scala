@@ -3,7 +3,7 @@ import de.jmaschad.storagesim.model.user.RequestType._
 
 new StorageSimConfig {
   simDuration = 20
-  userCount = 1000
+  userCount = 100
   cloudCount = 100
   cloudBandwidthDistribution = NormalDist(125 * Units.MByte, 0.01 * Units.MByte);
   objectSizeDistribution = ExponentialDist(2 * Units.MByte)

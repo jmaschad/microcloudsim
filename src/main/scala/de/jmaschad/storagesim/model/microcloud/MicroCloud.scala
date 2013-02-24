@@ -57,6 +57,8 @@ class MicroCloud(
 
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
 
+    def isEmpty = storageSystem.isEmpty
+
     override def startEntity(): Unit = {
         anounce(CloudOnline())
 
