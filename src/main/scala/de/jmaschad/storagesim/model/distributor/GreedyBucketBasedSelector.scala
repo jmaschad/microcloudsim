@@ -8,12 +8,6 @@ import de.jmaschad.storagesim.model.transfer.DialogCenter
 class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractBucketBasedSelector(log, dialogCenter) {
 
-    override def selectForPost(storageObjects: StorageObject): Either[RequestSummary, Int] =
-        Left(UnsufficientSpace)
-
-    override def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int] =
-        Left(ObjectNotFound)
-
     override protected def createDistributionPlan(
         cloudIds: Set[Int],
         buckets: Set[String],

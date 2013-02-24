@@ -15,19 +15,6 @@ import de.jmaschad.storagesim.RandomUtils
 class RandomBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractBucketBasedSelector(log, dialogCenter) {
 
-    override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
-        Left(UnsufficientSpace)
-
-    override def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int] =
-        getDistributionState.getOrElse(storageObject, Set.empty) match {
-            case targets if targets.size == 0 =>
-                Left(ObjectNotFound)
-            case targets if targets.size == 1 =>
-                Right(targets.head)
-            case targets =>
-                Right(RandomUtils.randomSelect1(targets.toIndexedSeq))
-        }
-
     override protected def createDistributionPlan(
         cloudIds: Set[Int],
         buckets: Set[String],
