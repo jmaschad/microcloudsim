@@ -82,7 +82,7 @@ trait StorageSimConfig {
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
     var simDuration: Double = 60.0
 
-    var selector: SelectorConfig = RandomBucketBased()
+    var selector: SelectorConfig = GreedyBucketBased()
     var replicaCount: Int = 3
 
     var regionDistribution: IntegerDistributionConfiguration = UniformIntDist(1, 5)

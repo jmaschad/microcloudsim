@@ -129,12 +129,11 @@ abstract class AbstractFileBasedSelector(
         distributionPlan ++= objects.map(obj => {
             val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
-            log("selecting replicas for object " + obj + "/" + objects.size)
             requiredTargetsCount match {
                 case 0 =>
                     obj -> currentReplicas
                 case n =>
-                    obj -> selectReplicas(n, obj, clouds, distributionPlan)
+                    obj -> selectReplicas(n, obj, cloudIds, distributionPlan)
             }
         })
 
@@ -158,14 +157,14 @@ abstract class AbstractFileBasedSelector(
             case 0 =>
                 distributionPlan.getOrElse(obj, Set.empty)
             case n =>
-                val load = cloudLoad(distributionPlan)
+                val load = cloudLoad(clouds, distributionPlan)
                 val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
                 val selection = selectReplicationTarget(obj, clouds, load, currentReplicas)
                 val newDistributionPlan = distributionPlan + (obj -> (distributionPlan.getOrElse(obj, Set.empty) + selection))
                 selectReplicas(count - 1, obj, clouds, newDistributionPlan)
         }
 
-    private def cloudLoad(distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] = {
+    private def cloudLoad(clouds: Set[Int], distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] = {
         val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
             val obj = b._1
             val clouds = b._2
@@ -173,8 +172,13 @@ abstract class AbstractFileBasedSelector(
             plan ++ sizeDist
         })
 
-        val max = sizeDistribution.values.max
-        sizeDistribution.mapValues(_ / max)
+        // normalize
+        if (sizeDistribution.nonEmpty) {
+            val max = sizeDistribution.values.max
+            sizeDistribution.mapValues(_ / max)
+        }
+
+        clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
     }
 
     private def createActionPlan(

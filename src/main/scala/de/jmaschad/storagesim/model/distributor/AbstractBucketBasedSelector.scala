@@ -26,7 +26,7 @@ abstract class AbstractBucketBasedSelector(
         val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
         val bucketMap = initialObjects.groupBy(_.bucket)
 
-        distributionGoal = createDistributionPlan(cloudIdMap.keySet, bucketMap.keySet)
+        distributionGoal = createDistributionPlan(cloudIdMap.keySet, bucketMap)
         val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]])((allocMap, b) => {
             val bucket = b._1
             val clouds = b._2
@@ -102,11 +102,9 @@ abstract class AbstractBucketBasedSelector(
             throw new IllegalStateException("all copies of " + lostObjects.mkString(", ") + " were lost")
         }
 
-        // The current set of objects of all clouds, ordered by bucket  
-        val buckets = distributionState.keySet.foldLeft(Set.empty[String])((buckets, obj) => buckets + obj.bucket)
-
         // create new distribution goal
-        distributionGoal = createDistributionPlan(clouds, buckets, distributionGoal)
+        val bucketMap = distributionState.keySet.groupBy(_.bucket)
+        distributionGoal = createDistributionPlan(clouds, bucketMap, distributionGoal)
 
         // create an action plan and inform the involved clouds
         val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
@@ -122,8 +120,10 @@ abstract class AbstractBucketBasedSelector(
 
     private def createDistributionPlan(
         cloudIds: Set[Int],
-        buckets: Set[String],
+        bucketMap: Map[String, Set[StorageObject]],
         currentPlan: Map[String, Set[Int]] = Map.empty): Map[String, Set[Int]] = {
+
+        val buckets = bucketMap.keySet
 
         // remove unknown buckets and clouds from the current plan
         var distributionPlan = (for (bucket <- currentPlan.keys if buckets.contains(bucket)) yield {
@@ -138,8 +138,7 @@ abstract class AbstractBucketBasedSelector(
                 case 0 =>
                     bucket -> currentReplicas
                 case n =>
-                    val bucketMap = distributionState.keySet.groupBy(_.bucket)
-                    bucket -> selectReplicas(n, bucket, clouds, bucketMap, distributionPlan)
+                    bucket -> selectReplicas(n, bucket, cloudIds, bucketMap, distributionPlan)
             }
         })
 
@@ -164,14 +163,14 @@ abstract class AbstractBucketBasedSelector(
             case 0 =>
                 distributionPlan.getOrElse(bucket, Set.empty)
             case n =>
-                val load = cloudLoad(distributionPlan, bucketMap)
+                val load = cloudLoad(clouds, distributionPlan, bucketMap)
                 val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
                 val selection = selectReplicationTarget(bucket, clouds, load, currentReplicas)
                 val newDistributionPlan = distributionPlan + (bucket -> (distributionPlan.getOrElse(bucket, Set.empty) + selection))
                 selectReplicas(count - 1, bucket, clouds, bucketMap, newDistributionPlan)
         }
 
-    private def cloudLoad(distributionPlan: Map[String, Set[Int]], bucketMap: Map[String, Set[StorageObject]]): Map[Int, Double] = {
+    private def cloudLoad(clouds: Set[Int], distributionPlan: Map[String, Set[Int]], bucketMap: Map[String, Set[StorageObject]]): Map[Int, Double] = {
         val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
             val bucket = b._1
             val clouds = b._2
@@ -179,8 +178,13 @@ abstract class AbstractBucketBasedSelector(
             plan ++ sizeDist
         })
 
-        val max = sizeDistribution.values.max
-        sizeDistribution.mapValues(_ / max)
+        // normalize
+        if (sizeDistribution.nonEmpty) {
+            val max = sizeDistribution.values.max
+            sizeDistribution.mapValues(_ / max)
+        }
+
+        clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
     }
 
     private def createActionPlan(
