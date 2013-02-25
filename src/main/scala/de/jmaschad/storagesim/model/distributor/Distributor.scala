@@ -25,6 +25,11 @@ import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
 import Distributor._
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
+import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.GreedyBucketBased
+import de.jmaschad.storagesim.RandomBucketBased
+import de.jmaschad.storagesim.RandomFileBased
+import de.jmaschad.storagesim.GreedyFileBased
 
 object Distributor {
     val StatusInterval = 1
@@ -35,7 +40,21 @@ object Distributor {
 }
 
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
-    private val selector = new GreedyBucketBasedSelector(log _, dialogCenter)
+    private val selector = StorageSim.configuration.selector match {
+        case RandomBucketBased() =>
+            new RandomBucketBasedSelector(log _, dialogCenter)
+
+        case RandomFileBased() =>
+            new RandomFileBasedSelector(log _, dialogCenter)
+
+        case GreedyBucketBased() =>
+            new GreedyBucketBasedSelector(log _, dialogCenter)
+
+        case GreedyFileBased() =>
+            new GreedyFileBasedSelector(log _, dialogCenter)
+
+        case _ => throw new IllegalStateException
+    }
 
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
         selector.initialize(initialClouds, initialObjects)

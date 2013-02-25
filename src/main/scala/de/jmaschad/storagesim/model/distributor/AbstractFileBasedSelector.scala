@@ -126,6 +126,7 @@ abstract class AbstractFileBasedSelector(
         distributionPlan ++= objects.map(obj => {
             val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
+            log("selecting replicas for object " + obj + "/" + objects.size)
             requiredTargetsCount match {
                 case 0 =>
                     obj -> currentReplicas

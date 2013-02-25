@@ -1,20 +1,18 @@
 package de.jmaschad.storagesim.model.distributor
 
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.RandomUtils
-import de.jmaschad.storagesim.model.user.User
-import de.jmaschad.storagesim.model.Entity
 import scala.collection.immutable.SortedSet
+
+import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.NetworkDelay
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.transfer.DialogCenter
+import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
+import de.jmaschad.storagesim.model.user.User
 
 class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractBucketBasedSelector(log, dialogCenter) {
 
-    protected def selectReplicationTargets(bucket: String, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int] =
+    override protected def selectReplicationTargets(bucket: String, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int] =
         count match {
             case 0 =>
                 preselectedClouds

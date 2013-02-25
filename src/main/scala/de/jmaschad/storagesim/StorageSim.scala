@@ -2,7 +2,6 @@
 package de.jmaschad.storagesim
 
 import java.io.File
-import java.util.Calendar
 import scala.util.Random
 import org.apache.commons.math3.distribution.IntegerDistribution
 import org.apache.commons.math3.distribution.RealDistribution
@@ -22,6 +21,14 @@ import de.jmaschad.storagesim.model.user.RequestType
 import de.jmaschad.storagesim.model.transfer.Transfer
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
 import org.cloudbus.cloudsim.NetworkTopology
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.util.Calendar
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+import java.nio.file.Files
+import java.nio.charset.Charset
+import java.io.PrintWriter
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -29,14 +36,53 @@ object StorageSim {
     var configuration: StorageSimConfig = null
 
     def main(args: Array[String]) {
-        CloudSim.init(1, Calendar.getInstance(), false)
-
         val config = args.size match {
             case 0 => new StorageSimConfig {}
             case 1 => Eval[StorageSimConfig](new File(args(0)))
             case _ => throw new IllegalArgumentException
         }
         configuration = config
+
+        val outDir = Paths.get(configuration.outputDir).toAbsolutePath().toRealPath()
+        assert(Files.exists(outDir) && Files.isDirectory(outDir))
+        val experimentDir = createExperimentDir(outDir)
+        createDescription(experimentDir)
+
+        (1 to configuration.passCount).foreach(pass => {
+            println("pass " + pass)
+            setLogFile(experimentDir, pass)
+            run()
+            closeLogFile()
+        })
+    }
+
+    private def createExperimentDir(baseDir: Path): Path = {
+        val date = DateTime.now()
+        val fmt = DateTimeFormat.forPattern("dd.MM.yyyy HH:mm")
+        val dirName = fmt.print(date) + " " + configuration.selector.getClass().getSimpleName()
+        val expDir = baseDir.resolve(dirName)
+
+        assert(Files.notExists(expDir))
+        Files.createDirectory(expDir)
+    }
+
+    private def createDescription(dir: Path): Unit = {
+        val descFile = dir.resolve("description.txt")
+        val descWriter = new PrintWriter(Files.newBufferedWriter(descFile, Charset.forName("UTF-8")))
+        StorageSimConfig.printDescription(configuration, descWriter)
+        descWriter.close()
+    }
+
+    private def setLogFile(dir: Path, pass: Int): Unit = {
+        val logFile = dir.resolve("pass " + pass + " log.txt")
+        Log.open(logFile)
+    }
+
+    private def closeLogFile(): Unit =
+        Log.close()
+
+    private def run(): Unit = {
+        CloudSim.init(1, Calendar.getInstance(), false)
 
         log("create distributor")
         val distributor = new Distributor("dp")
@@ -47,11 +93,11 @@ object StorageSim {
         log("create objects")
         val initialObjects = createObjects()
 
-        log("initialize the distributor with clouds and objects")
-        distributor.initialize(initialClouds, initialObjects)
-
         log("create users")
         val users = createUsers(distributor, initialObjects)
+
+        log("initialize the distributor with clouds and objects")
+        distributor.initialize(initialClouds, initialObjects)
 
         val nonEmptyClouds = initialClouds.filterNot(_.isEmpty)
         (1 to 1).map(i => {
@@ -59,9 +105,8 @@ object StorageSim {
         })
 
         log("will start simulation")
-        CloudSim.terminateSimulation(config.simDuration)
+        CloudSim.terminateSimulation(configuration.simDuration)
         CloudSim.startSimulation();
-
     }
 
     private def createObjects(): Set[StorageObject] = {

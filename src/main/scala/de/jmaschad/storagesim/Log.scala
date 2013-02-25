@@ -11,21 +11,23 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import scala.util.Random
 import java.io.PrintWriter
-
-//object Log {
-//    val formatter = new SimpleDateFormat
-//    val logFile = Paths.get("logs", "log-" + Calendar.getInstance().getTimeInMillis()).toFile()
-//    val fileWriter = new PrintWriter(logFile)
-//
-//    def line(identifier: String, line: String) = {
-//        val out = "%.3f %s: %s%n".format(CloudSim.clock(), identifier, line)
-//        print(out)
-//        fileWriter.append(out)
-//    }
-//}
+import java.nio.charset.Charset
+import java.nio.file.Path
 
 object Log {
-    def line(identifier: String, line: String) = {
-        print("%.3f %s: %s%n".format(CloudSim.clock(), identifier, line))
+    private var fileWriter: Option[PrintWriter] = None
+
+    def open(logFile: Path): Unit =
+        fileWriter = Some(new PrintWriter(Files.newBufferedWriter(logFile, Charset.forName("UTF-8"))))
+
+    def close(): Unit =
+        fileWriter.foreach(_.close)
+
+    def line(identifier: String, line: String) = fileWriter match {
+        case Some(writer) =>
+            val out = "%.3f %s: %s".format(CloudSim.clock(), identifier, line)
+            writer.println(out)
+        case None =>
+            throw new IllegalStateException
     }
 }

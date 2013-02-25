@@ -8,6 +8,10 @@ libraryDependencies += "org.apache.commons" % "commons-math3" % "3.1.+"
 
 libraryDependencies += "com.twitter" % "util-eval" % "5.+"
 
+libraryDependencies += "joda-time" % "joda-time" % "2.+"
+
+libraryDependencies += "org.joda" % "joda-convert" % "1.+"
+
 fork := true
 
 javaOptions += "-Xmx2G"
