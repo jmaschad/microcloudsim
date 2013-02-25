@@ -15,8 +15,13 @@ import de.jmaschad.storagesim.RandomUtils
 class RandomBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractBucketBasedSelector(log, dialogCenter) {
 
-    override protected def selectReplicationTargets(bucket: String, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int] = {
+    override protected def selectReplicationTarget(
+        bucket: String,
+        clouds: Set[Int],
+        cloudLoad: Map[Int, Double],
+        preselectedClouds: Set[Int]): Int = {
         val availableClouds = clouds.diff(preselectedClouds)
-        RandomUtils.distinctRandomSelectN(count, availableClouds.toIndexedSeq)
+
+        RandomUtils.randomSelect1(availableClouds.toIndexedSeq)
     }
 }

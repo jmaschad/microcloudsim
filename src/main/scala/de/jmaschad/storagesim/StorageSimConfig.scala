@@ -85,8 +85,8 @@ trait StorageSimConfig {
     var selector: SelectorConfig = RandomBucketBased()
     var replicaCount: Int = 3
 
-    var regionDistribution: IntegerDistributionConfiguration = UniformIntDist(1, 10)
-    var cloudCount: Int = 100
+    var regionDistribution: IntegerDistributionConfiguration = UniformIntDist(1, 5)
+    var cloudCount: Int = 10
     var storageDevicesPerCloud: Int = 10
     var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
     var cloudFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
@@ -94,7 +94,7 @@ trait StorageSimConfig {
     var diskFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
     var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
 
-    var userCount: Int = 1000
+    var userCount: Int = 100
     var bucketCount: Int = (userCount * 0.3).toInt
     var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(5)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)

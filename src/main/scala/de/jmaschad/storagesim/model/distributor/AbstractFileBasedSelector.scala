@@ -10,6 +10,9 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.processing.StorageObject
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
@@ -110,7 +113,7 @@ abstract class AbstractFileBasedSelector(
                 Right(RandomUtils.randomSelect1(targets.toIndexedSeq))
         }
 
-    protected def selectReplicationTargets(obj: StorageObject, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int]
+    protected def selectReplicationTarget(obj: StorageObject, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
 
     private def createDistributionPlan(
         cloudIds: Set[Int],
@@ -131,7 +134,7 @@ abstract class AbstractFileBasedSelector(
                 case 0 =>
                     obj -> currentReplicas
                 case n =>
-                    obj -> (currentReplicas ++ selectReplicationTargets(obj, requiredTargetsCount, cloudIds, currentReplicas))
+                    obj -> selectReplicas(n, obj, clouds, distributionPlan)
             }
         })
 
@@ -144,6 +147,34 @@ abstract class AbstractFileBasedSelector(
             == StorageSim.configuration.replicaCount))
 
         distributionPlan
+    }
+
+    private def selectReplicas(
+        count: Int,
+        obj: StorageObject,
+        clouds: Set[Int],
+        distributionPlan: Map[StorageObject, Set[Int]]): Set[Int] =
+        count match {
+            case 0 =>
+                distributionPlan.getOrElse(obj, Set.empty)
+            case n =>
+                val load = cloudLoad(distributionPlan)
+                val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
+                val selection = selectReplicationTarget(obj, clouds, load, currentReplicas)
+                val newDistributionPlan = distributionPlan + (obj -> (distributionPlan.getOrElse(obj, Set.empty) + selection))
+                selectReplicas(count - 1, obj, clouds, newDistributionPlan)
+        }
+
+    private def cloudLoad(distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] = {
+        val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
+            val obj = b._1
+            val clouds = b._2
+            val sizeDist = clouds.map(c => c -> obj.size).groupBy(_._1).mapValues(_.map(_._2).sum)
+            plan ++ sizeDist
+        })
+
+        val max = sizeDistribution.values.max
+        sizeDistribution.mapValues(_ / max)
     }
 
     private def createActionPlan(

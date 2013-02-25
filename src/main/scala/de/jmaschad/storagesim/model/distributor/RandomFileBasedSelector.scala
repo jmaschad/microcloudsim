@@ -13,8 +13,12 @@ import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     extends AbstractFileBasedSelector(log, dialogCenter) {
 
-    override protected def selectReplicationTargets(obj: StorageObject, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int] = {
+    override protected def selectReplicationTarget(
+        obj: StorageObject,
+        clouds: Set[Int],
+        cloudLoad: Map[Int, Double],
+        preselectedClouds: Set[Int]): Int = {
         val availableClouds = clouds.diff(preselectedClouds)
-        RandomUtils.distinctRandomSelectN(count, availableClouds.toIndexedSeq)
+        RandomUtils.randomSelect1(availableClouds.toIndexedSeq)
     }
 }

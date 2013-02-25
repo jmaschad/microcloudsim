@@ -118,7 +118,7 @@ abstract class AbstractBucketBasedSelector(
         actionPlan.foreach(cloudPlan => sendActions(cloudPlan._1, cloudPlan._2))
     }
 
-    protected def selectReplicationTargets(bucket: String, count: Int, clouds: Set[Int], preselectedClouds: Set[Int]): Set[Int]
+    protected def selectReplicationTarget(bucket: String, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
 
     private def createDistributionPlan(
         cloudIds: Set[Int],
@@ -138,7 +138,8 @@ abstract class AbstractBucketBasedSelector(
                 case 0 =>
                     bucket -> currentReplicas
                 case n =>
-                    bucket -> (currentReplicas ++ selectReplicationTargets(bucket, requiredTargetsCount, cloudIds, currentReplicas))
+                    val bucketMap = distributionState.keySet.groupBy(_.bucket)
+                    bucket -> selectReplicas(n, bucket, clouds, bucketMap, distributionPlan)
             }
         })
 
@@ -151,6 +152,35 @@ abstract class AbstractBucketBasedSelector(
             == StorageSim.configuration.replicaCount))
 
         distributionPlan
+    }
+
+    private def selectReplicas(
+        count: Int,
+        bucket: String,
+        clouds: Set[Int],
+        bucketMap: Map[String, Set[StorageObject]],
+        distributionPlan: Map[String, Set[Int]]): Set[Int] =
+        count match {
+            case 0 =>
+                distributionPlan.getOrElse(bucket, Set.empty)
+            case n =>
+                val load = cloudLoad(distributionPlan, bucketMap)
+                val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
+                val selection = selectReplicationTarget(bucket, clouds, load, currentReplicas)
+                val newDistributionPlan = distributionPlan + (bucket -> (distributionPlan.getOrElse(bucket, Set.empty) + selection))
+                selectReplicas(count - 1, bucket, clouds, bucketMap, newDistributionPlan)
+        }
+
+    private def cloudLoad(distributionPlan: Map[String, Set[Int]], bucketMap: Map[String, Set[StorageObject]]): Map[Int, Double] = {
+        val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
+            val bucket = b._1
+            val clouds = b._2
+            val sizeDist = clouds.map(c => c -> bucketMap(bucket).map(_.size).sum).groupBy(_._1).mapValues(_.map(_._2).sum)
+            plan ++ sizeDist
+        })
+
+        val max = sizeDistribution.values.max
+        sizeDistribution.mapValues(_ / max)
     }
 
     private def createActionPlan(
