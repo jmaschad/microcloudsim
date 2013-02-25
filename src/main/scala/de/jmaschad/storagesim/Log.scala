@@ -26,6 +26,7 @@ object Log {
     def line(identifier: String, line: String) = fileWriter match {
         case Some(writer) =>
             val out = "%.3f %s: %s".format(CloudSim.clock(), identifier, line)
+            println(out)
             writer.println(out)
         case None =>
             throw new IllegalStateException

@@ -48,7 +48,9 @@ object BehaviorConfig {
 }
 class BehaviorConfig(
     val requestType: RequestType,
-    val delayModel: RealDistributionConfiguration)
+    val delayModel: RealDistributionConfiguration) {
+    override def toString = requestType + " [" + delayModel + "]"
+}
 
 sealed abstract class SelectorConfig
 case class RandomBucketBased extends SelectorConfig
