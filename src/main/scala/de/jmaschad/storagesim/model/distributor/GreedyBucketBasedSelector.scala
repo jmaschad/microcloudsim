@@ -43,7 +43,7 @@ class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
 
     private def computeUserDemand(bucket: String): Map[Entity, Double] =
         User.allUsers.map(user => {
-            user -> user.objects.collect({ case obj if obj.bucket == bucket => user.demand(obj) }).sum
+            user -> (user.objects.collect({ case obj if obj.bucket == bucket => user.demand(obj) }).sum) / user.medianGetDelay
         }).toMap
 
     private def computeCloudDemand(clouds: Set[Entity]): Map[Entity, Double] =

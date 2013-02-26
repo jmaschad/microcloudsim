@@ -31,55 +31,54 @@ import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.user.RequestType._
+import User._
+import scala.util.Random
+import org.apache.commons.math3.distribution.NormalDistribution
 
 object User {
     private var users = Set.empty[User]
     def allUsers: Set[User] = users
 
     private val Base = 10300
-    val ScheduleRequest = Base + 1
+    val ScheduleGet = Base + 1
 }
-import User._
 
 class User(
     name: String,
     region: Int,
-    val objects: IndexedSeq[StorageObject],
+    val objects: Set[StorageObject],
     val getObjectIndex: IntegerDistribution,
+    val medianGetDelay: Double,
     resources: ResourceCharacteristics,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
     protected val storageDevices = resources.storageDevices
     protected val bandwidth = resources.bandwidth
 
-    private val behaviors = scala.collection.mutable.Buffer.empty[UserBehavior]
+    private val getDelay = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
     private val requestLog = new RequestLog(log)
+
+    private val objectIndexMap = Random.shuffle(objects.toIndexedSeq).zip(0 until objects.size).toMap
+    private val indexObjectMap = objectIndexMap.map(oi => oi._2 -> oi._1)
 
     User.users += this
 
-    def addBehavior(behavior: UserBehavior) = {
-        behaviors += behavior
-        if (CloudSim.running()) {
-            send(getId, behavior.delayModel.sample(), ScheduleRequest, behavior)
-        }
-    }
-
     def demand(obj: StorageObject): Double =
-        objects.indexOf(obj) match {
-            case -1 => 0.0
-            case n => getObjectIndex.probability(n)
+        objectIndexMap.get(obj) match {
+            case Some(index) => getObjectIndex.probability(index)
+            case None => 0.0
         }
 
     override def startEntity(): Unit = {
-        behaviors.foreach(b => send(getId, b.delayModel.sample(), ScheduleRequest, b))
+        send(getId, getDelay.sample().max(0.01), ScheduleGet)
     }
 
     override def shutdownEntity() = log(requestLog.summary())
 
     override def processEvent(event: SimEvent) =
         event.getTag() match {
-            case ScheduleRequest =>
-                val reqType = getRequestAndScheduleBehavior(event)
-                scheduleRequest(reqType)
+            case ScheduleGet =>
+                scheduleRequest(RequestType.Get)
+                send(getId, getDelay.sample().max(0.01), ScheduleGet)
 
             case _ =>
                 super.processEvent(event)
@@ -90,7 +89,7 @@ class User(
 
     private def scheduleRequest(requestType: RequestType): Unit = requestType match {
         case RequestType.Get =>
-            val obj = objects(getObjectIndex.sample())
+            val obj = indexObjectMap(getObjectIndex.sample())
             val get = Get(obj)
             requestLog.add(get)
             lookupCloud(get, openGetDialog _)
@@ -131,13 +130,6 @@ class User(
             dialog.close()
             requestLog.finish(get, TimeOut)
         })
-    }
-
-    private def getRequestAndScheduleBehavior(event: SimEvent): RequestType = {
-        val behav = getBehavior(event)
-        val delay = behav.delayModel.sample().max(0.001)
-        send(getId, delay, ScheduleRequest, behav)
-        behav.requestType
     }
 
     private def getBehavior(event: SimEvent): UserBehavior =

@@ -2,6 +2,8 @@ package de.jmaschad.storagesim.model
 
 import scala.math._
 import org.apache.commons.math3.distribution.NormalDistribution
+import de.jmaschad.storagesim.StorageSimConfig
+import de.jmaschad.storagesim.StorageSim
 
 object NetworkDelay {
     /**
@@ -15,11 +17,13 @@ object NetworkDelay {
         if (regionA == 0 || regionB == 0) {
             0.0f
         } else {
-            val diff = (regionA - regionB).abs + 1
-            val median = 0.1 * diff
-            val stdDev = 0.01 * diff
-            val delay = new NormalDistribution(median, stdDev).sample().max(0.02)
-            //            println("added network delay: %.3f [dist %d stdDev %.3f]".format(delay, diff, stdDev))
+            var dist = 0
+            // poor man's finite field difference 
+            while (((regionA + dist) % (StorageSim.configuration.regionCount + 1)) != regionB)
+                dist += 1
+
+            val median = exp(dist + 1) * 0.014
+            val delay = new NormalDistribution(median, 0.1 * median).sample().max(0.005)
             delay
         }
 }

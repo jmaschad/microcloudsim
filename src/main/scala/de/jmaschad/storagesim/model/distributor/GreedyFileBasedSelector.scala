@@ -40,7 +40,7 @@ class GreedyFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
 
     private def computeUserDemand(obj: StorageObject): Map[Entity, Double] =
         User.allUsers.map(user => {
-            user -> user.demand(obj)
+            user -> user.demand(obj) / user.medianGetDelay
         }).toMap
 
     private def computeCloudDemand(clouds: Set[Entity]): Map[Entity, Double] =

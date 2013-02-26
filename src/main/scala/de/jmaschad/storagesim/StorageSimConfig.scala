@@ -9,6 +9,7 @@ import org.apache.commons.math3.distribution.PoissonDistribution
 import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType._
 import java.io.PrintWriter
+import org.apache.commons.math3.distribution.ZipfDistribution
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {
@@ -35,11 +36,13 @@ case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfigu
 object ObjectSelectionModel {
     def toDist(objectCount: Int, config: ObjectSelectionModel): IntegerDistribution = config match {
         case UniformSelection() => new UniformIntegerDistribution(0, objectCount - 1)
+        case ZipfSelection() => new ZipfDistribution(objectCount, 1)
         case _ => throw new IllegalStateException
     }
 }
 sealed abstract class ObjectSelectionModel
 case class UniformSelection extends ObjectSelectionModel
+case class ZipfSelection extends ObjectSelectionModel
 
 object BehaviorConfig {
     def apply(requestType: RequestType,
@@ -73,7 +76,8 @@ object StorageSimConfig {
         writer.println("bucket count = " + configuration.bucketCount)
         writer.println("object count dist = " + configuration.objectCountDistribution)
         writer.println("object size dist = " + configuration.objectSizeDistribution)
-        writer.println("behaviors = " + configuration.behaviors.mkString(", "))
+        writer.println("median get delay dist = " + configuration.medianGetDelayDistribution)
+        writer.println("object for get selection = " + configuration.objectForGetDistribution)
     }
 }
 
@@ -82,10 +86,10 @@ trait StorageSimConfig {
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
     var simDuration: Double = 60.0
 
-    var selector: SelectorConfig = GreedyBucketBased()
+    var selector: SelectorConfig = RandomBucketBased()
     var replicaCount: Int = 3
 
-    var regionDistribution: IntegerDistributionConfiguration = UniformIntDist(1, 5)
+    var regionCount: Int = 4
     var cloudCount: Int = 10
     var storageDevicesPerCloud: Int = 10
     var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
@@ -96,10 +100,10 @@ trait StorageSimConfig {
 
     var userCount: Int = 100
     var bucketCount: Int = (userCount * 0.3).toInt
-    var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(5)
+    var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(1)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
     var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(1 * Units.MByte)
 
-    var behaviors: Seq[BehaviorConfig] = Seq(BehaviorConfig(Get, NormalDist(1.0, 0.3)))
-    var objectForGetDistribution: ObjectSelectionModel = UniformSelection()
+    var medianGetDelayDistribution: RealDistributionConfiguration = NormalDist(2, 0.5)
+    var objectForGetDistribution: ObjectSelectionModel = ZipfSelection()
 }

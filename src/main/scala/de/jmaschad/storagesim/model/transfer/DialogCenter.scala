@@ -10,7 +10,7 @@ import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.NetworkDelay
 
 object DialogCenter {
-    val Timeout = 2.0
+    val Timeout = 3.0
     type TimeoutHandler = () => Unit
     type MessageHandler = AnyRef => Unit
 }
@@ -67,6 +67,7 @@ class DialogCenter(
             }
 
         case _ =>
+            // probably timeouts
             throw new IllegalStateException
     }
 
