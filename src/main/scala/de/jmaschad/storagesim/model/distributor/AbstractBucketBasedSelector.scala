@@ -10,6 +10,8 @@ import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
+import de.jmaschad.storagesim.model.NetworkDelay
+import de.jmaschad.storagesim.model.Entity
 
 abstract class AbstractBucketBasedSelector(
     val log: String => Unit,
@@ -58,14 +60,24 @@ abstract class AbstractBucketBasedSelector(
     override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
         Left(UnsufficientSpace)
 
-    override def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int] =
+    override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState.getOrElse(storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
                 Left(ObjectNotFound)
             case targets if targets.size == 1 =>
                 Right(targets.head)
             case targets =>
-                Right(RandomUtils.randomSelect1(targets.toIndexedSeq))
+                var minDelay = Double.MaxValue
+                var minDelayTarget = targets.head
+                for (target <- targets) {
+                    val targetEntity = Entity.entityForId(target)
+                    val delay = NetworkDelay.between(region, targetEntity.region)
+                    if (delay < minDelay) {
+                        minDelay = delay
+                        minDelayTarget = target
+                    }
+                }
+                Right(minDelayTarget)
         }
 
     def startedDownload(cloud: Int, obj: StorageObject): Unit = {

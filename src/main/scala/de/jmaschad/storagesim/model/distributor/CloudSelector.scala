@@ -48,5 +48,5 @@ trait CloudSelector {
      * Returns a cloud id or a GET request, if the request
      * is satisfiable or None otherwise.
      */
-    def selectForGet(storageObject: StorageObject): Either[RequestSummary, Int]
+    def selectForGet(area: Int, storageObject: StorageObject): Either[RequestSummary, Int]
 }

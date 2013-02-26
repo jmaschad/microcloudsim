@@ -30,6 +30,7 @@ import de.jmaschad.storagesim.GreedyBucketBased
 import de.jmaschad.storagesim.RandomBucketBased
 import de.jmaschad.storagesim.RandomFileBased
 import de.jmaschad.storagesim.GreedyFileBased
+import de.jmaschad.storagesim.model.Entity
 
 object Distributor {
     val StatusInterval = 1
@@ -76,7 +77,8 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     private def createLookupHandler(dialog: Dialog): Option[DialogCenter.MessageHandler] =
         Some((content) => content match {
             case Lookup(Get(obj)) =>
-                selector.selectForGet(obj) match {
+                val entity = Entity.entityForId(dialog.partner)
+                selector.selectForGet(entity.region, obj) match {
                     case Right(cloud) =>
                         dialog.sayAndClose(Result(cloud))
 

@@ -36,7 +36,7 @@ case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfigu
 object ObjectSelectionModel {
     def toDist(objectCount: Int, config: ObjectSelectionModel): IntegerDistribution = config match {
         case UniformSelection() => new UniformIntegerDistribution(0, objectCount - 1)
-        case ZipfSelection() => new ZipfDistribution(objectCount, 1)
+        case ZipfSelection() => new ZipfDistribution(objectCount - 1, 1)
         case _ => throw new IllegalStateException
     }
 }
