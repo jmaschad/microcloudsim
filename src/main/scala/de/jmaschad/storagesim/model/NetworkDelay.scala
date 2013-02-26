@@ -22,8 +22,8 @@ object NetworkDelay {
             while (((regionA + dist) % (StorageSim.configuration.regionCount + 1)) != regionB)
                 dist += 1
 
-            val median = exp(dist + 1) * 0.014
-            val delay = new NormalDistribution(median, 0.1 * median).sample().max(0.005)
+            val median = (exp(dist + 1) * 0.014) + 0.02
+            val delay = new NormalDistribution(median, 0.05 * median).sample().max(0.005)
             delay
         }
 }
