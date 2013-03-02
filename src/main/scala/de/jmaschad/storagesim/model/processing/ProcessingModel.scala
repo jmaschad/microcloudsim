@@ -62,7 +62,7 @@ class ProcessingModel(
             if (job.workloads.collect({ case dl: NetDown => dl }).size > 0) downloadCount -= 1
             if (job.workloads.collect({ case ul: NetUp => ul }).size > 0) uploadCount -= 1
         })
-        jobs --= done
+        jobs = jobs.diff(done)
 
         if (scheduleUpdate) { scheduleNextUpdate() }
     }

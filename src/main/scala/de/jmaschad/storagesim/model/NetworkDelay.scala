@@ -4,8 +4,10 @@ import scala.math._
 import org.apache.commons.math3.distribution.NormalDistribution
 import de.jmaschad.storagesim.StorageSimConfig
 import de.jmaschad.storagesim.StorageSim
+import org.cloudbus.cloudsim.NetworkTopology
 
 object NetworkDelay {
+    val regionDelay = new NormalDistribution(0.1, 0.03)
     /**
      * Computes a networking delay between two regions.
      * The delay is a function of the numerical difference
@@ -16,14 +18,10 @@ object NetworkDelay {
     def between(regionA: Int, regionB: Int): Double =
         if (regionA == 0 || regionB == 0) {
             0.0f
+        } else if (regionA == regionB) {
+            regionDelay.sample().max(0.001)
         } else {
-            var dist = 0
-            // poor man's finite field difference 
-            while (((regionA + dist) % (StorageSim.configuration.regionCount + 1)) != regionB)
-                dist += 1
-
-            val median = (exp(dist + 1) * 0.014) + 0.02
-            val delay = new NormalDistribution(median, 0.05 * median).sample().max(0.005)
-            delay
+            NetworkTopology.getDelay(regionA, regionB)
         }
+
 }
