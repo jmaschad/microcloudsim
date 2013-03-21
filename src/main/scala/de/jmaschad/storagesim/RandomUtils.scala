@@ -15,10 +15,10 @@ object RandomUtils {
             case n =>
                 val dist = new UniformIntegerDistribution(0, n - 1)
                 var distinctSample = Set.empty[Int]
-                while (distinctSample.size < count) {
+                while (distinctSample.size < count)
                     distinctSample += dist.sample()
-                }
-                distinctSample.map(values(_))
+
+                distinctSample map { values(_) }
         }
     }
 }

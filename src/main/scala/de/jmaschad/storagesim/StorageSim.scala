@@ -36,24 +36,23 @@ object StorageSim {
     var configuration: StorageSimConfig = null
 
     def main(args: Array[String]) {
-        val config = args.size match {
+        configuration = args.size match {
             case 0 => new StorageSimConfig {}
             case 1 => Eval[StorageSimConfig](new File(args(0)))
             case _ => throw new IllegalArgumentException
         }
-        configuration = config
 
         val outDir = Paths.get(configuration.outputDir).toAbsolutePath().toRealPath()
         assert(Files.exists(outDir) && Files.isDirectory(outDir))
         val experimentDir = createExperimentDir(outDir)
         createDescription(experimentDir)
 
-        (1 to configuration.passCount).foreach(pass => {
+        (1 to configuration.passCount) foreach { pass =>
             println("pass " + pass)
             setLogFile(experimentDir, pass)
             run()
             closeLogFile()
-        })
+        }
     }
 
     private def createExperimentDir(baseDir: Path): Path = {
@@ -88,7 +87,7 @@ object StorageSim {
         val distributor = new Distributor("dp")
 
         log("create clouds")
-        val initialClouds = createMicroClouds(distributor)
+        val initialClouds = createClouds(distributor)
 
         log("create objects")
         val initialObjects = createObjects()
@@ -105,41 +104,34 @@ object StorageSim {
 
         log("schedule catastrophe")
         val nonEmptyClouds = initialClouds.filterNot(_.isEmpty)
-        (1 to 1).map(i => {
-            CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 5 + i, MicroCloud.Kill, null)
-        })
+        (1 to 1) map
+            { i => CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 5 + i, MicroCloud.Kill, null) }
 
         log("will start simulation")
         CloudSim.terminateSimulation(configuration.simDuration)
         CloudSim.startSimulation();
     }
 
-    private def createObjects(): Set[StorageObject] = {
-        val buckets = (1 to configuration.bucketCount).map("bucket-" + _)
-        val objectCountDist = IntegerDistributionConfiguration.toDist(configuration.objectCountDistribution)
-        val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSizeDistribution)
-        buckets.flatMap(bucket => {
-            (1 to objectCountDist.sample()).map(i => new StorageObject("obj" + i, bucket, objectSizeDist.sample())).toSet
-        }).toSet
-    }
-
-    private def createMicroClouds(disposer: Distributor): Set[MicroCloud] = {
+    private def createClouds(disposer: Distributor): Set[MicroCloud] = {
         assert(configuration.cloudCount >= configuration.replicaCount)
 
         val regionDist = new UniformIntegerDistribution(1, configuration.regionCount)
         val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidthDistribution)
-        (for (i <- 0 until configuration.cloudCount) yield {
-            val storageDevices = for (i <- 1 to configuration.storageDevicesPerCloud)
-                yield new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
+        (0 until configuration.cloudCount) map { i: Int =>
+            val storageDevices = (1 to configuration.storageDevicesPerCloud) map
+                { _ => new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte) }
             val charact = new ResourceCharacteristics(bandwidth = cloudBandwidthDist.sample().max(1), storageDevices = storageDevices)
-            val failureBehavior = new MicroCloudFailureBehavior(
-                RealDistributionConfiguration.toDist(configuration.cloudFailureDistribution),
-                RealDistributionConfiguration.toDist(configuration.cloudRepairDistribution),
-                RealDistributionConfiguration.toDist(configuration.diskFailureDistribution),
-                RealDistributionConfiguration.toDist(configuration.diskRepairDistribution))
+            new MicroCloud("mc" + (i + 1), regionDist.sample(), charact, disposer)
+        } toSet
+    }
 
-            new MicroCloud("mc" + (i + 1), regionDist.sample(), charact, failureBehavior, disposer)
-        }).toSet
+    private def createObjects(): Set[StorageObject] = {
+        val buckets = (1 to configuration.bucketCount) map { "bucket-" + _ }
+        val objectCountDist = IntegerDistributionConfiguration.toDist(configuration.objectCountDistribution)
+        val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSizeDistribution)
+        buckets flatMap { bucket: String =>
+            (1 to objectCountDist.sample()) map { i: Int => new StorageObject("obj" + i, bucket, objectSizeDist.sample()) } toSet
+        } toSet
     }
 
     private def createUsers(distributor: Distributor, storageObjects: Set[StorageObject]): Seq[User] = {
@@ -156,9 +148,9 @@ object StorageSim {
                 bucketMap.keySet
             } else {
                 val userBucketCount = bucketCountDist.sample().max(1)
-                new UniformIntegerDistribution(0, bucketCount - 1).sample(userBucketCount).map(bucketSeq(_)).toSet
+                new UniformIntegerDistribution(0, bucketCount - 1).sample(userBucketCount) map { bucketSeq(_) } toSet
             }
-            val objects = userBuckets.flatMap(bucketMap(_))
+            val objects = userBuckets flatMap { bucketMap(_) }
             val objectForGetDist = ObjectSelectionModel.toDist(objects.size, configuration.objectForGetDistribution)
 
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)

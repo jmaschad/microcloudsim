@@ -46,7 +46,6 @@ class MicroCloud(
     name: String,
     region: Int,
     resourceCharacteristics: ResourceCharacteristics,
-    failureBehavior: MicroCloudFailureBehavior,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     protected val bandwidth = resourceCharacteristics.bandwidth
@@ -61,9 +60,6 @@ class MicroCloud(
 
     override def startEntity(): Unit = {
         anounce(CloudOnline())
-
-        // schedule the next catastrophe
-        scheduleKill()
     }
 
     override def shutdownEntity() =
@@ -86,17 +82,6 @@ class MicroCloud(
     private def switchState(newState: MicroCloudState): Unit =
         state = newState
 
-    private def scheduleKill() = if (firstKill) {
-        // additionally delay the first kill for a fraction of the MTTF. Otherwise MicroClouds
-        // might initially die very soon after another. Also, don't crash during the system boot
-        firstKill = false
-        val meanTimeToFailure = failureBehavior.cloudFailureDistribution.getNumericalMean()
-        val firstKillAdditionalDelay = new UniformRealDistribution(0.0, meanTimeToFailure).sample
-        send(getId, failureBehavior.timeToCloudFailure + firstKillAdditionalDelay, MicroCloud.Kill)
-    } else {
-        send(getId, failureBehavior.timeToCloudFailure, MicroCloud.Kill)
-    }
-
     private def anounce(content: CloudStatusDialog): Unit = {
         val dialog = dialogCenter.openDialog(distributor.getId)
         dialog.messageHandler = content => content match {
@@ -116,7 +101,6 @@ class MicroCloud(
             case MicroCloud.Boot =>
                 log("received boot request")
                 anounce(CloudOnline())
-                scheduleKill()
                 switchState(new OnlineState)
 
             case _ =>
@@ -142,7 +126,6 @@ class MicroCloud(
                 log("received kill request")
                 reset()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
-                send(getId, failureBehavior.timeToCloudRepair, MicroCloud.Boot)
                 switchState(new OfflineState)
 
             case _ =>
