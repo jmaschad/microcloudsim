@@ -25,35 +25,37 @@ abstract class AbstractBucketBasedSelector(
     private var activeDownloads = Set.empty[DownloadRequest]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
-        val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
-        val bucketMap = initialObjects.groupBy(_.bucket)
+        val cloudIdMap = initialClouds map { cloud => cloud.getId -> cloud } toMap
+        val bucketMap = initialObjects groupBy { _.bucket }
 
         distributionGoal = createDistributionPlan(cloudIdMap.keySet, bucketMap)
-        val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]])((allocMap, b) => {
-            val bucket = b._1
-            val clouds = b._2
-
-            allocMap ++ clouds.map(cloud => cloud -> (allocMap.getOrElse(cloud, Set.empty) + bucket))
-        })
+        val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]]) {
+            case (allocMap, (bucket, clouds)) =>
+                allocMap ++ (clouds map { cloud =>
+                    cloud -> (allocMap.getOrElse(cloud, Set.empty) + bucket)
+                })
+        }
 
         // we don't allocate to unknown clouds
         assert(allocationPlan.keySet.subsetOf(cloudIdMap.keySet))
         // we store exactly our buckets, with the correct replica count
-        assert(allocationPlan.foldLeft(Map.empty[String, Int])((bucketCount, allocation) => {
-            val cloud = allocation._1
-            val buckets = allocation._2
-            bucketCount ++ buckets.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
-        }).forall(_._2 == StorageSim.configuration.replicaCount))
+        assert(
+            allocationPlan.foldLeft(Map.empty[String, Int]) { (bucketCount, allocation) =>
+                val cloud = allocation._1
+                val buckets = allocation._2
+                bucketCount ++ buckets.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
+            } forall { _._2 == StorageSim.configuration.replicaCount })
 
-        allocationPlan.foreach(cloudBuckets => {
-            val cloud = cloudIdMap(cloudBuckets._1)
-            val buckets = cloudBuckets._2
+        allocationPlan foreach {
+            case (cloudId, buckets) =>
+                val cloudObjects = buckets.flatMap(bucketMap(_))
+                cloudIdMap(cloudId).initialize(cloudObjects)
+        }
 
-            val cloudObjects = buckets.flatMap(bucketMap(_))
-            cloud.initialize(cloudObjects)
-        })
+        distributionState = {
+            initialObjects map { obj => obj -> distributionGoal(obj.bucket) }
+        } toMap
 
-        distributionState = initialObjects.map(obj => obj -> distributionGoal(obj.bucket)).toMap
         clouds = cloudIdMap.keySet
     }
 
@@ -61,7 +63,7 @@ abstract class AbstractBucketBasedSelector(
         Left(UnsufficientSpace)
 
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
-        distributionState.getOrElse(storageObject, Set.empty) match {
+        distributionState getOrElse (storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
                 Left(ObjectNotFound)
             case targets if targets.size == 1 =>
@@ -91,44 +93,51 @@ abstract class AbstractBucketBasedSelector(
         assert(activeDownloads.contains(download))
         activeDownloads -= download
 
-        activeOperations.map(_.complete(download))
-        activeOperations = activeOperations.filterNot(_.isDone)
+        activeOperations map { _.complete(download) }
+        activeOperations = activeOperations filterNot { _.isDone }
     }
 
-    def addCloud(cloud: Int) = {
+    def addCloud(cloud: Int) =
         clouds += cloud
-    }
 
     def removeCloud(cloud: Int) = {
         // update knowledge of current state
         assert(clouds.contains(cloud))
         clouds -= cloud
-        distributionState = distributionState.mapValues(_ - cloud)
+        distributionState = distributionState mapValues { _ - cloud }
 
-        activeDownloads = activeDownloads.filterNot(_.cloud == cloud)
-        activeOperations.map(_.removeCloud(cloud))
+        activeDownloads = activeDownloads filterNot { _.cloud == cloud }
+        activeOperations map { _.removeCloud(cloud) }
 
         // throw if objects were lost
-        val lostObjects = distributionState.filter(_._2.isEmpty)
+        val lostObjects = distributionState filter { case (_, clouds) => clouds.isEmpty }
         if (lostObjects.nonEmpty) {
             throw new IllegalStateException("all copies of " + lostObjects.mkString(", ") + " were lost")
         }
 
         // create new distribution goal
-        val bucketMap = distributionState.keySet.groupBy(_.bucket)
+        val bucketMap = distributionState.keySet groupBy { _.bucket }
         distributionGoal = createDistributionPlan(clouds, bucketMap, distributionGoal)
 
         // create an action plan and inform the involved clouds
         val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
-        val newDownloads = actionPlan.flatMap(m => {
-            m._2.objSourceMap.keys.map(DownloadRequest(m._1, _))
-        }).toSet
+        val newDownloads = {
+            actionPlan flatMap {
+                case (cloudId, load) =>
+                    load.objSourceMap.keys map { DownloadRequest(cloudId, _) }
+            }
+        } toSet
+
         activeOperations += new RepairTracker(log, newDownloads)
 
-        actionPlan.foreach(cloudPlan => sendActions(cloudPlan._1, cloudPlan._2))
+        actionPlan foreach { case (cloud, load) => sendActions(cloud, load) }
     }
 
-    protected def selectReplicationTarget(bucket: String, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
+    protected def selectReplicationTarget(
+        bucket: String,
+        clouds: Set[Int],
+        cloudLoad: Map[Int, Double],
+        preselectedClouds: Set[Int]): Int
 
     private def createDistributionPlan(
         cloudIds: Set[Int],
@@ -138,12 +147,13 @@ abstract class AbstractBucketBasedSelector(
         val buckets = bucketMap.keySet
 
         // remove unknown buckets and clouds from the current plan
-        var distributionPlan = (for (bucket <- currentPlan.keys if buckets.contains(bucket)) yield {
-            bucket -> currentPlan(bucket).intersect(cloudIds)
-        }).toMap
+        var distributionPlan = currentPlan.keys collect {
+            case bucket if buckets.contains(bucket) =>
+                bucket -> currentPlan(bucket).intersect(cloudIds)
+        } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan ++= buckets.map(bucket => {
+        distributionPlan ++= buckets map { bucket =>
             val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
             requiredTargetsCount match {
@@ -152,15 +162,16 @@ abstract class AbstractBucketBasedSelector(
                 case n =>
                     bucket -> selectReplicas(n, bucket, cloudIds, bucketMap, distributionPlan)
             }
-        })
+        }
 
         // the new plan does not contain unknown clouds
         assert(distributionPlan.values.flatten.toSet.subsetOf(cloudIds))
         // the new plan contains exactly the given buckets
         assert(distributionPlan.keySet == buckets)
         // every bucket has the correct count of replicas
-        assert(distributionPlan.values.forall(clouds => clouds.size
-            == StorageSim.configuration.replicaCount))
+        assert(distributionPlan.values forall { clouds =>
+            clouds.size == StorageSim.configuration.replicaCount
+        })
 
         distributionPlan
     }
@@ -183,20 +194,27 @@ abstract class AbstractBucketBasedSelector(
         }
 
     private def cloudLoad(clouds: Set[Int], distributionPlan: Map[String, Set[Int]], bucketMap: Map[String, Set[StorageObject]]): Map[Int, Double] = {
-        val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
-            val bucket = b._1
-            val clouds = b._2
-            val sizeDist = clouds.map(c => c -> bucketMap(bucket).map(_.size).sum).groupBy(_._1).mapValues(_.map(_._2).sum)
-            plan ++ sizeDist
-        })
+        val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double]) {
+            case (plan, (bucket, clouds)) =>
+                val bucketSize = bucketMap(bucket) map { _.size } sum
+                val sizeDist = clouds.map {
+                    _ -> bucketSize
+                } groupBy {
+                    case (cloud, _) => cloud
+                } mapValues { cloudSizeSet =>
+                    cloudSizeSet map { case (_, size) => size } sum
+                }
+
+                plan ++ sizeDist
+        }
 
         // normalize
         if (sizeDistribution.nonEmpty) {
             val max = sizeDistribution.values.max
-            sizeDistribution.mapValues(_ / max)
+            sizeDistribution mapValues { _ / max }
         }
 
-        clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
+        clouds map { c => c -> sizeDistribution.getOrElse(c, 0.0) } toMap
     }
 
     private def createActionPlan(
@@ -204,22 +222,25 @@ abstract class AbstractBucketBasedSelector(
         distributionState: Map[StorageObject, Set[Int]],
         activeTransactions: Set[DownloadRequest]): Map[Int, Load] = {
 
-        val additionalCloudMap = distributionState.map(objectCloudMap => {
-            val storageObject = objectCloudMap._1
-            val currentClouds = objectCloudMap._2
-            val additionalClouds = distributionGoal(storageObject.bucket) diff currentClouds
-            storageObject -> additionalClouds
-        })
+        val additionalCloudMap = distributionState map {
+            case (obj, currentClouds) =>
+                val additionalClouds = distributionGoal(obj.bucket) diff currentClouds
+                obj -> additionalClouds
+        }
 
-        val additionalObjectMap = additionalCloudMap.toSeq.flatMap(objClouds => objClouds._2.map(objClouds._1 -> _)).
-            groupBy(_._2).mapValues(_.map(_._1).toSet)
+        val additionalObjectMap = additionalCloudMap.toSeq flatMap { objClouds =>
+            objClouds._2.map(objClouds._1 -> _)
+        } groupBy {
+            case (_, cloud) => cloud
+        } mapValues { objCloud =>
+            objCloud map { case (obj, _) => obj } toSet
+        }
 
-        additionalObjectMap.mapValues(objects => {
-            val objectSourceMap = objects.map(obj => {
+        additionalObjectMap.mapValues { objects =>
+            Load(objects map { obj =>
                 obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
-            }).toMap
-            Load(objectSourceMap)
-        })
+            } toMap)
+        }
     }
 
     private def sendActions(cloud: Int, request: PlacementDialog): Unit = {
