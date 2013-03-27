@@ -42,11 +42,11 @@ class RequestLog(
     def finish(request: RestDialog, summary: RequestSummary): Unit = finish(request, 0.0, summary)
 
     def summary(): String = {
-        val avgBw = finishedRequests.foldLeft(0.0)((sum, entry) => sum + entry.avgBandwidth) / finishedRequests.count(_.avgBandwidth > 0.0)
-        val bySummary = finishedRequests.groupBy(_.summary)
+        val avgBw = finishedRequests.foldLeft(0.0) { (sum, entry) => sum + entry.avgBandwidth } / { finishedRequests count { _.avgBandwidth > 0.0 } }
+        val bySummary = finishedRequests groupBy { _.summary }
 
         finishedRequests.size + " finished / " + activeRequests.size + " active requests.\n" +
             "\taverage bandwidth " + (avgBw * 8).formatted("%.2f") + "Mbit/s\n" +
-            "\t" + bySummary.keys.map(key => bySummary(key).size + " " + key).mkString(", ")
+            "\t" + { bySummary.keys map { key => bySummary(key).size + " " + key } mkString (", ") }
     }
 }

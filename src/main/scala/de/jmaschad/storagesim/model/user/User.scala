@@ -58,7 +58,7 @@ class User(
     private val requestLog = new RequestLog(log)
 
     private val objectIndexMap = Random.shuffle(objects.toIndexedSeq).zip(0 until objects.size).toMap
-    private val indexObjectMap = objectIndexMap.map(oi => oi._2 -> oi._1)
+    private val indexObjectMap = objectIndexMap map { case (obj, index) => index -> obj }
 
     User.users += this
 
@@ -99,19 +99,17 @@ class User(
 
     private def lookupCloud[T <: RestDialog](request: T, onSuccess: (Int, T) => Unit): Unit = {
         val dialog = dialogCenter.openDialog(distributor.getId())
-        dialog.messageHandler = (message) => message match {
+        dialog.messageHandler = {
             case Result(cloud) => onSuccess(cloud, request)
             case _ => throw new IllegalStateException
         }
-        dialog.say(Lookup(request), () => {
-            throw new IllegalStateException
-        })
+        dialog.say(Lookup(request), () => throw new IllegalStateException)
     }
 
     private def openGetDialog(target: Int, get: Get): Unit = {
         val dialog = dialogCenter.openDialog(target)
 
-        dialog.messageHandler = (message) => message match {
+        dialog.messageHandler = {
             case RestAck =>
                 val onFinish = (success: Boolean) => {
                     dialog.close()
@@ -126,7 +124,7 @@ class User(
                 throw new IllegalStateException
         }
 
-        dialog.say(get, () => {
+        dialog.say(get, { () =>
             dialog.close()
             requestLog.finish(get, TimeOut)
         })

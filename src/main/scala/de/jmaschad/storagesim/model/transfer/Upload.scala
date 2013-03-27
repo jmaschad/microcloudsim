@@ -20,16 +20,13 @@ class Upload(
     private var isCanceled = false
 
     dialog.messageHandler = processMessage _
-    val timeoutHandler = () => {
-        onFinish(false)
-    }
+    val timeoutHandler = () => onFinish(false)
 
     TransferProbe.add(dialog.id, size)
     sendNextPacket
 
-    def cancel(transferId: String) = {
+    def cancel(transferId: String) =
         cancelAfterProcessing(transferId)
-    }
 
     private def processMessage(content: AnyRef) = content match {
         case Ack =>

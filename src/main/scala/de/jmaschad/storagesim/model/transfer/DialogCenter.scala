@@ -71,14 +71,13 @@ class DialogCenter(
             throw new IllegalStateException
     }
 
-    def handleTimeout(timeout: Timeout) = {
-        dialogs.get(timeout.dialog).foreach(dialog => {
+    def handleTimeout(timeout: Timeout) =
+        dialogs.get(timeout.dialog) foreach { dialog =>
             if (timeout.messageId == dialog.messageId) {
                 timeout.handler()
                 dialogs -= timeout.dialog
             }
-        })
-    }
+        }
 
     private def answerDialog(source: Int, message: Message): Dialog = {
         val avgDelay = NetworkDelay.between(entity.region, Entity.entityForId(source).region)
