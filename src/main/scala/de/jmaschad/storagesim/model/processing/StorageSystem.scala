@@ -60,21 +60,20 @@ class StorageSystem(
     private val bucketObjectMapping = mutable.Map.empty[String, Seq[StorageObject]]
 
     def addAll(storageObjects: Set[StorageObject]) =
-        storageObjects.foreach(obj => {
+        storageObjects foreach { obj =>
             val device = deviceForObject(obj)
-            deviceMap += (obj -> device)
+            deviceMap += { obj -> device }
             store(obj, device)
-        })
+        }
 
-    def remove(obj: StorageObject) = {
+    def remove(obj: StorageObject) =
         throw new IllegalStateException
-    }
 
     def reset(): StorageSystem = new StorageSystem(log, storageDevices.map(_.reset()))
 
     def isEmpty = bucketObjectMapping.isEmpty
 
-    def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet.filter(contains(_))
+    def objects: Set[StorageObject] = bucketObjectMapping.values.flatten.toSet filter { contains(_) }
 
     def loadThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).loadThroughput
     def storeThroughput(storageObject: StorageObject): Double = deviceMap(storageObject).storeThroughput
@@ -92,12 +91,9 @@ class StorageSystem(
     }
 
     private[processing] def store(obj: StorageObject, dev: StorageDevice) = {
-        bucketObjectMapping += obj.bucket -> (bucketObjectMapping.getOrElse(obj.bucket, Seq.empty[StorageObject]) :+ obj)
+        bucketObjectMapping += obj.bucket -> { bucketObjectMapping.getOrElse(obj.bucket, Seq.empty[StorageObject]) :+ obj }
     }
 
     private def deviceForObject(storageObject: StorageObject): StorageDevice =
-        storageDevices.find(_.hasAvailableSpace(storageObject.size)) match {
-            case Some(device) => device
-            case _ => throw new IllegalStateException
-        }
+        storageDevices find { _.hasAvailableSpace(storageObject.size) } getOrElse { throw new IllegalStateException }
 }

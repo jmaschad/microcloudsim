@@ -69,10 +69,7 @@ class MicroCloud(
         state.process(event)
 
     override protected def dialogsEnabled: Boolean =
-        state match {
-            case _: OnlineState => true
-            case _ => false
-        }
+        state.isInstanceOf[OnlineState]
 
     override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
         state.createMessageHandler(dialog, content)
@@ -84,7 +81,7 @@ class MicroCloud(
 
     private def anounce(content: CloudStatusDialog): Unit = {
         val dialog = dialogCenter.openDialog(distributor.getId)
-        dialog.messageHandler = content => content match {
+        dialog.messageHandler = {
             case CloudStatusAck() => dialog.close
             case _ => throw new IllegalStateException
         }
@@ -134,8 +131,12 @@ class MicroCloud(
 
         def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
             content match {
-                case restDialog: RestDialog => restDialogHandler(dialog, restDialog)
-                case placementDialog: PlacementDialog => placementDialogHandler(dialog, placementDialog)
+                case restDialog: RestDialog =>
+                    restDialogHandler(dialog, restDialog)
+
+                case placementDialog: PlacementDialog =>
+                    placementDialogHandler(dialog, placementDialog)
+
                 case _ =>
                     throw new IllegalStateException("unknown message " + content)
             }
@@ -143,30 +144,28 @@ class MicroCloud(
         private def restDialogHandler(dialog: Dialog, content: RestDialog): Option[DialogCenter.MessageHandler] =
             content match {
                 case Get(obj) =>
-                    val handler: DialogCenter.MessageHandler =
-                        content => content match {
-                            case Get(obj) =>
-                                dialog.say(RestAck, () => dialog.close)
+                    Some({
+                        case Get(obj) =>
+                            dialog.say(RestAck, () => dialog.close)
 
-                            case DownloadReady =>
-                                val transaction = storageSystem.loadTransaction(obj)
-                                new Upload(log _, dialog, obj.size, processing.loadAndUpload(_, transaction, _), (success) => {
-                                    dialog.close
-                                    if (success) transaction.complete else transaction.abort
-                                })
+                        case DownloadReady =>
+                            val transaction = storageSystem.loadTransaction(obj)
+                            new Upload(log _, dialog, obj.size, processing.loadAndUpload(_, transaction, _), { success =>
+                                dialog.close
+                                if (success) transaction.complete else transaction.abort
+                            })
 
-                            case _ => throw new IllegalStateException
-                        }
-                    Some(handler)
+                        case _ => throw new IllegalStateException
+                    })
 
                 case _ => throw new IllegalStateException
             }
 
         private def placementDialogHandler(dialog: Dialog, content: PlacementDialog): Option[DialogCenter.MessageHandler] =
-            Some(content => content match {
+            Some({
                 case Load(objSourceMap) =>
                     dialog.sayAndClose(PlacementAck)
-                    objSourceMap.map(objSrc => openGetDialog(objSrc._2, objSrc._1))
+                    objSourceMap map { case (obj, cloudID) => openGetDialog(cloudID, obj) }
 
                 case _ => throw new IllegalStateException
             })
@@ -174,10 +173,10 @@ class MicroCloud(
         private def openGetDialog(target: Int, obj: StorageObject): Unit = {
             val dialog = dialogCenter.openDialog(target)
 
-            dialog.messageHandler = (message) => message match {
+            dialog.messageHandler = {
                 case RestAck =>
                     val transaction = storageSystem.storeTransaction(obj)
-                    val onFinish = (success: Boolean) => {
+                    val onFinish = { success: Boolean =>
                         dialog.close()
                         transaction.complete
                         anounce(DownloadFinished(obj))
@@ -191,9 +190,7 @@ class MicroCloud(
                     throw new IllegalStateException
             }
 
-            dialog.say(Get(obj), () => {
-                throw new IllegalStateException
-            })
+            dialog.say(Get(obj), () => throw new IllegalStateException)
         }
     }
 }

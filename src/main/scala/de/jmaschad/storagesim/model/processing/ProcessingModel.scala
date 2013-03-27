@@ -53,16 +53,16 @@ class ProcessingModel(
 
     def update(scheduleUpdate: Boolean = true) = {
         val timeElapsed = timeSinceLastUpdate
-        jobs = jobs.map(_.process(timeElapsed))
+        jobs = jobs map { _.process(timeElapsed) }
         lastUpdate = CloudSim.clock()
 
-        val done = jobs.filter(_.isDone)
-        done.foreach(job => {
+        val done = jobs filter { _.isDone }
+        done foreach { job =>
             job.onFinish()
-            if (job.workloads.collect({ case dl: NetDown => dl }).size > 0) downloadCount -= 1
-            if (job.workloads.collect({ case ul: NetUp => ul }).size > 0) uploadCount -= 1
-        })
-        jobs = jobs.diff(done)
+            if ({ job.workloads collect { case dl: NetDown => dl } size } > 0) downloadCount -= 1
+            if ({ job.workloads collect { case ul: NetUp => ul } size } > 0) uploadCount -= 1
+        }
+        jobs = jobs diff done
 
         if (scheduleUpdate) { scheduleNextUpdate() }
     }
@@ -86,7 +86,7 @@ class ProcessingModel(
     // provide a minimum delay to avoid infinite update loop with zero progress
     private def scheduleNextUpdate() =
         if (jobs.nonEmpty) {
-            val expected = jobs.map(_.expectedDuration).min.max(0.0001)
+            val expected = { jobs map { _.expectedDuration } min } max (0.0001)
             scheduleUpdate(expected)
         }
 
