@@ -20,7 +20,7 @@ class RandomBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
         clouds: Set[Int],
         cloudLoad: Map[Int, Double],
         preselectedClouds: Set[Int]): Int = {
-        val availableClouds = clouds.diff(preselectedClouds)
+        val availableClouds = clouds diff preselectedClouds
 
         RandomUtils.randomSelect1(availableClouds.toIndexedSeq)
     }

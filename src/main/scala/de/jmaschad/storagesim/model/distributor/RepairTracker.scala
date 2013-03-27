@@ -8,7 +8,7 @@ case class DownloadRequest(cloud: Int, obj: StorageObject)
 class RepairTracker(
     val log: String => Unit,
     private var downloads: Set[DownloadRequest]) {
-    val totalTransferSize = downloads.map(_.obj.size).sum
+    val totalTransferSize = downloads map { _.obj.size } sum
     val startOfRepair = CloudSim.clock
 
     log("starting repair [%.2fMB]".format(totalTransferSize))
@@ -23,7 +23,7 @@ class RepairTracker(
     def isDone: Boolean = downloads.isEmpty
 
     def removeCloud(cloud: Int) =
-        if (downloads.count(_.cloud == cloud) > 0) throw new IllegalStateException
+        if ({ downloads count { _.cloud == cloud } } > 0) throw new IllegalStateException
 
     private def logSummary() = {
         val repairTime = CloudSim.clock - startOfRepair

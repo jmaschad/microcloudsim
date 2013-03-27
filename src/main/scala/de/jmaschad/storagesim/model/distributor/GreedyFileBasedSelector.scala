@@ -39,12 +39,12 @@ class GreedyFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     }
 
     private def computeUserDemand(obj: StorageObject): Map[Entity, Double] =
-        User.allUsers.map(user => {
+        User.allUsers map { user =>
             user -> user.demand(obj) / user.medianGetDelay
-        }).toMap
+        } toMap
 
     private def computeCloudDemand(clouds: Set[Entity]): Map[Entity, Double] =
-        clouds.map(_ -> 1.0).toMap
+        clouds map { _ -> 1.0 } toMap
 
     private def compareClouds(
         available: Set[Entity],
@@ -54,16 +54,18 @@ class GreedyFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
 
         var cost = Map.empty[Entity, Double]
         implicit object CostOrdering extends Ordering[Entity] {
-            def compare(a: Entity, b: Entity) = cost(a).compare(cost(b))
+            def compare(a: Entity, b: Entity) = cost(a) compare cost(b)
         }
 
-        cost = available.map(cloud => {
-            cloud -> requestSources.map(source => {
-                val c = NetworkDelay.between(cloud.region, source.region) * exp(pow(load(cloud.getId()), 3))
-                val d = demand(source)
-                d * c
-            }).sum
-        }).toMap
+        cost = available map { cloud =>
+            cloud -> {
+                requestSources map { source =>
+                    val c = NetworkDelay.between(cloud.region, source.region) * exp(pow(load(cloud.getId()), 3))
+                    val d = demand(source)
+                    d * c
+                } sum
+            }
+        } toMap
 
         SortedSet.empty ++ available
     }

@@ -27,30 +27,25 @@ abstract class AbstractFileBasedSelector(
     private var activeDownloads = Set.empty[DownloadRequest]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]): Unit = {
-        val cloudIdMap = initialClouds.map(cloud => cloud.getId -> cloud).toMap
+        val cloudIdMap = { initialClouds map { cloud => cloud.getId -> cloud } toMap }
         distributionGoal = createDistributionPlan(cloudIdMap.keySet, initialObjects)
 
-        val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[StorageObject]])((allocMap, b) => {
-            val obj = b._1
-            val clouds = b._2
-
-            allocMap ++ clouds.map(cloud => cloud -> (allocMap.getOrElse(cloud, Set.empty) + obj))
-        })
+        val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[StorageObject]]) {
+            case (allocation, (obj, clouds)) =>
+                allocation ++ clouds.map(cloud => cloud -> (allocation.getOrElse(cloud, Set.empty) + obj))
+        }
 
         // we don't allocate to unknown clouds
         assert(allocationPlan.keySet.subsetOf(cloudIdMap.keySet))
         // we store exactly our objects, with the correct replica count
-        assert(allocationPlan.foldLeft(Map.empty[StorageObject, Int])((bucketCount, allocation) => {
-            val cloud = allocation._1
-            val objects = allocation._2
-            bucketCount ++ objects.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
-        }).forall(_._2 == StorageSim.configuration.replicaCount))
-
-        allocationPlan.foreach(cloudObjects => {
-            val cloud = cloudIdMap(cloudObjects._1)
-            val objects = cloudObjects._2
-            cloud.initialize(objects)
+        assert(allocationPlan.foldLeft(Map.empty[StorageObject, Int]) {
+            case (bucketCount, (cloud, objects)) =>
+                bucketCount ++ objects.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
+        } forall {
+            _._2 == StorageSim.configuration.replicaCount
         })
+
+        allocationPlan foreach { case (cloudId, objects) => cloudIdMap(cloudId).initialize(objects) }
 
         distributionState = distributionGoal
         clouds = cloudIdMap.keySet
@@ -63,13 +58,13 @@ abstract class AbstractFileBasedSelector(
         // update knowledge of current state
         assert(clouds.contains(cloud))
         clouds -= cloud
-        distributionState = distributionState.mapValues(_ - cloud)
+        distributionState = distributionState mapValues { _ - cloud }
 
-        activeDownloads = activeDownloads.filterNot(_.cloud == cloud)
-        activeOperations.map(_.removeCloud(cloud))
+        activeDownloads = activeDownloads filterNot { _.cloud == cloud }
+        activeOperations map { _.removeCloud(cloud) }
 
         // throw if objects were lost
-        val lostObjects = distributionState.filter(_._2.isEmpty)
+        val lostObjects = distributionState filter { _._2.isEmpty }
         if (lostObjects.nonEmpty) {
             throw new IllegalStateException("all copies of " + lostObjects.mkString(", ") + " were lost")
         }
@@ -79,12 +74,14 @@ abstract class AbstractFileBasedSelector(
 
         // create an action plan and inform the involved clouds
         val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
-        val newDownloads = actionPlan.flatMap(m => {
-            m._2.objSourceMap.keys.map(DownloadRequest(m._1, _))
-        }).toSet
+        val newDownloads = {
+            actionPlan flatMap {
+                case (cloudId, action) => action.objSourceMap.keys.map(DownloadRequest(cloudId, _))
+            } toSet
+        }
         activeOperations += new RepairTracker(log, newDownloads)
 
-        actionPlan.foreach(cloudPlan => sendActions(cloudPlan._1, cloudPlan._2))
+        actionPlan foreach { case (cloudId, action) => sendActions(cloudId, action) }
     }
 
     def startedDownload(cloud: Int, obj: StorageObject): Unit = {
@@ -98,8 +95,8 @@ abstract class AbstractFileBasedSelector(
         assert(activeDownloads.contains(download))
         activeDownloads -= download
 
-        activeOperations.map(_.complete(download))
-        activeOperations = activeOperations.filterNot(_.isDone)
+        activeOperations map { _.complete(download) }
+        activeOperations = activeOperations filterNot { _.isDone }
     }
 
     override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
@@ -133,12 +130,10 @@ abstract class AbstractFileBasedSelector(
         currentPlan: Map[StorageObject, Set[Int]] = Map.empty): Map[StorageObject, Set[Int]] = {
 
         // remove unknown objects and clouds from the current plan
-        var distributionPlan = (for (obj <- currentPlan.keys if objects.contains(obj)) yield {
-            obj -> currentPlan(obj).intersect(cloudIds)
-        }).toMap
+        var distributionPlan = currentPlan.keys collect { case obj if objects.contains(obj) => obj -> currentPlan(obj).intersect(cloudIds) } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan ++= objects.map(obj => {
+        distributionPlan ++= objects map { obj =>
             val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
             requiredTargetsCount match {
@@ -147,15 +142,16 @@ abstract class AbstractFileBasedSelector(
                 case n =>
                     obj -> selectReplicas(n, obj, cloudIds, distributionPlan)
             }
-        })
+        }
 
         // the new plan does not contain unknown clouds
         assert(distributionPlan.values.flatten.toSet.subsetOf(cloudIds))
         // the new plan contains exactly the given buckets
         assert(distributionPlan.keySet == objects)
         // every bucket has the correct count of replicas
-        assert(distributionPlan.values.forall(clouds => clouds.size
-            == StorageSim.configuration.replicaCount))
+        assert(distributionPlan.values forall { clouds =>
+            clouds.size == StorageSim.configuration.replicaCount
+        })
 
         distributionPlan
     }
@@ -187,7 +183,7 @@ abstract class AbstractFileBasedSelector(
         // normalize
         if (sizeDistribution.nonEmpty) {
             val max = sizeDistribution.values.max
-            sizeDistribution.mapValues(_ / max)
+            sizeDistribution mapValues { _ / max }
         }
 
         clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
@@ -198,22 +194,25 @@ abstract class AbstractFileBasedSelector(
         distributionState: Map[StorageObject, Set[Int]],
         activeTransactions: Set[DownloadRequest]): Map[Int, Load] = {
 
-        val additionalCloudMap = distributionState.map(objectCloudMap => {
+        val additionalCloudMap = distributionState map { objectCloudMap =>
             val storageObject = objectCloudMap._1
             val currentClouds = objectCloudMap._2
             val additionalClouds = distributionGoal(storageObject) diff currentClouds
             storageObject -> additionalClouds
-        })
+        }
 
-        val additionalObjectMap = additionalCloudMap.toSeq.flatMap(objClouds => objClouds._2.map(objClouds._1 -> _)).
-            groupBy(_._2).mapValues(_.map(_._1).toSet)
+        val additionalObjectMap = additionalCloudMap.toSeq flatMap {
+            case (obj, cloudIds) =>
+                cloudIds map { obj -> _ }
+        } groupBy { _._2 } mapValues { _ map { _._1 } toSet }
 
-        additionalObjectMap.mapValues(objects => {
-            val objectSourceMap = objects.map(obj => {
-                obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
-            }).toMap
-            Load(objectSourceMap)
-        })
+        additionalObjectMap mapValues { objects =>
+            Load({
+                objects map { obj =>
+                    obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
+                } toMap
+            })
+        }
     }
 
     private def sendActions(cloud: Int, request: PlacementDialog): Unit = {

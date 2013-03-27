@@ -28,8 +28,8 @@ class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
         preselectedCloudIds: Set[Int]): Int = {
         assert(availableCloudIds.intersect(preselectedCloudIds).isEmpty)
 
-        val availableClouds = availableCloudIds.map(Entity.entityForId(_))
-        val preselectedClouds = preselectedCloudIds.map(Entity.entityForId(_))
+        val availableClouds = availableCloudIds map { Entity.entityForId(_) }
+        val preselectedClouds = preselectedCloudIds map { Entity.entityForId(_) }
 
         val userDemand = computeUserDemand(bucket)
         val cloudDemand = computeCloudDemand(preselectedClouds)
@@ -42,12 +42,12 @@ class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
     }
 
     private def computeUserDemand(bucket: String): Map[Entity, Double] =
-        User.allUsers.map(user => {
+        User.allUsers map { user =>
             user -> (user.objects.collect({ case obj if obj.bucket == bucket => user.demand(obj) }).sum) / user.medianGetDelay
-        }).toMap
+        } toMap
 
     private def computeCloudDemand(clouds: Set[Entity]): Map[Entity, Double] =
-        clouds.map(_ -> 1.0).toMap
+        clouds map { _ -> 1.0 } toMap
 
     private def compareClouds(
         available: Set[Entity],
@@ -60,13 +60,15 @@ class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
             def compare(a: Entity, b: Entity) = cost(a).compare(cost(b))
         }
 
-        cost = available.map(cloud => {
-            cloud -> requestSources.map(source => {
-                val c = NetworkDelay.between(cloud.region, source.region) * exp(pow(load(cloud.getId()), 3))
-                val d = demand(source)
-                d * c
-            }).sum
-        }).toMap
+        cost = available map { cloud =>
+            cloud -> {
+                requestSources map { source =>
+                    val c = NetworkDelay.between(cloud.region, source.region) * exp(pow(load(cloud.getId()), 3))
+                    val d = demand(source)
+                    d * c
+                } sum
+            }
+        } toMap
 
         SortedSet.empty ++ available
     }
