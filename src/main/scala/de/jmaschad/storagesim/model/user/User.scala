@@ -16,7 +16,6 @@ import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.NetDown
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Download
 import de.jmaschad.storagesim.model.transfer.Dialog
