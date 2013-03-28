@@ -156,7 +156,7 @@ object StorageSim {
             val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
             val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
 
-            new User("u" + i, regionDist.sample(), objects, objectForGetDist, getDelayDist.sample(), resources, distributor)
+            new User("u" + i, regionDist.sample(), objects, objectForGetDist, getDelayDist.sample() max 0.1, resources, distributor)
         }
     }
 }

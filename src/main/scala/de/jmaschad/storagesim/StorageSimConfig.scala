@@ -84,7 +84,7 @@ object StorageSimConfig {
 trait StorageSimConfig {
     var passCount: Int = 1
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
-    var simDuration: Double = 60.0
+    var simDuration: Double = 10.0
 
     var selector: SelectorConfig = RandomBucketBased()
     var replicaCount: Int = 3
@@ -98,7 +98,7 @@ trait StorageSimConfig {
     var diskFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
     var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
 
-    var userCount: Int = 10000
+    var userCount: Int = 1000
     var bucketCount: Int = (userCount * 0.3).toInt
     var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(1)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
