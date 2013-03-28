@@ -39,15 +39,3 @@ private[processing] class NetDown(size: Double, bandwidth: => Double)
     }
 
 }
-
-object DiskIO {
-    def apply(size: Double, throughput: => Double) = new DiskIO(size, throughput)
-}
-
-private[processing] class DiskIO(size: Double, throughput: => Double) extends Workload {
-    override def process(timeSpan: Double) = DiskIO(size - progress(timeSpan), throughput)
-    override def expectedDuration: Double = size / throughput
-    override def isDone = size < 1 * Units.Byte
-
-    private def progress(timeSpan: Double) = timeSpan * throughput
-}

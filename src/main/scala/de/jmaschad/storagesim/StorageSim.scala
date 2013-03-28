@@ -119,7 +119,7 @@ object StorageSim {
         val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidthDistribution)
         (0 until configuration.cloudCount) map { i: Int =>
             val storageDevices = (1 to configuration.storageDevicesPerCloud) map
-                { _ => new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte) }
+                { _ => new StorageDevice(2 * Units.TByte) }
             val charact = new ResourceCharacteristics(bandwidth = cloudBandwidthDist.sample().max(1), storageDevices = storageDevices)
             new MicroCloud("mc" + (i + 1), regionDist.sample(), charact, disposer)
         } toSet
@@ -153,7 +153,7 @@ object StorageSim {
             val objects = userBuckets flatMap { bucketMap(_) }
             val objectForGetDist = ObjectSelectionModel.toDist(objects.size, configuration.objectForGetDistribution)
 
-            val storage = new StorageDevice(bandwidth = 600 * Units.MByte, capacity = 2 * Units.TByte)
+            val storage = new StorageDevice(2 * Units.TByte)
             val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
 
             new User("u" + i, regionDist.sample(), objects, objectForGetDist, getDelayDist.sample() max 0.1, resources, distributor)

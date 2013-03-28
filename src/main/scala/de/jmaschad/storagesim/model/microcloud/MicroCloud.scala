@@ -149,11 +149,7 @@ class MicroCloud(
                             dialog.say(RestAck, () => dialog.close)
 
                         case DownloadReady =>
-                            val transaction = storageSystem.loadTransaction(obj)
-                            new Upload(log _, dialog, obj.size, processing.loadAndUpload(_, transaction, _), { success =>
-                                dialog.close
-                                if (success) transaction.complete else transaction.abort
-                            })
+                            new Upload(log _, dialog, obj.size, processing.upload(_, _), _ => dialog.close)
 
                         case _ => throw new IllegalStateException
                     })
@@ -175,15 +171,13 @@ class MicroCloud(
 
             dialog.messageHandler = {
                 case RestAck =>
-                    val transaction = storageSystem.storeTransaction(obj)
                     val onFinish = { success: Boolean =>
                         dialog.close()
-                        transaction.complete
                         anounce(DownloadFinished(obj))
-                        if (!success) throw new IllegalStateException
+                        if (success) storageSystem.add(obj) else throw new IllegalStateException
                     }
 
-                    new Download(log _, dialog, obj.size, processing.downloadAndStore(_, transaction, _), onFinish)
+                    new Download(log _, dialog, obj.size, processing.download(_, _), onFinish)
                     anounce(DownloadStarted(obj))
 
                 case _ =>

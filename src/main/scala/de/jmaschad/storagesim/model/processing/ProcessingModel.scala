@@ -35,22 +35,6 @@ class ProcessingModel(
         add(Job(workloads, onFinish))
     }
 
-    def downloadAndStore(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
-        val workloads = Set[Workload](
-            NetDown(size, { downloadBandwidth }),
-            DiskIO(size, { transaction.throughput }))
-        downloadCount += 1
-        add(Job(workloads, onFinish))
-    }
-
-    def loadAndUpload(size: Double, transaction: StorageTransaction, onFinish: () => Unit) = {
-        val workloads = Set[Workload](
-            NetUp(size, { uploadBandwidth }),
-            DiskIO(size, { transaction.throughput }))
-        uploadCount += 1
-        add(Job(workloads, onFinish))
-    }
-
     def update(scheduleUpdate: Boolean = true) = {
         val timeElapsed = timeSinceLastUpdate
         jobs = jobs map { _.process(timeElapsed) }
