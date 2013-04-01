@@ -59,6 +59,7 @@ class MicroCloud(
     def isEmpty = storageSystem.isEmpty
 
     override def startEntity(): Unit = {
+        super.startEntity()
         anounce(CloudOnline())
     }
 

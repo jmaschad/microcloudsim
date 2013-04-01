@@ -11,15 +11,25 @@ import de.jmaschad.storagesim.model.transfer.Timeout
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.Dialog
 
+object ProcessingEntity {
+    val TimeResolution = 0.001
+    private val Base = 10500
+    val ProcUpdate = Base + 1
+}
+
 trait ProcessingEntity extends Entity {
     protected val bandwidth: Double
-    protected lazy val processing = new ProcessingModel(log _, scheduleProcessingUpdate _, bandwidth)
+    protected lazy val processing = new ProcessingModel(log _, bandwidth)
 
-    private var lastUpdate: Option[SimEvent] = None
+    abstract override def startEntity() = {
+        super.startEntity()
+        scheduleUpdate()
+    }
 
     abstract override def processEvent(event: SimEvent): Unit = event.getTag match {
-        case ProcessingModel.ProcUpdate =>
+        case ProcessingEntity.ProcUpdate =>
             processing.update()
+            scheduleUpdate()
 
         case _ =>
             super.processEvent(event)
@@ -30,8 +40,6 @@ trait ProcessingEntity extends Entity {
         super.reset()
     }
 
-    private def scheduleProcessingUpdate(delay: Double) = {
-        lastUpdate.foreach(CloudSim.cancel(_))
-        lastUpdate = Some(send(getId(), delay, ProcessingModel.ProcUpdate))
-    }
+    private def scheduleUpdate() =
+        send(getId(), ProcessingEntity.TimeResolution, ProcessingEntity.ProcUpdate)
 }

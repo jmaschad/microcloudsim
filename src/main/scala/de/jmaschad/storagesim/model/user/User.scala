@@ -68,6 +68,7 @@ class User(
         }
 
     override def startEntity(): Unit = {
+        super.startEntity()
         send(getId, getDelay.sample().max(0.01), ScheduleGet)
     }
 
