@@ -15,36 +15,26 @@ class Upload(
     private val packetSize = Transfer.packetSize(size)
     private var remainingPackets = Transfer.packetCount(size)
 
-    private var ackReceived = false
-    private var processingFinished = false
+    private var received = false
+    private var send = false
     private var isCanceled = false
 
-    dialog.messageHandler = processMessage _
-    val timeoutHandler = () => onFinish(false)
-
-    TransferProbe.add(dialog.id, size)
-    sendNextPacket
-
-    def cancel(transferId: String) =
-        cancelAfterProcessing(transferId)
-
-    private def processMessage(content: AnyRef) = content match {
+    dialog.messageHandler = {
         case Ack =>
-            ackReceived = true
+            received = true
             synchronizeAndContinue()
 
         case _ =>
             throw new IllegalStateException
     }
 
-    private def synchronizeAndContinue() = {
-        // partner timed out
-        if (isCanceled) {
-            onFinish(false)
-        }
+    val timeoutHandler = () => onFinish(false)
 
-        // packet was send and acked
-        if (ackReceived && processingFinished) {
+    TransferProbe.add(dialog.id, size)
+    sendNextPacket
+
+    private def synchronizeAndContinue() =
+        if (send && received) {
             remainingPackets -= 1
             if (remainingPackets > 0) {
                 sendNextPacket()
@@ -53,23 +43,14 @@ class Upload(
                 onFinish(true)
             }
         }
-    }
-
-    private def cancelAfterProcessing(transferId: String) =
-        if (!processingFinished) {
-            isCanceled = true
-        } else {
-            log("upload canceled " + TransferProbe.finish(dialog.id))
-            onFinish(false)
-        }
 
     private def sendNextPacket(): Unit = {
-        dialog.say(Packet(packetSize, CloudSim.clock), timeoutHandler)
-        ackReceived = false
+        send = false
+        received = false
 
-        processingFinished = false
+        dialog.say(Packet(packetSize, CloudSim.clock), timeoutHandler)
         process(packetSize, () => {
-            processingFinished = true
+            send = true
             synchronizeAndContinue
         })
     }

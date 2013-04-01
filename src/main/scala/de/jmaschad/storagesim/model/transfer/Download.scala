@@ -17,18 +17,11 @@ class Download(
     private val packetSize = Transfer.packetSize(size)
     private var remainingPackets = Transfer.packetCount(size)
 
-    TransferProbe.add(dialog.id, size)
-    dialog.messageHandler = processMessage _
-
-    val timeoutHandler = () => {
-        onFinish(false)
-    }
-    dialog.say(DownloadReady, timeoutHandler)
-
-    private def processMessage(content: AnyRef) = content match {
+    dialog.messageHandler = {
         case Packet(size, timeSend) =>
             val latency = CloudSim.clock() - timeSend
-            packetReceived(size)
+            remainingPackets -= 1
+            process(size, () => dialog.say(Ack, timeoutHandler))
 
         case FinishDownload =>
             assert(remainingPackets == 0)
@@ -37,8 +30,8 @@ class Download(
         case _ => throw new IllegalStateException("request error")
     }
 
-    private def packetReceived(size: Double) = {
-        remainingPackets -= 1
-        process(size, () => dialog.say(Ack, timeoutHandler))
-    }
+    val timeoutHandler = () => onFinish(false)
+
+    TransferProbe.add(dialog.id, size)
+    dialog.say(DownloadReady, timeoutHandler)
 }
