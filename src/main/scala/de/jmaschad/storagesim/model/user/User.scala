@@ -17,7 +17,7 @@ import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.Dialog
-import de.jmaschad.storagesim.model.transfer.Download
+import de.jmaschad.storagesim.model.transfer.Downloader
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.DialogCenter
@@ -117,7 +117,7 @@ class User(
                     requestLog.finish(get, dialog.averageDelay, requestState)
                 }
 
-                new Download(log _, dialog, get.obj.size, processing.download _, onFinish)
+                new Downloader(log _, dialog, get.obj.size, processing.download _, onFinish)
 
             case _ =>
                 throw new IllegalStateException

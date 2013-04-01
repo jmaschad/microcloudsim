@@ -15,7 +15,7 @@ import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.Message
-import de.jmaschad.storagesim.model.transfer.Upload
+import de.jmaschad.storagesim.model.transfer.Uploader
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
@@ -23,7 +23,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
-import de.jmaschad.storagesim.model.transfer.Download
+import de.jmaschad.storagesim.model.transfer.Downloader
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
@@ -149,7 +149,7 @@ class MicroCloud(
                             dialog.say(RestAck, () => dialog.close)
 
                         case DownloadReady =>
-                            new Upload(log _, dialog, obj.size, processing.upload(_, _), _ => dialog.close)
+                            new Uploader(log _, dialog, obj.size, processing.upload(_, _), _ => dialog.close)
 
                         case _ => throw new IllegalStateException
                     })
@@ -177,7 +177,7 @@ class MicroCloud(
                         if (success) storageSystem.add(obj) else throw new IllegalStateException
                     }
 
-                    new Download(log _, dialog, obj.size, processing.download(_, _), onFinish)
+                    new Downloader(log _, dialog, obj.size, processing.download(_, _), onFinish)
                     anounce(DownloadStarted(obj))
 
                 case _ =>

@@ -5,7 +5,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.Packet
 import de.jmaschad.storagesim.model.transfer.dialogs.Ack
 import org.cloudbus.cloudsim.core.CloudSim
 
-class Upload(
+class Uploader(
     log: String => Unit,
     dialog: Dialog,
     size: Double,
