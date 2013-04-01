@@ -84,7 +84,7 @@ object StorageSimConfig {
 trait StorageSimConfig {
     var passCount: Int = 1
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
-    var simDuration: Double = 10.0
+    var simDuration: Double = 60.0
 
     var selector: SelectorConfig = RandomBucketBased()
     var replicaCount: Int = 3
@@ -102,7 +102,7 @@ trait StorageSimConfig {
     var bucketCount: Int = (userCount * 0.3).toInt
     var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(1)
     var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
-    var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(1 * Units.MByte)
+    var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
 
     var medianGetDelayDistribution: RealDistributionConfiguration = NormalDist(2, 0.5)
     var objectForGetDistribution: ObjectSelectionModel = ZipfSelection()
