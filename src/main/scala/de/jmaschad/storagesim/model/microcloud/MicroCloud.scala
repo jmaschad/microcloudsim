@@ -62,9 +62,6 @@ class MicroCloud(
         anounce(CloudOnline())
     }
 
-    override def shutdownEntity() =
-        log(jobCount + " running jobs on shutdown")
-
     override def processEvent(event: SimEvent) =
         state.process(event)
 
