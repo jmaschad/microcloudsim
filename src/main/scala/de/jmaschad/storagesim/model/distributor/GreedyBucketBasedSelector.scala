@@ -2,16 +2,15 @@ package de.jmaschad.storagesim.model.distributor
 
 import scala.collection.immutable.SortedSet
 import scala.math._
-
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.user.User
+import de.jmaschad.storagesim.model.DialogEntity
 
-class GreedyBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
-    extends AbstractBucketBasedSelector(log, dialogCenter) {
+class GreedyBucketBasedSelector(log: String => Unit, dialogEntity: DialogEntity)
+    extends AbstractBucketBasedSelector(log, dialogEntity) {
 
     override protected def selectReplicationTarget(
         bucket: String,

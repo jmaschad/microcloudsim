@@ -8,12 +8,12 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
-import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 import de.jmaschad.storagesim.RandomUtils
+import de.jmaschad.storagesim.model.DialogEntity
 
-class RandomBucketBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
-    extends AbstractBucketBasedSelector(log, dialogCenter) {
+class RandomBucketBasedSelector(log: String => Unit, dialogEntity: DialogEntity)
+    extends AbstractBucketBasedSelector(log, dialogEntity) {
 
     override protected def selectReplicationTarget(
         bucket: String,

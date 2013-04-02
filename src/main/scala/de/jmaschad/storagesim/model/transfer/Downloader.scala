@@ -6,6 +6,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
 import de.jmaschad.storagesim.model.transfer.dialogs.Ack
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.NetworkDelay
+import de.jmaschad.storagesim.model.Dialog
 
 class Downloader(
     log: String => Unit,

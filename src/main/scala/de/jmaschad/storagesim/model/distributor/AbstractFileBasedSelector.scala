@@ -4,7 +4,6 @@ import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
 import de.jmaschad.storagesim.RandomUtils
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
-import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
@@ -15,10 +14,11 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
+import de.jmaschad.storagesim.model.DialogEntity
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
-    dialogCenter: DialogCenter) extends CloudSelector {
+    dialogEntity: DialogEntity) extends CloudSelector {
     private var distributionState = Map.empty[StorageObject, Set[Int]]
     private var distributionGoal = Map.empty[StorageObject, Set[Int]]
     private var clouds = Set.empty[Int]
@@ -216,7 +216,7 @@ abstract class AbstractFileBasedSelector(
     }
 
     private def sendActions(cloud: Int, request: PlacementDialog): Unit = {
-        val dialog = dialogCenter.openDialog(cloud)
+        val dialog = dialogEntity.openDialog(cloud)
         dialog.messageHandler = (content) => content match {
             case PlacementAck => dialog.close()
         }

@@ -4,6 +4,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.FinishDownload
 import de.jmaschad.storagesim.model.transfer.dialogs.Packet
 import de.jmaschad.storagesim.model.transfer.dialogs.Ack
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.Dialog
 
 class Uploader(
     log: String => Unit,

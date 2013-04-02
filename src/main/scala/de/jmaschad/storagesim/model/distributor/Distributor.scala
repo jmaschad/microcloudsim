@@ -10,9 +10,6 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.DialogEntity
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.Dialog
-import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
 import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.Result
@@ -31,6 +28,7 @@ import de.jmaschad.storagesim.RandomBucketBased
 import de.jmaschad.storagesim.RandomFileBased
 import de.jmaschad.storagesim.GreedyFileBased
 import de.jmaschad.storagesim.model.Entity
+import de.jmaschad.storagesim.model.Dialog
 
 object Distributor {
     val StatusInterval = 1
@@ -43,16 +41,16 @@ object Distributor {
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     private val selector = StorageSim.configuration.selector match {
         case RandomBucketBased() =>
-            new RandomBucketBasedSelector(log _, dialogCenter)
+            new RandomBucketBasedSelector(log _, this)
 
         case RandomFileBased() =>
-            new RandomFileBasedSelector(log _, dialogCenter)
+            new RandomFileBasedSelector(log _, this)
 
         case GreedyBucketBased() =>
-            new GreedyBucketBasedSelector(log _, dialogCenter)
+            new GreedyBucketBasedSelector(log _, this)
 
         case GreedyFileBased() =>
-            new GreedyFileBasedSelector(log _, dialogCenter)
+            new GreedyFileBasedSelector(log _, this)
 
         case _ => throw new IllegalStateException
     }
@@ -67,14 +65,14 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
         case _ => super.processEvent(event)
     }
 
-    protected override def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+    protected override def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] =
         content match {
             case _: CloudLookupDialog => createLookupHandler(dialog)
             case _: CloudStatusDialog => createStatusHandler(dialog)
             case _ => throw new IllegalStateException
         }
 
-    private def createLookupHandler(dialog: Dialog): Option[DialogCenter.MessageHandler] =
+    private def createLookupHandler(dialog: Dialog): Option[DialogEntity.MessageHandler] =
         Some((content) => content match {
             case Lookup(Get(obj)) =>
                 val entity = Entity.entityForId(dialog.partner)
@@ -88,7 +86,7 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
             case _ => throw new IllegalStateException
         })
 
-    private def createStatusHandler(dialog: Dialog): Option[DialogCenter.MessageHandler] =
+    private def createStatusHandler(dialog: Dialog): Option[DialogEntity.MessageHandler] =
         Some((content) => content match {
             case CloudOnline() =>
                 selector.addCloud(dialog.partner)

@@ -2,15 +2,14 @@ package de.jmaschad.storagesim.model.distributor
 
 import scala.collection.immutable.SortedSet
 import scala.math._
-
-import de.jmaschad.storagesim.model.transfer.DialogCenter
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.NetworkDelay
+import de.jmaschad.storagesim.model.DialogEntity
 
-class GreedyFileBasedSelector(log: String => Unit, dialogCenter: DialogCenter)
-    extends AbstractFileBasedSelector(log, dialogCenter) {
+class GreedyFileBasedSelector(log: String => Unit, dialogentity: DialogEntity)
+    extends AbstractFileBasedSelector(log, dialogentity) {
 
     override protected def selectReplicationTarget(
         obj: StorageObject,

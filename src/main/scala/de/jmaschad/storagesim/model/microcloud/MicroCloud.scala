@@ -11,9 +11,6 @@ import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.transfer.Dialog
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.Message
 import de.jmaschad.storagesim.model.transfer.Uploader
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
@@ -29,6 +26,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
+import de.jmaschad.storagesim.model.Dialog
 
 object MicroCloud {
     private val Base = 10200
@@ -68,7 +66,7 @@ class MicroCloud(
     override protected def dialogsEnabled: Boolean =
         state.isInstanceOf[OnlineState]
 
-    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] =
         state.createMessageHandler(dialog, content)
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
@@ -77,7 +75,7 @@ class MicroCloud(
         state = newState
 
     private def anounce(content: CloudStatusDialog): Unit = {
-        val dialog = dialogCenter.openDialog(distributor.getId)
+        val dialog = openDialog(distributor.getId)
         dialog.messageHandler = {
             case CloudStatusAck() => dialog.close
             case _ => throw new IllegalStateException
@@ -87,7 +85,7 @@ class MicroCloud(
 
     private trait MicroCloudState {
         def process(event: SimEvent)
-        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler]
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler]
     }
 
     private class OfflineState extends MicroCloudState {
@@ -101,7 +99,7 @@ class MicroCloud(
                 MicroCloud.super.processEvent(event)
         }
 
-        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] = {
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] = {
             log("ignored dialog because it is offline")
             None
         }
@@ -126,7 +124,7 @@ class MicroCloud(
                 MicroCloud.super.processEvent(event)
         }
 
-        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+        def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] =
             content match {
                 case restDialog: RestDialog =>
                     restDialogHandler(dialog, restDialog)
@@ -138,7 +136,7 @@ class MicroCloud(
                     throw new IllegalStateException("unknown message " + content)
             }
 
-        private def restDialogHandler(dialog: Dialog, content: RestDialog): Option[DialogCenter.MessageHandler] =
+        private def restDialogHandler(dialog: Dialog, content: RestDialog): Option[DialogEntity.MessageHandler] =
             content match {
                 case Get(obj) =>
                     Some({
@@ -154,7 +152,7 @@ class MicroCloud(
                 case _ => throw new IllegalStateException
             }
 
-        private def placementDialogHandler(dialog: Dialog, content: PlacementDialog): Option[DialogCenter.MessageHandler] =
+        private def placementDialogHandler(dialog: Dialog, content: PlacementDialog): Option[DialogEntity.MessageHandler] =
             Some({
                 case Load(objSourceMap) =>
                     dialog.sayAndClose(PlacementAck)
@@ -164,7 +162,7 @@ class MicroCloud(
             })
 
         private def openGetDialog(target: Int, obj: StorageObject): Unit = {
-            val dialog = dialogCenter.openDialog(target)
+            val dialog = openDialog(target)
 
             dialog.messageHandler = {
                 case RestAck =>

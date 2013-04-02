@@ -1,37 +1,26 @@
 package de.jmaschad.storagesim.model.user
 
-import scala.collection.LinearSeq
 import org.apache.commons.math3.distribution.IntegerDistribution
-import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
-import org.cloudbus.cloudsim.core.predicates.PredicateType
-import de.jmaschad.storagesim.StorageSim
-import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.ProcessingEntity
-import de.jmaschad.storagesim.model.DialogEntity
+import RequestType._
+import User._
 import de.jmaschad.storagesim.model.BaseEntity
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.DialogEntity
+import de.jmaschad.storagesim.model.ProcessingEntity
+import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.transfer.Dialog
-import de.jmaschad.storagesim.model.transfer.Downloader
-import de.jmaschad.storagesim.model.transfer.Dialog
-import de.jmaschad.storagesim.model.transfer.Message
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
-import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
-import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
-import de.jmaschad.storagesim.model.transfer.dialogs.Result
 import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
-import de.jmaschad.storagesim.model.NetworkDelay
-import de.jmaschad.storagesim.model.Entity
-import de.jmaschad.storagesim.model.user.RequestType._
-import User._
-import scala.util.Random
+import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
+import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
+import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.Result
 import org.apache.commons.math3.distribution.NormalDistribution
+import de.jmaschad.storagesim.model.Dialog
+import scala.util.Random
+import de.jmaschad.storagesim.model.transfer.Downloader
 
 object User {
     private var users = Set.empty[User]
@@ -83,7 +72,7 @@ class User(
                 super.processEvent(event)
         }
 
-    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogCenter.MessageHandler] =
+    override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] =
         throw new IllegalStateException
 
     private def scheduleRequest(requestType: RequestType): Unit = requestType match {
@@ -97,7 +86,7 @@ class User(
     }
 
     private def lookupCloud[T <: RestDialog](request: T, onSuccess: (Int, T) => Unit): Unit = {
-        val dialog = dialogCenter.openDialog(distributor.getId())
+        val dialog = openDialog(distributor.getId())
         dialog.messageHandler = {
             case Result(cloud) => onSuccess(cloud, request)
             case _ => throw new IllegalStateException
@@ -106,7 +95,7 @@ class User(
     }
 
     private def openGetDialog(target: Int, get: Get): Unit = {
-        val dialog = dialogCenter.openDialog(target)
+        val dialog = openDialog(target)
 
         dialog.messageHandler = {
             case RestAck =>

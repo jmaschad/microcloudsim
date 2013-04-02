@@ -5,10 +5,6 @@ import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.transfer.Message
-import de.jmaschad.storagesim.model.transfer.Timeout
-import de.jmaschad.storagesim.model.transfer.DialogCenter
-import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.Units
 
 object ProcessingEntity {
