@@ -9,7 +9,6 @@ import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.processing.StorageSystem
 import de.jmaschad.storagesim.model.transfer.Dialog
@@ -64,7 +63,7 @@ class MicroCloud(
     }
 
     override def shutdownEntity() =
-        log(processing.jobCount + " running jobs on shutdown")
+        log(jobCount + " running jobs on shutdown")
 
     override def processEvent(event: SimEvent) =
         state.process(event)
@@ -150,7 +149,7 @@ class MicroCloud(
                             dialog.say(RestAck, () => dialog.close)
 
                         case DownloadReady =>
-                            new Uploader(log _, dialog, obj.size, processing.upload(_, _), _ => dialog.close)
+                            new Uploader(log _, dialog, obj.size, upload(_, _), _ => dialog.close)
 
                         case _ => throw new IllegalStateException
                     })
@@ -178,7 +177,7 @@ class MicroCloud(
                         if (success) storageSystem.add(obj) else throw new IllegalStateException
                     }
 
-                    new Downloader(log _, dialog, obj.size, processing.download(_, _), onFinish)
+                    new Downloader(log _, dialog, obj.size, download(_, _), onFinish)
                     anounce(DownloadStarted(obj))
 
                 case _ =>

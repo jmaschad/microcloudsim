@@ -14,7 +14,6 @@ import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.processing.ProcessingModel
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.Dialog
 import de.jmaschad.storagesim.model.transfer.Downloader
@@ -118,7 +117,7 @@ class User(
                     requestLog.finish(get, dialog.averageDelay, requestState)
                 }
 
-                new Downloader(log _, dialog, get.obj.size, processing.download _, onFinish)
+                new Downloader(log _, dialog, get.obj.size, download _, onFinish)
 
             case _ =>
                 throw new IllegalStateException
