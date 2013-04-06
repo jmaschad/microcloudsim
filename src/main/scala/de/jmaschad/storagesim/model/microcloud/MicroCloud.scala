@@ -27,6 +27,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
 import de.jmaschad.storagesim.model.Dialog
+import org.cloudbus.cloudsim.core.CloudSim
 
 object MicroCloud {
     private val Base = 10200
@@ -144,7 +145,7 @@ class MicroCloud(
                             dialog.say(RestAck, () => dialog.close)
 
                         case DownloadReady =>
-                            new Uploader(log _, dialog, obj.size, upload(_, _), _ => dialog.close)
+                            new Uploader(log _, dialog, obj.size, upload(_, _, _), _ => dialog.close)
 
                         case _ => throw new IllegalStateException
                     })
@@ -166,13 +167,15 @@ class MicroCloud(
 
             dialog.messageHandler = {
                 case RestAck =>
-                    val onFinish = { success: Boolean =>
+                    new Downloader(log _, dialog, obj.size, download(_, _, _), { success =>
                         dialog.close()
                         anounce(DownloadFinished(obj))
-                        if (success) storageSystem.add(obj) else throw new IllegalStateException
-                    }
-
-                    new Downloader(log _, dialog, obj.size, download(_, _), onFinish)
+                        if (success) {
+                            storageSystem.add(obj)
+                        } else {
+                            throw new IllegalStateException
+                        }
+                    })
                     anounce(DownloadStarted(obj))
 
                 case _ =>

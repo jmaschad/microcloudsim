@@ -10,7 +10,7 @@ class Uploader(
     log: String => Unit,
     dialog: Dialog,
     size: Double,
-    process: (Double, () => Unit) => Unit,
+    process: (String, Double, () => Unit) => Unit,
     onFinish: Boolean => Unit) {
 
     private val packetSize = Transfer.packetSize(size)
@@ -50,7 +50,7 @@ class Uploader(
         received = false
 
         dialog.say(Packet(packetSize, CloudSim.clock), timeoutHandler)
-        process(packetSize, () => {
+        process(dialog.id, packetSize, () => {
             send = true
             synchronizeAndContinue
         })

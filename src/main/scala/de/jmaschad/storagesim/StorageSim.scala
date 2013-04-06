@@ -57,7 +57,7 @@ object StorageSim {
 
     private def createExperimentDir(baseDir: Path): Path = {
         val date = DateTime.now()
-        val fmt = DateTimeFormat.forPattern("dd.MM.yyyy HH:mm")
+        val fmt = DateTimeFormat.forPattern("dd.MM.yyyy HH:mm:ss")
         val dirName = fmt.print(date) + " " + configuration.selector.getClass().getSimpleName()
         val expDir = baseDir.resolve(dirName)
 

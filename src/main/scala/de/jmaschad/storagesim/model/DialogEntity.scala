@@ -3,9 +3,10 @@ package de.jmaschad.storagesim.model
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import scala.util.Random
+import org.cloudbus.cloudsim.core.CloudSim
 
 object DialogEntity {
-    val Timeout = 3.0
+    val Timeout = 1.0
     type TimeoutHandler = () => Unit
     type MessageHandler = AnyRef => Unit
 
@@ -113,12 +114,16 @@ trait DialogEntity extends Entity {
         dialog
     }
 }
+object Dialog {
+    var counter = 0L
+}
 
 class Dialog(
     val partner: Int,
     val dialogEntity: DialogEntity,
     val averageDelay: Double,
-    val id: String = hashCode() + "-" + Random.nextInt) {
+    val id: String = Dialog.counter.toString()) {
+    Dialog.counter += 1
 
     var messageHandler: DialogEntity.MessageHandler = (_) => throw new IllegalStateException
     var messageId = 0L

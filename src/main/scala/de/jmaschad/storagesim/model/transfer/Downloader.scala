@@ -12,7 +12,7 @@ class Downloader(
     log: String => Unit,
     dialog: Dialog,
     size: Double,
-    process: (Double, () => Unit) => Unit,
+    process: (String, Double, () => Unit) => Unit,
     onFinish: Boolean => Unit) {
 
     private val packetSize = Transfer.packetSize(size)
@@ -22,7 +22,9 @@ class Downloader(
         case Packet(size, timeSend) =>
             val latency = CloudSim.clock() - timeSend
             remainingPackets -= 1
-            process(size, () => dialog.say(Ack, timeoutHandler))
+            process(dialog.id, size, () => {
+                dialog.say(Ack, timeoutHandler)
+            })
 
         case FinishDownload =>
             assert(remainingPackets == 0)
