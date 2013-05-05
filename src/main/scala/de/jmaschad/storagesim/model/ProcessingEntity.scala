@@ -12,11 +12,17 @@ object ProcessingEntity {
     private val Base = 10500
     val ProcUpdate = Base + 1
 }
+import ProcessingEntity._
 
 trait ProcessingEntity extends Entity {
     protected val bandwidth: Double
     private var uploads = Set.empty[Transfer]
     private var downloads = Set.empty[Transfer]
+
+    private class Transfer(val id: String, size: Double, val onFinish: () => Unit) {
+        def progress(timespan: Double, bandwidth: Double): Transfer = new Transfer(id, size - (timespan * bandwidth), onFinish)
+        def isDone: Boolean = size < 1 * Units.Byte
+    }
 
     def download(id: String, size: Double, onFinish: () => Unit) =
         downloads += new Transfer(id, size, onFinish)
@@ -26,23 +32,28 @@ trait ProcessingEntity extends Entity {
 
     abstract override def startEntity() = {
         super.startEntity()
-        scheduleUpdate()
+        send(getId(), TimeResolution, ProcUpdate)
     }
 
     abstract override def processEvent(event: SimEvent): Unit = event.getTag match {
         case ProcessingEntity.ProcUpdate =>
-            // uploads and downloads can be modified by onFinish handlers executed in updateWithBandwidth
             if (uploads.nonEmpty) {
-                val outdatedUploads = uploads
-                uploads = Set.empty
-                uploads ++= updateWithBandwidth(outdatedUploads, bandwidth / outdatedUploads.size)
+                val uploadBandwidth = bandwidth / uploads.size
+                uploads = uploads map { _.progress(TimeResolution, uploadBandwidth) }
+                val finishedUploads = uploads filter { _.isDone }
+                finishedUploads foreach { _.onFinish() }
+                uploads --= finishedUploads
             }
+
             if (downloads.nonEmpty) {
-                val outdatedDownloads = downloads
-                downloads = Set.empty
-                downloads ++= updateWithBandwidth(outdatedDownloads, bandwidth / outdatedDownloads.size)
+                val downloadBandwidth = bandwidth / downloads.size
+                downloads = downloads map { _.progress(TimeResolution, downloadBandwidth) }
+                val finishedDownloads = downloads filter { _.isDone }
+                finishedDownloads foreach { _.onFinish() }
+                downloads --= finishedDownloads
             }
-            scheduleUpdate()
+
+            send(getId(), TimeResolution, ProcUpdate)
 
         case _ =>
             super.processEvent(event)
@@ -52,28 +63,5 @@ trait ProcessingEntity extends Entity {
         uploads = Set.empty
         downloads = Set.empty
         super.reset()
-    }
-
-    private class Transfer(val id: String, size: Double, val onFinish: () => Unit) {
-        def progress(timespan: Double, bandwidth: Double): Transfer = new Transfer(id, size - (timespan * bandwidth), onFinish)
-        def isDone: Boolean = size < 1 * Units.Byte
-    }
-
-    private def scheduleUpdate() = {
-        send(getId(), ProcessingEntity.TimeResolution, ProcessingEntity.ProcUpdate)
-    }
-
-    private def updateWithBandwidth(transfers: Set[Transfer], bandwidth: Double): Set[Transfer] = {
-        transfers.foldLeft(Set.empty[Transfer]) { (activeTransfers, outdatedTransfer) =>
-            val updatedTransfer = outdatedTransfer.progress(ProcessingEntity.TimeResolution, bandwidth)
-            updatedTransfer.isDone match {
-                case true =>
-                    updatedTransfer.onFinish()
-                    activeTransfers
-
-                case false =>
-                    activeTransfers + updatedTransfer
-            }
-        }
     }
 }
