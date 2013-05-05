@@ -31,12 +31,7 @@ trait CloudSelector {
     /**
      * Allows the cloud to keep track of current downloads
      */
-    def startedDownload(cloud: Int, obj: StorageObject): Unit
-
-    /**
-     * Allows the cloud to keep track of current downloads
-     */
-    def finishedDownload(cloud: Int, obj: StorageObject): Unit
+    def addedObject(cloud: Int, obj: StorageObject): Unit
 
     /**
      * Returns a cloud id or a POST request, if the request

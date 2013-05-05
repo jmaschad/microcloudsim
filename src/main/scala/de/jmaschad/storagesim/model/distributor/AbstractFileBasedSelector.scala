@@ -85,20 +85,7 @@ abstract class AbstractFileBasedSelector(
         actionPlan foreach { case (cloudId, action) => sendActions(cloudId, action) }
     }
 
-    def startedDownload(cloud: Int, obj: StorageObject): Unit = {
-        val download = DownloadRequest(cloud, obj)
-        assert(!activeDownloads.contains(download))
-        activeDownloads += download
-    }
-
-    def finishedDownload(cloud: Int, obj: StorageObject): Unit = {
-        val download = DownloadRequest(cloud, obj)
-        assert(activeDownloads.contains(download))
-        activeDownloads -= download
-
-        activeOperations map { _.complete(download) }
-        activeOperations = activeOperations filterNot { _.isDone }
-    }
+    def addedObject(cloud: Int, obj: StorageObject): Unit = {}
 
     override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
         Left(UnsufficientSpace)

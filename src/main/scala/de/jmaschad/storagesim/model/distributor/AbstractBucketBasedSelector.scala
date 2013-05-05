@@ -18,12 +18,18 @@ abstract class AbstractBucketBasedSelector(
     val log: String => Unit,
     val dialogEntity: DialogEntity) extends CloudSelector {
 
+    // currently online clouds
     private var clouds = Set.empty[Int]
+
+    // goal bucket cloud distribution
     private var distributionGoal = Map.empty[String, Set[Int]]
+
+    // current object cloud distribution
     private var distributionState = Map.empty[StorageObject, Set[Int]]
 
-    private var activeOperations = Set.empty[RepairTracker]
-    private var activeDownloads = Set.empty[DownloadRequest]
+    // current replication actions
+    private case class ReplicationAction(source: Int, target: Int, obj: StorageObject)
+    private var activeReplications = Set.empty[ReplicationAction]
 
     override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]) = {
         val cloudIdMap = initialClouds map { cloud => cloud.getId -> cloud } toMap
@@ -31,14 +37,15 @@ abstract class AbstractBucketBasedSelector(
 
         distributionGoal = createDistributionPlan(cloudIdMap.keySet, bucketMap)
         val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]]) {
-            case (allocMap, (bucket, clouds)) =>
-                allocMap ++ (clouds map { cloud =>
-                    cloud -> (allocMap.getOrElse(cloud, Set.empty) + bucket)
+            case (allocation, (bucket, clouds)) =>
+                allocation ++ (clouds map { cloud =>
+                    cloud -> (allocation.getOrElse(cloud, Set.empty) + bucket)
                 })
         }
 
         // we don't allocate to unknown clouds
         assert(allocationPlan.keySet.subsetOf(cloudIdMap.keySet))
+
         // we store exactly our buckets, with the correct replica count
         assert(
             allocationPlan.foldLeft(Map.empty[String, Int]) { (bucketCount, allocation) =>
@@ -49,7 +56,7 @@ abstract class AbstractBucketBasedSelector(
 
         allocationPlan foreach {
             case (cloudId, buckets) =>
-                val cloudObjects = buckets.flatMap(bucketMap(_))
+                val cloudObjects = buckets flatMap { bucketMap(_) }
                 cloudIdMap(cloudId).initialize(cloudObjects)
         }
 
@@ -83,20 +90,7 @@ abstract class AbstractBucketBasedSelector(
                 Right(minDelayTarget)
         }
 
-    def startedDownload(cloud: Int, obj: StorageObject): Unit = {
-        val download = DownloadRequest(cloud, obj)
-        assert(!activeDownloads.contains(download))
-        activeDownloads += download
-    }
-
-    def finishedDownload(cloud: Int, obj: StorageObject): Unit = {
-        val download = DownloadRequest(cloud, obj)
-        assert(activeDownloads.contains(download))
-        activeDownloads -= download
-
-        activeOperations map { _.complete(download) }
-        activeOperations = activeOperations filterNot { _.isDone }
-    }
+    def addedObject(cloud: Int, obj: StorageObject): Unit = {}
 
     def addCloud(cloud: Int) =
         clouds += cloud
@@ -107,9 +101,6 @@ abstract class AbstractBucketBasedSelector(
         clouds -= cloud
         distributionState = distributionState mapValues { _ - cloud }
 
-        activeDownloads = activeDownloads filterNot { _.cloud == cloud }
-        activeOperations map { _.removeCloud(cloud) }
-
         // throw if objects were lost
         val lostObjects = distributionState filter { case (_, clouds) => clouds.isEmpty }
         if (lostObjects.nonEmpty) {
@@ -117,21 +108,21 @@ abstract class AbstractBucketBasedSelector(
         }
 
         // create new distribution goal
-        val bucketMap = distributionState.keySet groupBy { _.bucket }
-        distributionGoal = createDistributionPlan(clouds, bucketMap, distributionGoal)
+        val bucketObjectMap = distributionState.keySet groupBy { _.bucket }
+        distributionGoal = createDistributionPlan(clouds, bucketObjectMap, distributionGoal)
 
         // create an action plan and inform the involved clouds
-        val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
-        val newDownloads = {
-            actionPlan flatMap {
-                case (cloudId, load) =>
-                    load.objSourceMap.keys map { DownloadRequest(cloudId, _) }
-            }
-        } toSet
+        val repairPlan = createRepairPlan(distributionGoal, distributionState, activeReplications)
+        repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
 
-        activeOperations += new RepairTracker(log, newDownloads)
-
-        actionPlan foreach { case (cloud, load) => sendActions(cloud, load) }
+        // update the active replications
+        activeReplications ++= repairPlan flatMap {
+            case (cloud, load) =>
+                load.objSourceMap map {
+                    case (obj, source) =>
+                        ReplicationAction(source, cloud, obj)
+                }
+        }
     }
 
     protected def selectReplicationTarget(
@@ -218,10 +209,10 @@ abstract class AbstractBucketBasedSelector(
         clouds map { c => c -> sizeDistribution.getOrElse(c, 0.0) } toMap
     }
 
-    private def createActionPlan(
+    private def createRepairPlan(
         distributionGoal: Map[String, Set[Int]],
         distributionState: Map[StorageObject, Set[Int]],
-        activeTransactions: Set[DownloadRequest]): Map[Int, Load] = {
+        activeReplications: Set[ReplicationAction]): Map[Int, Load] = {
 
         val additionalCloudMap = distributionState map {
             case (obj, currentClouds) =>
