@@ -86,23 +86,23 @@ object StorageSim {
         val distributor = new Distributor("dp")
 
         log("create clouds")
-        val initialClouds = createClouds(distributor)
+        val clouds = createClouds(distributor)
 
         log("create objects")
-        val initialObjects = createObjects()
+        val objects = createObjects()
 
         log("create users")
-        val users = createUsers(distributor, initialObjects)
+        val users = createUsers(distributor, objects)
 
         log("initialize the distributor with clouds and objects")
-        distributor.initialize(initialClouds, initialObjects)
+        distributor.initialize(clouds, objects, users.toSet)
 
         log("inititalize network latency")
         val topologyFile = getClass.getResource("50areas_ba.brite").getPath().toString()
         NetworkTopology.buildNetworkTopology(topologyFile)
 
         log("schedule catastrophe")
-        val nonEmptyClouds = initialClouds.filterNot(_.isEmpty)
+        val nonEmptyClouds = clouds.filterNot(_.isEmpty)
         (1 to 2) map
             { i => CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 1 + i, MicroCloud.Kill, null) }
 

@@ -55,8 +55,8 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
         case _ => throw new IllegalStateException
     }
 
-    def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) =
-        selector.initialize(initialClouds, initialObjects)
+    def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]) =
+        selector.initialize(initialClouds, initialObjects, users)
 
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
         case MicroCloudOffline =>

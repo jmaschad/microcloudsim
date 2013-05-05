@@ -3,13 +3,14 @@ package de.jmaschad.storagesim.model.distributor
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
+import de.jmaschad.storagesim.model.user.User
 
 trait CloudSelector {
 
     /**
      * Create the initial configuration of the selector and micro clouds
      */
-    def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]): Unit
+    def initialize(clouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]): Unit
 
     /**
      * If a MicroCloud comes on-line this method should

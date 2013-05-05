@@ -12,6 +12,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.DialogEntity
+import de.jmaschad.storagesim.model.user.User
 
 abstract class AbstractBucketBasedSelector(
     val log: String => Unit,
@@ -24,7 +25,7 @@ abstract class AbstractBucketBasedSelector(
     private var activeOperations = Set.empty[RepairTracker]
     private var activeDownloads = Set.empty[DownloadRequest]
 
-    override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]) = {
+    override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]) = {
         val cloudIdMap = initialClouds map { cloud => cloud.getId -> cloud } toMap
         val bucketMap = initialObjects groupBy { _.bucket }
 

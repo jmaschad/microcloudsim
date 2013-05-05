@@ -15,6 +15,7 @@ import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.DialogEntity
+import de.jmaschad.storagesim.model.user.User
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
@@ -26,7 +27,7 @@ abstract class AbstractFileBasedSelector(
     private var activeOperations = Set.empty[RepairTracker]
     private var activeDownloads = Set.empty[DownloadRequest]
 
-    override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject]): Unit = {
+    override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]): Unit = {
         val cloudIdMap = { initialClouds map { cloud => cloud.getId -> cloud } toMap }
         distributionGoal = createDistributionPlan(cloudIdMap.keySet, initialObjects)
 
