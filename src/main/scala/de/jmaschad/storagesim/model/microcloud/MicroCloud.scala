@@ -28,6 +28,8 @@ import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
 import de.jmaschad.storagesim.model.Dialog
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.RealDistributionConfiguration
 
 object MicroCloud {
     private val Base = 10200
@@ -39,6 +41,7 @@ object MicroCloud {
     val Request = Kill + 1
     val DistributorRequest = Request + 1
 }
+import MicroCloud._
 
 class MicroCloud(
     name: String,
@@ -48,9 +51,11 @@ class MicroCloud(
 
     protected val bandwidth = resourceCharacteristics.bandwidth
 
+    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailureDistribution)
+    private val meanTimeToReplace = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToReplaceDistribution)
+
     private var storageSystem = new StorageSystem(log _, resourceCharacteristics.storageDevices)
     private var state: MicroCloudState = new OnlineState
-    private var firstKill = true
 
     def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
 
@@ -59,6 +64,9 @@ class MicroCloud(
     override def startEntity(): Unit = {
         super.startEntity()
         anounce(CloudOnline())
+
+        val uptime = new UniformRealDistribution(0.0, meanTimeToFailure.getNumericalMean()).sample()
+        scheduleFailure(uptime)
     }
 
     override def processEvent(event: SimEvent) =
@@ -71,6 +79,14 @@ class MicroCloud(
         state.createMessageHandler(dialog, content)
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
+
+    private def scheduleFailure(offset: Double = 0.0) = {
+        schedule(getId(), offset + meanTimeToFailure.sample(), Kill)
+    }
+
+    private def scheduleReplace() = {
+        schedule(getId(), meanTimeToReplace.sample(), Boot)
+    }
 
     private def switchState(newState: MicroCloudState): Unit =
         state = newState
@@ -93,6 +109,7 @@ class MicroCloud(
         def process(event: SimEvent) = event.getTag match {
             case MicroCloud.Boot =>
                 log("received boot request")
+                scheduleFailure()
                 anounce(CloudOnline())
                 switchState(new OnlineState)
 
@@ -118,6 +135,7 @@ class MicroCloud(
             case MicroCloud.Kill =>
                 log("received kill request")
                 reset()
+                scheduleReplace()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
 

@@ -12,7 +12,6 @@ import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
 import de.jmaschad.storagesim.model.distributor.CloudSelector
 import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.microcloud.MicroCloudFailureBehavior
 import de.jmaschad.storagesim.model.processing.StorageDevice
 import de.jmaschad.storagesim.model.processing.StorageObject
 import de.jmaschad.storagesim.model.user.User
@@ -104,7 +103,7 @@ object StorageSim {
 
         log("schedule catastrophe")
         val nonEmptyClouds = initialClouds.filterNot(_.isEmpty)
-        (1 to 1) map
+        (1 to 2) map
             { i => CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 1 + i, MicroCloud.Kill, null) }
 
         log("will start simulation")

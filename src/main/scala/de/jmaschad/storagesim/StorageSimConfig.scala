@@ -93,10 +93,9 @@ trait StorageSimConfig {
     var cloudCount: Int = 100
     var storageDevicesPerCloud: Int = 10
     var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
-    var cloudFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
-    var cloudRepairDistribution: RealDistributionConfiguration = NormalDist(30, 5)
-    var diskFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
-    var diskRepairDistribution: RealDistributionConfiguration = NormalDist(15, 3)
+
+    var meanTimeToFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
+    var meanTimeToReplaceDistribution: RealDistributionConfiguration = NormalDist(30, 5)
 
     var userCount: Int = 1000
     var bucketCount: Int = (userCount * 0.3).toInt
