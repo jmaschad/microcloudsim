@@ -28,6 +28,8 @@ import org.joda.time.format.DateTimeFormat
 import java.nio.file.Files
 import java.nio.charset.Charset
 import java.io.PrintWriter
+import java.io.BufferedInputStream
+import scala.io.Source
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -98,13 +100,15 @@ object StorageSim {
         distributor.initialize(clouds, objects, users.toSet)
 
         log("inititalize network latency")
-        val topologyFile = getClass.getResource("50areas_ba.brite").getPath().toString()
-        NetworkTopology.buildNetworkTopology(topologyFile)
+        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("50areas_ba.brite"))
+        val topologyFile = Files.createTempFile("topology", "brite")
+        val writer = Files.newBufferedWriter(topologyFile, Charset.defaultCharset())
+        topologyStream foreach { writer.write(_) }
+        writer.close()
+        NetworkTopology.buildNetworkTopology(topologyFile.toString())
 
         log("schedule catastrophe")
         val nonEmptyClouds = clouds.filterNot(_.isEmpty)
-        (1 to 3) map
-            { i => CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 1 + i, MicroCloud.Kill, null) }
 
         log("will start simulation")
         CloudSim.terminateSimulation(configuration.simDuration)

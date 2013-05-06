@@ -1,3 +1,5 @@
+seq(com.github.retronym.SbtOneJar.oneJarSettings: _*)
+
 name := "MicroCloudSim"
 
 version := "0.1"
