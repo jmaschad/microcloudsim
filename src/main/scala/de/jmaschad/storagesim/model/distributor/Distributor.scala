@@ -18,9 +18,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.CloudLookupDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
-import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
-import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
-import Distributor._
+import de.jmaschad.storagesim.model.transfer.dialogs.ObjectAdded
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.GreedyBucketBased
@@ -37,6 +35,7 @@ object Distributor {
     val MicroCloudOffline = Base + 1
     val UserRequest = MicroCloudOffline + 1
 }
+import Distributor._
 
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     private val selector = StorageSim.configuration.selector match {
@@ -92,7 +91,7 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
                 selector.addCloud(dialog.partner)
                 dialog.sayAndClose(CloudStatusAck())
 
-            case DownloadFinished(obj) =>
+            case ObjectAdded(obj) =>
                 selector.addedObject(dialog.partner, obj)
                 dialog.sayAndClose(CloudStatusAck())
 

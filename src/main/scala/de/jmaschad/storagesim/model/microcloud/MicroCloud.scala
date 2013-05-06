@@ -23,8 +23,7 @@ import de.jmaschad.storagesim.model.transfer.Downloader
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
-import de.jmaschad.storagesim.model.transfer.dialogs.DownloadStarted
-import de.jmaschad.storagesim.model.transfer.dialogs.DownloadFinished
+import de.jmaschad.storagesim.model.transfer.dialogs.ObjectAdded
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
 import de.jmaschad.storagesim.model.Dialog
 import org.cloudbus.cloudsim.core.CloudSim
@@ -187,14 +186,13 @@ class MicroCloud(
                 case RestAck =>
                     new Downloader(log _, dialog, obj.size, download(_, _, _), { success =>
                         dialog.close()
-                        anounce(DownloadFinished(obj))
+                        anounce(ObjectAdded(obj))
                         if (success) {
                             storageSystem.add(obj)
                         } else {
                             throw new IllegalStateException
                         }
                     })
-                    anounce(DownloadStarted(obj))
 
                 case _ =>
                     throw new IllegalStateException
