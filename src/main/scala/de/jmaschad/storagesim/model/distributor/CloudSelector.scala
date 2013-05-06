@@ -33,12 +33,6 @@ trait CloudSelector {
     def addedObject(cloud: Int, obj: StorageObject): Unit
 
     /**
-     * Returns a cloud id or a POST request, if the request
-     * is satisfiable or None otherwise.
-     */
-    def selectForPost(storageObjects: StorageObject): Either[RequestSummary, Int]
-
-    /**
      * Returns a cloud id or a GET request, if the request
      * is satisfiable or None otherwise.
      */

@@ -190,7 +190,7 @@ class MicroCloud(
                         if (success) {
                             storageSystem.add(obj)
                         } else {
-                            throw new IllegalStateException
+                            log("GET timed out")
                         }
                     })
 

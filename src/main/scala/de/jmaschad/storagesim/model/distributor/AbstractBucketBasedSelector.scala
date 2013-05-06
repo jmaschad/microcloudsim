@@ -13,6 +13,7 @@ import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.user.User
+import org.cloudbus.cloudsim.core.CloudSim
 
 abstract class AbstractBucketBasedSelector(
     val log: String => Unit,
@@ -28,7 +29,9 @@ abstract class AbstractBucketBasedSelector(
     private var distributionState = Map.empty[StorageObject, Set[Int]]
 
     // current replication actions
-    private var activeReplications = Map.empty[Int, Seq[StorageObject]]
+    private var activeReplications = Map.empty[Int, Set[StorageObject]]
+    private var startOfRepair = Double.NaN
+    private var totalSizeOfRepair = Double.NaN
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]) = {
         clouds = microclouds map { _.getId() }
@@ -45,7 +48,7 @@ abstract class AbstractBucketBasedSelector(
         // we don't allocate to unknown clouds
         assert(allocationPlan.keySet.subsetOf(clouds))
 
-        // we store exactly our buckets, with the correct replica count
+        // we store all buckets, with the correct replica count
         assert(
             allocationPlan.foldLeft(Map.empty[String, Int]) { (bucketCount, allocation) =>
                 val cloud = allocation._1
@@ -68,9 +71,6 @@ abstract class AbstractBucketBasedSelector(
         } toMap
     }
 
-    override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
-        Left(UnsufficientSpace)
-
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState getOrElse (storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
@@ -91,25 +91,68 @@ abstract class AbstractBucketBasedSelector(
                 Right(minDelayTarget)
         }
 
-    def addedObject(cloud: Int, obj: StorageObject): Unit = {}
+    def addedObject(cloud: Int, obj: StorageObject): Unit = {
+        activeReplications.contains(cloud) match {
+            case true if activeReplications(cloud).size == 1 =>
+                activeReplications -= cloud
+
+            case true =>
+                activeReplications += cloud -> { activeReplications(cloud) - obj }
+
+            case _ =>
+                throw new IllegalStateException
+        }
+
+        if (activeReplications.isEmpty) {
+            val duration = CloudSim.clock() - startOfRepair
+            val meanBandwidth = (totalSizeOfRepair / duration) * 8
+            log("Finished repair of %.3fMB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair, duration, meanBandwidth))
+            startOfRepair = Double.NaN
+            totalSizeOfRepair = Double.NaN
+        } else {
+            val remainingObjects = activeReplications flatMap { case (_, objects) => objects }
+            val remainingAmount = { remainingObjects map { _.size } sum }
+            val duration = CloudSim.clock() - startOfRepair
+            val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
+            log("repaired object [%.3fMB], %d objects remain [%.3fMB], repair mean bandwidth %.3fMbit/s".
+                format(obj.size, remainingObjects.size, remainingAmount, currentMeanBandwidth))
+        }
+    }
 
     def addCloud(cloud: Int) =
         clouds += cloud
 
     def removeCloud(cloud: Int) = {
+        val repairSize = {
+            distributionState filter {
+                case (obj, clouds) => clouds.contains(cloud)
+            } map {
+                case (obj, clouds) => obj.size
+            } sum
+        }
+        if (activeReplications.isEmpty) {
+            startOfRepair = CloudSim.clock()
+            totalSizeOfRepair = repairSize
+            log("Starting repair after failure of cloud %d [%.3fMB]".format(cloud, repairSize))
+        } else {
+            totalSizeOfRepair += repairSize
+            log("Added repair of cloud %d [%.3fMB]".format(cloud, repairSize))
+        }
+
         // update knowledge of current state
         assert(clouds.contains(cloud))
         clouds -= cloud
         distributionState = distributionState mapValues { _ - cloud }
+        activeReplications -= cloud
 
         // throw if objects were lost
         val lostObjects = distributionState filter { case (_, clouds) => clouds.isEmpty }
         if (lostObjects.nonEmpty) {
-            throw new IllegalStateException("all copies of " + lostObjects.mkString(", ") + " were lost")
+            log("An object was lost after a cloud failure. Time to dataloss %.3fs".format(CloudSim.clock()))
+            CloudSim.terminateSimulation()
         }
 
         // create new distribution goal
-        val bucketObjectMap = distributionState.keySet groupBy { _.bucket }
         distributionGoal = createDistributionPlan()
 
         // create an action plan and inform the involved clouds
@@ -242,7 +285,7 @@ abstract class AbstractBucketBasedSelector(
         activeReplications ++= loadInstructions map {
             case (cloud, load) =>
                 cloud -> {
-                    activeReplications.getOrElse(cloud, Seq.empty[StorageObject]) ++ load.objSourceMap.keySet
+                    activeReplications.getOrElse(cloud, Set.empty[StorageObject]) ++ load.objSourceMap.keySet
                 }
         }
 
@@ -257,5 +300,4 @@ abstract class AbstractBucketBasedSelector(
 
         dialog.say(request, () => { throw new IllegalStateException })
     }
-
 }
