@@ -6,7 +6,6 @@ import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.user.User
 
 trait CloudSelector {
-
     /**
      * Create the initial configuration of the selector and micro clouds
      */

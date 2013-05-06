@@ -103,7 +103,7 @@ object StorageSim {
 
         log("schedule catastrophe")
         val nonEmptyClouds = clouds.filterNot(_.isEmpty)
-        (1 to 2) map
+        (1 to 3) map
             { i => CloudSim.send(0, nonEmptyClouds.take(i).last.getId(), 1 + i, MicroCloud.Kill, null) }
 
         log("will start simulation")
