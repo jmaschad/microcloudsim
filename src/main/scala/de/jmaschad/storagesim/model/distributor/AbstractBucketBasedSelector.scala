@@ -145,7 +145,7 @@ abstract class AbstractBucketBasedSelector(
         distributionState = distributionState mapValues { _ - cloud }
         activeReplications -= cloud
 
-        // throw if objects were lost
+        // terminate if data was lost
         val lostObjects = distributionState filter { case (_, clouds) => clouds.isEmpty }
         if (lostObjects.nonEmpty) {
             log("An object was lost after a cloud failure. Time to dataloss %.3fs".format(CloudSim.clock()))
@@ -158,7 +158,6 @@ abstract class AbstractBucketBasedSelector(
         // create an action plan and inform the involved clouds
         val repairPlan = createRepairPlan()
         repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
-
     }
 
     protected def selectReplicationTarget(
@@ -167,10 +166,10 @@ abstract class AbstractBucketBasedSelector(
         cloudLoad: Map[Int, Double],
         preselectedClouds: Set[Int]): Int
 
-    private def createDistributionPlan(objects: Set[StorageObject] = Set.empty): Map[String, Set[Int]] = {
+    private def createDistributionPlan(initialObjects: Set[StorageObject] = Set.empty): Map[String, Set[Int]] = {
         val bucketMap = distributionState.keySet groupBy { _.bucket }
-        val buckets = if (objects.nonEmpty) {
-            objects map { _.bucket } toSet
+        val buckets = if (initialObjects.nonEmpty) {
+            initialObjects map { _.bucket } toSet
         } else {
             bucketMap keySet
         }
@@ -248,7 +247,6 @@ abstract class AbstractBucketBasedSelector(
     }
 
     private def createRepairPlan(): Map[Int, Load] = {
-
         // additional clouds per object
         val additionalCloudMap = distributionState map {
             case (obj, currentClouds) =>

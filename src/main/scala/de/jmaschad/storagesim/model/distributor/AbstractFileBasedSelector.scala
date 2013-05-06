@@ -16,79 +16,122 @@ import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.user.User
+import org.cloudbus.cloudsim.core.CloudSim
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
     dialogEntity: DialogEntity) extends CloudSelector {
-    private var distributionState = Map.empty[StorageObject, Set[Int]]
-    private var distributionGoal = Map.empty[StorageObject, Set[Int]]
+
+    // currently online clouds
     private var clouds = Set.empty[Int]
 
-    private var activeOperations = Set.empty[RepairTracker]
-    private var activeDownloads = Set.empty[DownloadRequest]
+    // goal object cloud distribution
+    private var distributionGoal = Map.empty[StorageObject, Set[Int]]
 
-    override def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]): Unit = {
-        val cloudIdMap = { initialClouds map { cloud => cloud.getId -> cloud } toMap }
-        distributionGoal = createDistributionPlan(cloudIdMap.keySet, initialObjects)
+    // current object cloud distribution
+    private var distributionState = Map.empty[StorageObject, Set[Int]]
 
+    // current replication actions
+    private var activeReplications = Map.empty[Int, Set[StorageObject]]
+    private var startOfRepair = Double.NaN
+    private var totalSizeOfRepair = Double.NaN
+
+    override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]): Unit = {
+        clouds = microclouds map { _.getId() }
+        distributionGoal = createDistributionPlan(objects)
+
+        // initialization plan
         val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[StorageObject]]) {
             case (allocation, (obj, clouds)) =>
                 allocation ++ clouds.map(cloud => cloud -> (allocation.getOrElse(cloud, Set.empty) + obj))
         }
 
         // we don't allocate to unknown clouds
-        assert(allocationPlan.keySet.subsetOf(cloudIdMap.keySet))
+        assert(allocationPlan.keySet.subsetOf(clouds))
         // we store exactly our objects, with the correct replica count
         assert(allocationPlan.foldLeft(Map.empty[StorageObject, Int]) {
-            case (bucketCount, (cloud, objects)) =>
-                bucketCount ++ objects.map(bucket => bucket -> (bucketCount.getOrElse(bucket, 0) + 1))
+            case (objectCount, (cloud, objects)) =>
+                objectCount ++ objects.map(obj => obj -> (objectCount.getOrElse(obj, 0) + 1))
         } forall {
             _._2 == StorageSim.configuration.replicaCount
         })
 
+        // initialization of the clouds
+        val cloudIdMap = { microclouds map { cloud => cloud.getId -> cloud } toMap }
         allocationPlan foreach { case (cloudId, objects) => cloudIdMap(cloudId).initialize(objects) }
 
+        // update the distribution state
         distributionState = distributionGoal
-        clouds = cloudIdMap.keySet
     }
 
     override def addCloud(cloud: Int): Unit =
         clouds += cloud
 
     override def removeCloud(cloud: Int): Unit = {
+        val repairSize = {
+            distributionState filter {
+                case (obj, clouds) => clouds.contains(cloud)
+            } map {
+                case (obj, clouds) => obj.size
+            } sum
+        }
+        if (activeReplications.isEmpty) {
+            startOfRepair = CloudSim.clock()
+            totalSizeOfRepair = repairSize
+            log("Starting repair after failure of cloud %d [%.3fMB]".format(cloud, repairSize))
+        } else {
+            totalSizeOfRepair += repairSize
+            log("Added repair of cloud %d [%.3fMB]".format(cloud, repairSize))
+        }
+
         // update knowledge of current state
         assert(clouds.contains(cloud))
         clouds -= cloud
         distributionState = distributionState mapValues { _ - cloud }
+        activeReplications -= cloud
 
-        activeDownloads = activeDownloads filterNot { _.cloud == cloud }
-        activeOperations map { _.removeCloud(cloud) }
-
-        // throw if objects were lost
-        val lostObjects = distributionState filter { _._2.isEmpty }
+        // throw if data was lost
+        val lostObjects = distributionState filter { case (_, clouds) => clouds.isEmpty }
         if (lostObjects.nonEmpty) {
-            throw new IllegalStateException("all copies of " + lostObjects.mkString(", ") + " were lost")
+            log("An object was lost after a cloud failure. Time to dataloss %.3fs".format(CloudSim.clock()))
+            CloudSim.terminateSimulation()
         }
 
         // create new distribution goal
-        distributionGoal = createDistributionPlan(clouds, distributionState.keySet, distributionGoal)
+        distributionGoal = createDistributionPlan()
 
         // create an action plan and inform the involved clouds
-        val actionPlan = createActionPlan(distributionGoal, distributionState, activeDownloads)
-        val newDownloads = {
-            actionPlan flatMap {
-                case (cloudId, action) => action.objSourceMap.keys.map(DownloadRequest(cloudId, _))
-            } toSet
-        }
-        activeOperations += new RepairTracker(log, newDownloads)
-
-        actionPlan foreach { case (cloudId, action) => sendActions(cloudId, action) }
+        val repairPlan = createRepairPlan()
+        repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
     }
 
-    def addedObject(cloud: Int, obj: StorageObject): Unit = {}
+    def addedObject(cloud: Int, obj: StorageObject): Unit = {
+        activeReplications.contains(cloud) match {
+            case true if activeReplications(cloud).size == 1 =>
+                activeReplications -= cloud
 
-    override def selectForPost(storageObject: StorageObject): Either[RequestSummary, Int] =
-        Left(UnsufficientSpace)
+            case true =>
+                activeReplications += cloud -> { activeReplications(cloud) - obj }
+
+            case _ =>
+                throw new IllegalStateException
+        }
+
+        if (activeReplications.isEmpty) {
+            val duration = CloudSim.clock() - startOfRepair
+            val meanBandwidth = (totalSizeOfRepair / duration) * 8
+            log("Finished repair of %.3fMB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair, duration, meanBandwidth))
+            startOfRepair = Double.NaN
+            totalSizeOfRepair = Double.NaN
+        } else {
+            val remainingObjects = activeReplications flatMap { case (_, objects) => objects }
+            val remainingAmount = { remainingObjects map { _.size } sum }
+            val duration = CloudSim.clock() - startOfRepair
+            val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
+            log("repaired object [%.3fMB], %d objects remain [%.3fMB], repair mean bandwidth %.3fMbit/s".
+                format(obj.size, remainingObjects.size, remainingAmount, currentMeanBandwidth))
+        }
+    }
 
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState.getOrElse(storageObject, Set.empty) match {
@@ -112,13 +155,16 @@ abstract class AbstractFileBasedSelector(
 
     protected def selectReplicationTarget(obj: StorageObject, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
 
-    private def createDistributionPlan(
-        cloudIds: Set[Int],
-        objects: Set[StorageObject],
-        currentPlan: Map[StorageObject, Set[Int]] = Map.empty): Map[StorageObject, Set[Int]] = {
+    private def createDistributionPlan(initialObjects: Set[StorageObject] = Set.empty): Map[StorageObject, Set[Int]] = {
+        val objects = if (initialObjects.nonEmpty)
+            initialObjects
+        else
+            distributionState.keySet
 
         // remove unknown objects and clouds from the current plan
-        var distributionPlan = currentPlan.keys collect { case obj if objects.contains(obj) => obj -> currentPlan(obj).intersect(cloudIds) } toMap
+        var distributionPlan = distributionGoal.keys collect {
+            case obj if objects.contains(obj) => obj -> distributionGoal(obj).intersect(clouds)
+        } toMap
 
         // choose clouds for buckets which have too few replicas
         distributionPlan ++= objects map { obj =>
@@ -128,12 +174,12 @@ abstract class AbstractFileBasedSelector(
                 case 0 =>
                     obj -> currentReplicas
                 case n =>
-                    obj -> selectReplicas(n, obj, cloudIds, distributionPlan)
+                    obj -> selectReplicas(n, obj, clouds, distributionPlan)
             }
         }
 
         // the new plan does not contain unknown clouds
-        assert(distributionPlan.values.flatten.toSet.subsetOf(cloudIds))
+        assert(distributionPlan.values.flatten.toSet.subsetOf(clouds))
         // the new plan contains exactly the given buckets
         assert(distributionPlan.keySet == objects)
         // every bucket has the correct count of replicas
@@ -177,30 +223,48 @@ abstract class AbstractFileBasedSelector(
         clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
     }
 
-    private def createActionPlan(
-        distributionGoal: Map[StorageObject, Set[Int]],
-        distributionState: Map[StorageObject, Set[Int]],
-        activeTransactions: Set[DownloadRequest]): Map[Int, Load] = {
-
-        val additionalCloudMap = distributionState map { objectCloudMap =>
-            val storageObject = objectCloudMap._1
-            val currentClouds = objectCloudMap._2
-            val additionalClouds = distributionGoal(storageObject) diff currentClouds
-            storageObject -> additionalClouds
+    private def createRepairPlan(): Map[Int, Load] = {
+        // additional clouds per object
+        val additionalCloudMap = distributionState map {
+            case (obj, currentClouds) =>
+                val additionalClouds = distributionGoal(obj) diff currentClouds
+                obj -> additionalClouds
         }
 
-        val additionalObjectMap = additionalCloudMap.toSeq flatMap {
-            case (obj, cloudIds) =>
-                cloudIds map { obj -> _ }
-        } groupBy { _._2 } mapValues { _ map { _._1 } toSet }
-
-        additionalObjectMap mapValues { objects =>
-            Load({
-                objects map { obj =>
-                    obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
-                } toMap
-            })
+        val objectCloudTuples = additionalCloudMap.toSeq flatMap {
+            case (obj, clouds) =>
+                clouds map { obj -> _ }
         }
+
+        // additional objects per clouds
+        val additionalObjectMap = objectCloudTuples groupBy {
+            case (_, cloud) => cloud
+        } mapValues { objectCloudTuples =>
+            { objectCloudTuples unzip }._1 toSet
+        }
+
+        // remove already running replications
+        val addedReplications = additionalObjectMap map {
+            case (cloud, objects) =>
+                cloud -> { objects -- activeReplications.getOrElse(cloud, Set.empty) }
+        }
+
+        // load instructions with random source selection
+        val loadInstructions = addedReplications mapValues { objects =>
+            Load(objects map { obj =>
+                obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
+            } toMap)
+        }
+
+        // update the active replications
+        activeReplications ++= loadInstructions map {
+            case (cloud, load) =>
+                cloud -> {
+                    activeReplications.getOrElse(cloud, Set.empty[StorageObject]) ++ load.objSourceMap.keySet
+                }
+        }
+
+        loadInstructions
     }
 
     private def sendActions(cloud: Int, request: PlacementDialog): Unit = {

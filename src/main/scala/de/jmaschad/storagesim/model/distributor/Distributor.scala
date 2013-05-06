@@ -23,7 +23,7 @@ import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.GreedyBucketBased
 import de.jmaschad.storagesim.RandomBucketBased
-import de.jmaschad.storagesim.RandomFileBased
+import de.jmaschad.storagesim.RandomObjectBased
 import de.jmaschad.storagesim.GreedyFileBased
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.Dialog
@@ -42,7 +42,7 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
         case RandomBucketBased() =>
             new RandomBucketBasedSelector(log _, this)
 
-        case RandomFileBased() =>
+        case RandomObjectBased() =>
             new RandomFileBasedSelector(log _, this)
 
         case GreedyBucketBased() =>

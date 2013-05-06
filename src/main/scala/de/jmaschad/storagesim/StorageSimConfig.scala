@@ -57,7 +57,7 @@ class BehaviorConfig(
 
 sealed abstract class SelectorConfig
 case class RandomBucketBased extends SelectorConfig
-case class RandomFileBased extends SelectorConfig
+case class RandomObjectBased extends SelectorConfig
 case class GreedyBucketBased extends SelectorConfig
 case class GreedyFileBased extends SelectorConfig
 
@@ -84,9 +84,9 @@ object StorageSimConfig {
 trait StorageSimConfig {
     var passCount: Int = 1
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
-    var simDuration: Double = 60.0
+    var simDuration: Double = 60.0 * 60.0 * 24.0
 
-    var selector: SelectorConfig = RandomBucketBased()
+    var selector: SelectorConfig = RandomObjectBased()
     var replicaCount: Int = 3
 
     var regionCount: Int = 40
