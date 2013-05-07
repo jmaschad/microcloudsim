@@ -65,7 +65,7 @@ object StorageSim {
     }
 
     private def setLogFile(dir: Path): Unit = {
-        val logFile = dir.resolve("log.txt")
+        val logFile = dir.resolve("experiment_log.txt")
         Log.open(logFile)
     }
 

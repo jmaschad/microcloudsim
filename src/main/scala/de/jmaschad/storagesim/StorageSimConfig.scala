@@ -89,7 +89,7 @@ trait StorageSimConfig {
     var outputDir: String = "."
     var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = RandomObjectBased()
+    var selector: SelectorConfig = RandomBucketBased()
     var replicaCount: Int = 3
 
     var regionCount: Int = 30
