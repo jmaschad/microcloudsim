@@ -1,6 +1,5 @@
-import de.jmaschad.storagesim.StorageSimConfig
+import de.jmaschad.storagesim._
 
 new StorageSimConfig {
-	var selector = RandomObjectBased()
+    selector = RandomObjectBased()
 }
-
