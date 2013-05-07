@@ -38,16 +38,13 @@ object StorageSim {
         val experimentDir = createExperimentDir(outDir)
         createDescription(experimentDir)
 
-        (1 to configuration.passCount) foreach { pass =>
-            println("pass " + pass)
-            setLogFile(experimentDir, pass)
-            try {
-                run()
-            } catch {
-                case ex => println("pass " + pass + " finished with exception: " + ex.getClass().getSimpleName())
-            }
-            closeLogFile()
+        setLogFile(experimentDir)
+        try {
+            run()
+        } catch {
+            case ex => println("finished with exception: " + ex.getClass().getSimpleName())
         }
+        closeLogFile()
     }
 
     private def createExperimentDir(baseDir: Path): Path = {
@@ -67,8 +64,8 @@ object StorageSim {
         descWriter.close()
     }
 
-    private def setLogFile(dir: Path, pass: Int): Unit = {
-        val logFile = dir.resolve("pass " + pass + " log.txt")
+    private def setLogFile(dir: Path): Unit = {
+        val logFile = dir.resolve("log.txt")
         Log.open(logFile)
     }
 
@@ -100,12 +97,6 @@ object StorageSim {
         topologyStream foreach { writer.write(_) }
         writer.close()
         NetworkTopology.buildNetworkTopology(topologyFile.toString())
-
-        log("schedule catastrophe")
-        val nonEmptyClouds = clouds.filterNot(_.isEmpty).toIndexedSeq
-        for (idx <- 0 until 1) {
-            CloudSim.send(0, nonEmptyClouds(idx).getId(), 2 + idx, MicroCloud.Kill, null)
-        }
 
         log("will start simulation")
         CloudSim.terminateSimulation(configuration.simDuration)

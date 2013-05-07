@@ -86,9 +86,8 @@ object StorageSimConfig {
 }
 
 trait StorageSimConfig {
-    var passCount: Int = 5
-    var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente/"
-    var simDuration: Double = 3.154e7 // one year
+    var outputDir: String = "."
+    var simDuration: Double = 6.307e7 // two years
 
     var selector: SelectorConfig = RandomObjectBased()
     var replicaCount: Int = 3
