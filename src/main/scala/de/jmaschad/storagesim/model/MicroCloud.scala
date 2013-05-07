@@ -39,15 +39,19 @@ class MicroCloud(
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailure)
-    private val meanTimeToReplace = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToReplace)
 
-    private var objects = Set.empty[StorageObject]
     private var state: MicroCloudState = new OnlineState
+
+    var objects = Set.empty[StorageObject]
 
     def initialize(objs: Set[StorageObject]) =
         objects = objs
 
-    def isEmpty = objects.isEmpty
+    def isEmpty =
+        objects.isEmpty
+
+    def contains(obj: StorageObject) =
+        objects.contains(obj)
 
     override def startEntity(): Unit = {
         super.startEntity()
@@ -78,7 +82,8 @@ class MicroCloud(
     }
 
     private def scheduleReplace() = {
-        schedule(getId(), meanTimeToReplace.sample(), Boot)
+        // 30 minutes until replacement
+        schedule(getId(), 30 * 60, Boot)
     }
 
     private def switchState(newState: MicroCloudState): Unit =
@@ -127,6 +132,7 @@ class MicroCloud(
 
             case MicroCloud.Kill =>
                 log("received kill request")
+                objects = Set.empty
                 reset()
                 scheduleReplace()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
@@ -180,10 +186,10 @@ class MicroCloud(
                 case RestAck =>
                     new Downloader(log _, dialog, obj.size, download(_, _, _), { success =>
                         dialog.close()
-                        anounce(ObjectAdded(obj))
                         if (success) {
                             assert(!objects.contains(obj))
                             objects += obj
+                            anounce(ObjectAdded(obj))
                         } else {
                             log("GET timed out")
                         }

@@ -11,15 +11,13 @@ class RequestLog(
         private val start = CloudSim.clock()
         def finish(averageLatency: Double, summary: RequestSummary): Finished = {
             val duration = CloudSim.clock() - start
-            new Finished(duration, size / duration, averageLatency, summary)
+            new Finished(duration, size, averageLatency, summary)
         }
     }
 
-    private class Finished(val duration: Double, val avgBandwidth: Double, val avgLatency: Double, val summary: RequestSummary) {
-        if (avgLatency == 0.0) {
-            println("SOMETHING IS GOING WRONG")
-        }
-        override def toString = "%s in %.3fs [%.0fms latency] @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, avgBandwidth * 8)
+    private class Finished(val duration: Double, val size: Double, val avgLatency: Double, val summary: RequestSummary) {
+        val avgBandwidth = (duration / size) * 8
+        override def toString = "%s in %.3fs [%.0fms latency] %.2fMB @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, size, avgBandwidth * 8)
     }
 
     private var activeRequests = Map.empty[Long, Active]

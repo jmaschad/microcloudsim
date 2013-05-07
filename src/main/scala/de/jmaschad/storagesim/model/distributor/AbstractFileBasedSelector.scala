@@ -17,6 +17,7 @@ import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.user.User
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.MicroCloud
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
@@ -78,7 +79,7 @@ abstract class AbstractFileBasedSelector(
         if (activeReplications.isEmpty) {
             startOfRepair = CloudSim.clock()
             totalSizeOfRepair = repairSize
-            log("Starting repair after failure of cloud %d [%.3fMB]".format(cloud, repairSize))
+            log("Starting repair after failure of cloud %d [%.3fGB]".format(cloud, repairSize / 1024))
         } else {
             totalSizeOfRepair += repairSize
             log("Added repair of cloud %d [%.3fMB]".format(cloud, repairSize))
@@ -95,17 +96,18 @@ abstract class AbstractFileBasedSelector(
         if (lostObjects.nonEmpty) {
             log("An object was lost after a cloud failure. Time to dataloss %.3fs".format(CloudSim.clock()))
             CloudSim.terminateSimulation()
+        } else {
+            // create new distribution goal
+            distributionGoal = createDistributionPlan()
+
+            // create an action plan and inform the involved clouds
+            val repairPlan = createRepairPlan()
+            repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
         }
-
-        // create new distribution goal
-        distributionGoal = createDistributionPlan()
-
-        // create an action plan and inform the involved clouds
-        val repairPlan = createRepairPlan()
-        repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
     }
 
     def addedObject(cloud: Int, obj: StorageObject): Unit = {
+        // update the active replications
         activeReplications.contains(cloud) match {
             case true if activeReplications(cloud).size == 1 =>
                 activeReplications -= cloud
@@ -117,10 +119,11 @@ abstract class AbstractFileBasedSelector(
                 throw new IllegalStateException
         }
 
+        // check if a repair is finished
         if (activeReplications.isEmpty) {
             val duration = CloudSim.clock() - startOfRepair
             val meanBandwidth = (totalSizeOfRepair / duration) * 8
-            log("Finished repair of %.3fMB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair, duration, meanBandwidth))
+            log("Finished repair of %.3fGB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair / 1024, duration, meanBandwidth))
             startOfRepair = Double.NaN
             totalSizeOfRepair = Double.NaN
         } else {
@@ -128,9 +131,12 @@ abstract class AbstractFileBasedSelector(
             val remainingAmount = { remainingObjects map { _.size } sum }
             val duration = CloudSim.clock() - startOfRepair
             val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
-            log("repaired object [%.3fMB], %d objects remain [%.3fMB], repair mean bandwidth %.3fMbit/s".
-                format(obj.size, remainingObjects.size, remainingAmount, currentMeanBandwidth))
+            log("repaired object [%.3fMB], %d objects remain [%.3fGB], mean repair bandwidth %.3fMbit/s".
+                format(obj.size, remainingObjects.size, remainingAmount / 1024, currentMeanBandwidth))
         }
+
+        // update the known distribution state
+        distributionState += obj -> (distributionState.getOrElse(obj, Set.empty) + cloud)
     }
 
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
@@ -167,16 +173,16 @@ abstract class AbstractFileBasedSelector(
         } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan ++= objects map { obj =>
+        distributionPlan = objects map { obj =>
             val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
             requiredTargetsCount match {
                 case 0 =>
                     obj -> currentReplicas
                 case n =>
-                    obj -> selectReplicas(n, obj, clouds, distributionPlan)
+                    obj -> (currentReplicas ++ selectReplicas(n, obj, clouds, distributionPlan))
             }
-        }
+        } toMap
 
         // the new plan does not contain unknown clouds
         assert(distributionPlan.values.flatten.toSet.subsetOf(clouds))
@@ -199,35 +205,32 @@ abstract class AbstractFileBasedSelector(
             case 0 =>
                 distributionPlan.getOrElse(obj, Set.empty)
             case n =>
+                // compute the load of all clouds
                 val load = cloudLoad(clouds, distributionPlan)
+
+                // select the current replicas of the object
                 val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
+
+                // select a new replication target
                 val selection = selectReplicationTarget(obj, clouds, load, currentReplicas)
-                val newDistributionPlan = distributionPlan + (obj -> (distributionPlan.getOrElse(obj, Set.empty) + selection))
+                assert(!currentReplicas.contains(selection))
+
+                // update the distribution plan 
+                val newDistributionPlan = distributionPlan + (obj -> (currentReplicas + selection))
+
+                //repeat
                 selectReplicas(count - 1, obj, clouds, newDistributionPlan)
         }
 
-    private def cloudLoad(clouds: Set[Int], distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] = {
-        val sizeDistribution = distributionPlan.foldLeft(Map.empty[Int, Double])((plan, b) => {
-            val obj = b._1
-            val clouds = b._2
-            val sizeDist = clouds.map(c => c -> obj.size).groupBy(_._1).mapValues(_.map(_._2).sum)
-            plan ++ sizeDist
-        })
-
-        // normalize
-        if (sizeDistribution.nonEmpty) {
-            val max = sizeDistribution.values.max
-            sizeDistribution mapValues { _ / max }
-        }
-
-        clouds.map(c => c -> sizeDistribution.getOrElse(c, 0.0)).toMap
-    }
+    // TODO
+    private def cloudLoad(clouds: Set[Int], distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] =
+        clouds map { _ -> 0.0 } toMap
 
     private def createRepairPlan(): Map[Int, Load] = {
         // additional clouds per object
         val additionalCloudMap = distributionState map {
             case (obj, currentClouds) =>
-                val additionalClouds = distributionGoal(obj) diff currentClouds
+                val additionalClouds = distributionGoal(obj) -- currentClouds
                 obj -> additionalClouds
         }
 

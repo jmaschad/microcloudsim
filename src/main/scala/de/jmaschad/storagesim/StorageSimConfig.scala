@@ -79,7 +79,6 @@ object StorageSimConfig {
         writer.println()
         writer.println("user count = " + configuration.userCount)
         writer.println("bucket count = " + configuration.bucketCount)
-        writer.println("objects per bucket dist = " + configuration.bucketSizeType)
         writer.println("object size dist = " + configuration.objectSize)
         writer.println("mean get inteval dist = " + configuration.meanGetInterval)
         writer.println("object for get selection = " + configuration.getTargetModel)
@@ -87,30 +86,29 @@ object StorageSimConfig {
 }
 
 trait StorageSimConfig {
-    var passCount: Int = 1
+    var passCount: Int = 5
     var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente/"
     var simDuration: Double = 3.154e7 // one year
 
     var selector: SelectorConfig = RandomObjectBased()
     var replicaCount: Int = 3
 
-    var regionCount: Int = 50
-    var cloudCount: Int = 50
-    var userCount: Int = 2000
+    var regionCount: Int = 30
+    var cloudCount: Int = 30
+    var userCount: Int = 500
 
     var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
 
     // number of buckets in the system
-    var bucketCount: Int = 200
+    var bucketCount: Int = 100
+
     // how many buckets can a user access
     var bucketsPerUser: IntegerDistributionConfiguration = PoissonDist(2)
-    // 3 bucket sizes: small, medium, large
-    var bucketSizeType: IntegerDistributionConfiguration = ZipfDist(3, 2)
-    // size distribution of individual objects
-    var objectSize: RealDistributionConfiguration = WeibullDist(1.2, 10)
 
-    var meanTimeToFailure: RealDistributionConfiguration = NormalDist(86400, 3600)
-    var meanTimeToReplace: RealDistributionConfiguration = NormalDist(300, 15)
+    // size distribution of individual objects
+    var objectSize: RealDistributionConfiguration = WeibullDist(1.3, 40)
+    // mttf of 2 hours
+    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688)
 
     // mean time interval between get requests
     var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)

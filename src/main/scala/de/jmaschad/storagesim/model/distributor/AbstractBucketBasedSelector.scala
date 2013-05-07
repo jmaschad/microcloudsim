@@ -92,6 +92,7 @@ abstract class AbstractBucketBasedSelector(
         }
 
     def addedObject(cloud: Int, obj: StorageObject): Unit = {
+        // update the active replications
         activeReplications.contains(cloud) match {
             case true if activeReplications(cloud).size == 1 =>
                 activeReplications -= cloud
@@ -103,10 +104,11 @@ abstract class AbstractBucketBasedSelector(
                 throw new IllegalStateException
         }
 
+        // check if a repair is finished
         if (activeReplications.isEmpty) {
             val duration = CloudSim.clock() - startOfRepair
             val meanBandwidth = (totalSizeOfRepair / duration) * 8
-            log("Finished repair of %.3fMB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair, duration, meanBandwidth))
+            log("Finished repair of %.2fGB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair / 1024, duration, meanBandwidth))
             startOfRepair = Double.NaN
             totalSizeOfRepair = Double.NaN
         } else {
@@ -114,9 +116,12 @@ abstract class AbstractBucketBasedSelector(
             val remainingAmount = { remainingObjects map { _.size } sum }
             val duration = CloudSim.clock() - startOfRepair
             val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
-            log("repaired object [%.3fMB], %d objects remain [%.3fMB], repair mean bandwidth %.3fMbit/s".
-                format(obj.size, remainingObjects.size, remainingAmount, currentMeanBandwidth))
+            log("repaired object [%.2fMB], %d objects remain [%.2fGB], mean repair bandwidth %.3fMbit/s".
+                format(obj.size, remainingObjects.size, remainingAmount / 1024, currentMeanBandwidth))
         }
+
+        // update the known distribution state
+        distributionState += obj -> (distributionState.getOrElse(obj, Set.empty) + cloud)
     }
 
     def addCloud(cloud: Int) =
@@ -133,10 +138,10 @@ abstract class AbstractBucketBasedSelector(
         if (activeReplications.isEmpty) {
             startOfRepair = CloudSim.clock()
             totalSizeOfRepair = repairSize
-            log("Starting repair after failure of cloud %d [%.3fMB]".format(cloud, repairSize))
+            log("Starting repair after failure of cloud %d [%.2fGB]".format(cloud, repairSize / 1024))
         } else {
             totalSizeOfRepair += repairSize
-            log("Added repair of cloud %d [%.3fMB]".format(cloud, repairSize))
+            log("Added repair of cloud %d [%.2fGB]".format(cloud, repairSize / 1024))
         }
 
         // update knowledge of current state

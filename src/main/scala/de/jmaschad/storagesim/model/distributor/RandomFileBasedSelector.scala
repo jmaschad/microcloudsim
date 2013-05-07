@@ -18,6 +18,6 @@ class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         clouds: Set[Int],
         cloudLoad: Map[Int, Double],
         preselectedClouds: Set[Int]): Int = {
-        RandomUtils.randomSelect1({ clouds diff preselectedClouds } toIndexedSeq)
+        RandomUtils.randomSelect1({ clouds -- preselectedClouds } toIndexedSeq)
     }
 }

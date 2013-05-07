@@ -19,6 +19,7 @@ import de.jmaschad.storagesim.model.user.User
 import java.util.Calendar
 import java.nio.charset.Charset
 import java.io.File
+import org.apache.commons.math3.util.ArithmeticUtils
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -40,7 +41,11 @@ object StorageSim {
         (1 to configuration.passCount) foreach { pass =>
             println("pass " + pass)
             setLogFile(experimentDir, pass)
-            run()
+            try {
+                run()
+            } catch {
+                case ex => println("pass " + pass + " finished with exception: " + ex.getClass().getSimpleName())
+            }
             closeLogFile()
         }
     }
@@ -73,17 +78,17 @@ object StorageSim {
     private def run(): Unit = {
         CloudSim.init(1, Calendar.getInstance(), false)
 
-        log("create distributor")
         val distributor = new Distributor("dp")
+        log("created distributor")
 
-        log("create clouds")
         val clouds = createClouds(distributor)
+        log("created " + clouds.size + " clouds")
 
-        log("create objects")
         val objects = createObjects()
+        log("created " + objects.size + " objects")
 
-        log("create users")
         val users = createUsers(distributor, objects)
+        log("created " + users.size + " users")
 
         log("initialize the distributor with clouds and objects")
         distributor.initialize(clouds, objects, users.toSet)
@@ -97,7 +102,10 @@ object StorageSim {
         NetworkTopology.buildNetworkTopology(topologyFile.toString())
 
         log("schedule catastrophe")
-        val nonEmptyClouds = clouds.filterNot(_.isEmpty)
+        val nonEmptyClouds = clouds.filterNot(_.isEmpty).toIndexedSeq
+        for (idx <- 0 until 1) {
+            CloudSim.send(0, nonEmptyClouds(idx).getId(), 2 + idx, MicroCloud.Kill, null)
+        }
 
         log("will start simulation")
         CloudSim.terminateSimulation(configuration.simDuration)
@@ -119,20 +127,34 @@ object StorageSim {
 
     private def createObjects(): Set[StorageObject] = {
         val buckets = (1 to configuration.bucketCount) map { "bucket-" + _ }
+        val bucketSampler = new UniformIntegerDistribution(0, buckets.size - 1)
 
-        val bucketSizeType = IntegerDistributionConfiguration.toDist(configuration.bucketSizeType)
-        val bucketSizes = Seq(30, 200, 1000)
+        // all buckets get one fortune
+        var bucketFortunes = IndexedSeq.empty[Int] ++ buckets.indices
 
+        // one fourth gets one more
+        (1 to buckets.size / 4) foreach { _ =>
+            bucketFortunes = bucketFortunes :+ bucketSampler.sample()
+        }
+
+        // one sixteenth gets eight more
+        (1 to buckets.size / 16) foreach { _ =>
+            (1 to 8) foreach { _ =>
+                bucketFortunes = bucketFortunes :+ bucketSampler.sample()
+            }
+        }
+
+        // generate enough objects to use all possible placements
+        val objectCount = ArithmeticUtils.binomialCoefficient(configuration.cloudCount, configuration.replicaCount) * 5
         val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSize)
 
-        buckets flatMap { bucket: String =>
-            val sizeTypeIdx = bucketSizeType.sample() - 1
-            val objectCount = bucketSizes(sizeTypeIdx)
-
-            (1 to objectCount) map { idx: Int =>
-                val objSize = objectSizeDist.sample()
-                new StorageObject("obj" + idx, bucket, objSize)
-            } toSet
+        // generate the objects and select the bucket by lot
+        val bucketDrawer = new UniformIntegerDistribution(0, bucketFortunes.size - 1)
+        (1L to objectCount) map { idx =>
+            val objName = "obj" + idx
+            val objSize = objectSizeDist.sample()
+            val objBucket = buckets(bucketFortunes(bucketDrawer.sample()))
+            new StorageObject(objName, objBucket, objSize)
         } toSet
     }
 
