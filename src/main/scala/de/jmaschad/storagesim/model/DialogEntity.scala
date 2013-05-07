@@ -4,6 +4,7 @@ import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import scala.util.Random
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.model.distributor.Distributor
 
 object DialogEntity {
     val Timeout = 1.0
@@ -48,7 +49,13 @@ trait DialogEntity extends Entity {
     private var dialogs = Map.empty[String, Dialog]
 
     def openDialog(target: Int): Dialog = {
-        val avgDelay = NetworkDelay.between(region, Entity.entityForId(target).region)
+        val targetEnity = Entity.entityForId(target)
+        val avgDelay = NetworkDelay.between(region, targetEnity.region)
+
+        if (avgDelay == 0.0 && !this.isInstanceOf[Distributor] && !targetEnity.isInstanceOf[Distributor]) {
+            println("PROBLEM")
+        }
+
         val dialog = new Dialog(target, this, avgDelay)
         assert(!dialogs.isDefinedAt(dialog.id))
         dialogs += dialog.id -> dialog

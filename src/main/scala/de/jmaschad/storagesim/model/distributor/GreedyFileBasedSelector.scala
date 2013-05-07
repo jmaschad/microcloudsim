@@ -2,7 +2,7 @@ package de.jmaschad.storagesim.model.distributor
 
 import scala.collection.immutable.SortedSet
 import scala.math._
-import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.StorageObject
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.user.User
 import de.jmaschad.storagesim.model.NetworkDelay

@@ -1,34 +1,25 @@
-package de.jmaschad.storagesim.model.microcloud
+package de.jmaschad.storagesim.model
 
-import scala.Enumeration
-import org.apache.commons.math3.distribution.UniformRealDistribution
-import org.cloudbus.cloudsim.core.SimEntity
-import org.cloudbus.cloudsim.core.SimEvent
-import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.DialogEntity
-import de.jmaschad.storagesim.model.ProcessingEntity
-import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.processing.StorageSystem
-import de.jmaschad.storagesim.model.transfer.Uploader
-import de.jmaschad.storagesim.model.BaseEntity
-import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
-import de.jmaschad.storagesim.model.transfer.dialogs.Get
-import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
-import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
-import de.jmaschad.storagesim.model.transfer.dialogs.Load
-import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
-import de.jmaschad.storagesim.model.transfer.Downloader
-import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudOnline
 import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusDialog
-import de.jmaschad.storagesim.model.transfer.dialogs.ObjectAdded
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementDialog
+import de.jmaschad.storagesim.model.transfer.dialogs.Get
+import de.jmaschad.storagesim.model.transfer.dialogs.RestAck
+import org.apache.commons.math3.distribution.UniformRealDistribution
+import de.jmaschad.storagesim.model.transfer.dialogs.Load
+import de.jmaschad.storagesim.model.distributor.Distributor
+import de.jmaschad.storagesim.model.transfer.dialogs.CloudStatusAck
+import de.jmaschad.storagesim.model.transfer.Uploader
+import de.jmaschad.storagesim.model.transfer.dialogs.PlacementAck
 import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
-import de.jmaschad.storagesim.model.Dialog
-import org.cloudbus.cloudsim.core.CloudSim
-import de.jmaschad.storagesim.StorageSim
+import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.RealDistributionConfiguration
+import de.jmaschad.storagesim.model.transfer.dialogs.RestDialog
+import de.jmaschad.storagesim.model.transfer.Downloader
+import de.jmaschad.storagesim.StorageSim
+import MicroCloud._
+import de.jmaschad.storagesim.model.transfer.dialogs.DownloadReady
+import de.jmaschad.storagesim.model.transfer.dialogs.ObjectAdded
 
 object MicroCloud {
     private val Base = 10200
@@ -40,25 +31,23 @@ object MicroCloud {
     val Request = Kill + 1
     val DistributorRequest = Request + 1
 }
-import MicroCloud._
 
 class MicroCloud(
     name: String,
     region: Int,
-    resourceCharacteristics: ResourceCharacteristics,
+    val bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
-    protected val bandwidth = resourceCharacteristics.bandwidth
+    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailure)
+    private val meanTimeToReplace = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToReplace)
 
-    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailureDistribution)
-    private val meanTimeToReplace = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToReplaceDistribution)
-
-    private var storageSystem = new StorageSystem(log _, resourceCharacteristics.storageDevices)
+    private var objects = Set.empty[StorageObject]
     private var state: MicroCloudState = new OnlineState
 
-    def initialize(objects: Set[StorageObject]) = storageSystem.addAll(objects)
+    def initialize(objs: Set[StorageObject]) =
+        objects = objs
 
-    def isEmpty = storageSystem.isEmpty
+    def isEmpty = objects.isEmpty
 
     override def startEntity(): Unit = {
         super.startEntity()
@@ -79,8 +68,13 @@ class MicroCloud(
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
-    private def scheduleFailure(offset: Double = 0.0) = {
-        schedule(getId(), offset + meanTimeToFailure.sample(), Kill)
+    private def scheduleFailure(uptime: Double = 0.0) = {
+        var ttf = -uptime
+        while (ttf <= 0.0) {
+            ttf += meanTimeToFailure.sample()
+        }
+
+        schedule(getId(), ttf, Kill)
     }
 
     private def scheduleReplace() = {
@@ -188,7 +182,8 @@ class MicroCloud(
                         dialog.close()
                         anounce(ObjectAdded(obj))
                         if (success) {
-                            storageSystem.add(obj)
+                            assert(!objects.contains(obj))
+                            objects += obj
                         } else {
                             log("GET timed out")
                         }

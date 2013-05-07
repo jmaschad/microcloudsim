@@ -17,3 +17,5 @@ libraryDependencies += "org.joda" % "joda-convert" % "1.+"
 fork := true
 
 javaOptions += "-Xmx2G"
+
+javacOptions ++= Seq("-source", "1.6")

@@ -8,9 +8,8 @@ import User._
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
-import de.jmaschad.storagesim.model.ResourceCharacteristics
 import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.Get
 import de.jmaschad.storagesim.model.transfer.dialogs.Lookup
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
@@ -36,15 +35,13 @@ class User(
     val objects: Set[StorageObject],
     val getObjectIndex: IntegerDistribution,
     val medianGetDelay: Double,
-    resources: ResourceCharacteristics,
+    val bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
-    protected val storageDevices = resources.storageDevices
-    protected val bandwidth = resources.bandwidth
 
-    private val getDelay = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
+    private val getInterval = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
     private val requestLog = new RequestLog(log)
 
-    private val objectIndexMap = Random.shuffle(objects.toIndexedSeq).zip(0 until objects.size).toMap
+    private val objectIndexMap = Random.shuffle(objects.toIndexedSeq) zip (0 until objects.size) toMap
     private val indexObjectMap = objectIndexMap map { case (obj, index) => index -> obj }
 
     User.users += this
@@ -57,7 +54,8 @@ class User(
 
     override def startEntity(): Unit = {
         super.startEntity()
-        send(getId, getDelay.sample().max(0.01), ScheduleGet)
+        val firstGetIn = getInterval.sample().max(0.01)
+        send(getId, firstGetIn, ScheduleGet)
     }
 
     override def shutdownEntity() = log(requestLog.summary())
@@ -66,7 +64,7 @@ class User(
         event.getTag() match {
             case ScheduleGet =>
                 scheduleRequest(RequestType.Get)
-                send(getId, getDelay.sample().max(0.01), ScheduleGet)
+                send(getId, getInterval.sample().max(0.01), ScheduleGet)
 
             case _ =>
                 super.processEvent(event)

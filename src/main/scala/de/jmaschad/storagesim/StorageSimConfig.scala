@@ -10,28 +10,33 @@ import de.jmaschad.storagesim.model.user.UserBehavior
 import de.jmaschad.storagesim.model.user.RequestType._
 import java.io.PrintWriter
 import org.apache.commons.math3.distribution.ZipfDistribution
+import org.apache.commons.math3.distribution.WeibullDistribution
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {
         case NormalDist(mean, dev) => new NormalDistribution(mean, dev)
         case ExponentialDist(mean) => new ExponentialDistribution(mean)
+        case WeibullDist(alpha, beta) => new WeibullDistribution(alpha, beta)
         case _ => throw new IllegalStateException
     }
 }
 sealed abstract class RealDistributionConfiguration
 case class NormalDist(mean: Double, deviation: Double) extends RealDistributionConfiguration
 case class ExponentialDist(mean: Double) extends RealDistributionConfiguration
+case class WeibullDist(alpha: Double, beta: Double) extends RealDistributionConfiguration
 
 object IntegerDistributionConfiguration {
     def toDist(config: IntegerDistributionConfiguration): IntegerDistribution = config match {
         case PoissonDist(mean) => new PoissonDistribution(mean)
         case UniformIntDist(min, max) => new UniformIntegerDistribution(min, max)
+        case ZipfDist(elems, exp) => new ZipfDistribution(elems, exp)
         case _ => throw new IllegalStateException
     }
 }
 sealed abstract class IntegerDistributionConfiguration
 case class PoissonDist(mean: Double) extends IntegerDistributionConfiguration
 case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfiguration
+case class ZipfDist(elems: Int, exp: Double) extends IntegerDistributionConfiguration
 
 object ObjectSelectionModel {
     def toDist(objectCount: Int, config: ObjectSelectionModel): IntegerDistribution = config match {
@@ -70,39 +75,45 @@ object StorageSimConfig {
         writer.println("replica count = " + configuration.replicaCount)
         writer.println()
         writer.println("cloud count = " + configuration.cloudCount)
-        writer.println("cloud bandwidth dist = " + configuration.cloudBandwidthDistribution)
+        writer.println("cloud bandwidth dist = " + configuration.cloudBandwidth)
         writer.println()
         writer.println("user count = " + configuration.userCount)
         writer.println("bucket count = " + configuration.bucketCount)
-        writer.println("object count dist = " + configuration.objectCountDistribution)
-        writer.println("object size dist = " + configuration.objectSizeDistribution)
-        writer.println("median get delay dist = " + configuration.medianGetDelayDistribution)
-        writer.println("object for get selection = " + configuration.objectForGetDistribution)
+        writer.println("objects per bucket dist = " + configuration.bucketSizeType)
+        writer.println("object size dist = " + configuration.objectSize)
+        writer.println("mean get inteval dist = " + configuration.meanGetInterval)
+        writer.println("object for get selection = " + configuration.getTargetModel)
     }
 }
 
 trait StorageSimConfig {
     var passCount: Int = 1
-    var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente"
-    var simDuration: Double = 60.0 * 60.0 * 24.0
+    var outputDir: String = "/Users/wanbird/Documents/Grosser Beleg/Experimente/"
+    var simDuration: Double = 3.154e7 // one year
 
     var selector: SelectorConfig = RandomObjectBased()
     var replicaCount: Int = 3
 
-    var regionCount: Int = 40
-    var cloudCount: Int = 100
-    var storageDevicesPerCloud: Int = 10
-    var cloudBandwidthDistribution: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
+    var regionCount: Int = 50
+    var cloudCount: Int = 50
+    var userCount: Int = 2000
 
-    var meanTimeToFailureDistribution: RealDistributionConfiguration = NormalDist(100 * 60, 1)
-    var meanTimeToReplaceDistribution: RealDistributionConfiguration = NormalDist(30, 5)
+    var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
 
-    var userCount: Int = 1000
-    var bucketCount: Int = (userCount * 0.3).toInt
-    var accessedBucketCountDist: IntegerDistributionConfiguration = PoissonDist(1)
-    var objectCountDistribution: IntegerDistributionConfiguration = PoissonDist(100)
-    var objectSizeDistribution: RealDistributionConfiguration = ExponentialDist(5 * Units.MByte)
+    // number of buckets in the system
+    var bucketCount: Int = 200
+    // how many buckets can a user access
+    var bucketsPerUser: IntegerDistributionConfiguration = PoissonDist(2)
+    // 3 bucket sizes: small, medium, large
+    var bucketSizeType: IntegerDistributionConfiguration = ZipfDist(3, 2)
+    // size distribution of individual objects
+    var objectSize: RealDistributionConfiguration = WeibullDist(1.2, 10)
 
-    var medianGetDelayDistribution: RealDistributionConfiguration = NormalDist(2, 0.5)
-    var objectForGetDistribution: ObjectSelectionModel = ZipfSelection()
+    var meanTimeToFailure: RealDistributionConfiguration = NormalDist(86400, 3600)
+    var meanTimeToReplace: RealDistributionConfiguration = NormalDist(300, 15)
+
+    // mean time interval between get requests
+    var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)
+    // which object will be selected for download
+    var getTargetModel: ObjectSelectionModel = ZipfSelection()
 }

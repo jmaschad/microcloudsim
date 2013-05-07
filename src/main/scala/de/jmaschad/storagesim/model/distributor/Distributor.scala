@@ -4,9 +4,9 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
+import de.jmaschad.storagesim.model.MicroCloud
 import de.jmaschad.storagesim.model.user.User
-import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.StorageObject
 import de.jmaschad.storagesim.model.BaseEntity
 import de.jmaschad.storagesim.model.ProcessingEntity
 import de.jmaschad.storagesim.model.DialogEntity

@@ -16,6 +16,9 @@ class RequestLog(
     }
 
     private class Finished(val duration: Double, val avgBandwidth: Double, val avgLatency: Double, val summary: RequestSummary) {
+        if (avgLatency == 0.0) {
+            println("SOMETHING IS GOING WRONG")
+        }
         override def toString = "%s in %.3fs [%.0fms latency] @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, avgBandwidth * 8)
     }
 

@@ -1,35 +1,24 @@
 
 package de.jmaschad.storagesim
 
-import java.io.File
-import scala.util.Random
-import org.apache.commons.math3.distribution.IntegerDistribution
-import org.apache.commons.math3.distribution.RealDistribution
-import org.apache.commons.math3.distribution.UniformIntegerDistribution
-import org.cloudbus.cloudsim.core.CloudSim
-import com.twitter.util.Eval
-import de.jmaschad.storagesim.model.ResourceCharacteristics
-import de.jmaschad.storagesim.model.distributor.Distributor
-import de.jmaschad.storagesim.model.distributor.CloudSelector
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.processing.StorageDevice
-import de.jmaschad.storagesim.model.processing.StorageObject
-import de.jmaschad.storagesim.model.user.User
-import de.jmaschad.storagesim.model.user.UserBehavior
-import de.jmaschad.storagesim.model.user.RequestType
-import de.jmaschad.storagesim.model.transfer.Transfer
-import de.jmaschad.storagesim.model.transfer.dialogs.Get
-import org.cloudbus.cloudsim.NetworkTopology
-import java.nio.file.Path
-import java.nio.file.Paths
-import java.util.Calendar
-import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import java.nio.file.Files
-import java.nio.charset.Charset
 import java.io.PrintWriter
-import java.io.BufferedInputStream
+import org.cloudbus.cloudsim.core.CloudSim
+import org.cloudbus.cloudsim.NetworkTopology
+import de.jmaschad.storagesim.model.distributor.Distributor
+import org.apache.commons.math3.distribution.UniformIntegerDistribution
+import de.jmaschad.storagesim.model.MicroCloud
+import java.nio.file.Paths
+import de.jmaschad.storagesim.model.StorageObject
+import java.nio.file.Path
+import java.nio.file.Files
+import org.joda.time.DateTime
+import com.twitter.util.Eval
 import scala.io.Source
+import de.jmaschad.storagesim.model.user.User
+import java.util.Calendar
+import java.nio.charset.Charset
+import java.io.File
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -117,49 +106,67 @@ object StorageSim {
 
     private def createClouds(disposer: Distributor): Set[MicroCloud] = {
         assert(configuration.cloudCount >= configuration.replicaCount)
+        val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidth)
 
-        val regionDist = new UniformIntegerDistribution(1, configuration.regionCount)
-        val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidthDistribution)
         (0 until configuration.cloudCount) map { i: Int =>
-            val storageDevices = (1 to configuration.storageDevicesPerCloud) map
-                { _ => new StorageDevice(2 * Units.TByte) }
-            val charact = new ResourceCharacteristics(bandwidth = cloudBandwidthDist.sample().max(1), storageDevices = storageDevices)
-            new MicroCloud("mc" + (i + 1), regionDist.sample(), charact, disposer)
+            val name = "mc" + (i + 1)
+            val region = (i % (configuration.regionCount - 1)) + 1
+            assert(region != 0)
+            val bandwidth = cloudBandwidthDist.sample().max(1)
+            new MicroCloud(name, region, bandwidth, disposer)
         } toSet
     }
 
     private def createObjects(): Set[StorageObject] = {
         val buckets = (1 to configuration.bucketCount) map { "bucket-" + _ }
-        val objectCountDist = IntegerDistributionConfiguration.toDist(configuration.objectCountDistribution)
-        val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSizeDistribution)
+
+        val bucketSizeType = IntegerDistributionConfiguration.toDist(configuration.bucketSizeType)
+        val bucketSizes = Seq(30, 200, 1000)
+
+        val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSize)
+
         buckets flatMap { bucket: String =>
-            (1 to objectCountDist.sample()) map { i: Int => new StorageObject("obj" + i, bucket, objectSizeDist.sample()) } toSet
+            val sizeTypeIdx = bucketSizeType.sample() - 1
+            val objectCount = bucketSizes(sizeTypeIdx)
+
+            (1 to objectCount) map { idx: Int =>
+                val objSize = objectSizeDist.sample()
+                new StorageObject("obj" + idx, bucket, objSize)
+            } toSet
         } toSet
     }
 
-    private def createUsers(distributor: Distributor, storageObjects: Set[StorageObject]): Seq[User] = {
-        val regionDist = new UniformIntegerDistribution(1, configuration.regionCount)
-        val getDelayDist = RealDistributionConfiguration.toDist(configuration.medianGetDelayDistribution)
+    private def createUsers(distributor: Distributor, objects: Set[StorageObject]): Seq[User] = {
 
-        val bucketMap = storageObjects.groupBy(_.bucket)
-        val bucketSeq = bucketMap.keys.toIndexedSeq
-        val bucketCount = bucketMap.keySet.size
-        val bucketCountDist = IntegerDistributionConfiguration.toDist(configuration.accessedBucketCountDist)
+        val regionDist = new UniformIntegerDistribution(1, configuration.regionCount - 1)
+        val meanGetIntervalDist = RealDistributionConfiguration.toDist(configuration.meanGetInterval)
+
+        val bucketObjectMap = objects.groupBy(_.bucket)
+        val bucketSeq = bucketObjectMap.keys.toIndexedSeq
+        val bucketCount = bucketObjectMap.keySet.size
+        val bucketsPerUserDist = IntegerDistributionConfiguration.toDist(configuration.bucketsPerUser)
 
         for (i <- 1 to configuration.userCount) yield {
+            val userName = "u" + i
+
+            val region = regionDist.sample()
+            assert(region != 0)
+
             val userBuckets = if (bucketCount == 1) {
-                bucketMap.keySet
+                bucketObjectMap.keySet
             } else {
-                val userBucketCount = bucketCountDist.sample().max(1)
+                val userBucketCount = bucketsPerUserDist.sample() max 1
                 new UniformIntegerDistribution(0, bucketCount - 1).sample(userBucketCount) map { bucketSeq(_) } toSet
             }
-            val objects = userBuckets flatMap { bucketMap(_) }
-            val objectForGetDist = ObjectSelectionModel.toDist(objects.size, configuration.objectForGetDistribution)
+            val userObjects = userBuckets flatMap { bucketObjectMap(_) }
 
-            val storage = new StorageDevice(2 * Units.TByte)
-            val resources = new ResourceCharacteristics(bandwidth = 4 * Units.MByte, storageDevices = Seq(storage))
+            val objectForGetDist = ObjectSelectionModel.toDist(userObjects.size, configuration.getTargetModel)
 
-            new User("u" + i, regionDist.sample(), objects, objectForGetDist, getDelayDist.sample() max 0.1, resources, distributor)
+            val meanGetInterval = meanGetIntervalDist.sample() max 0.1
+
+            val bandwidth = 4.0 * Units.MByte
+
+            new User(userName, region, userObjects, objectForGetDist, meanGetInterval, bandwidth, distributor)
         }
     }
 }

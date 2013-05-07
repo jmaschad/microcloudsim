@@ -1,7 +1,7 @@
 package de.jmaschad.storagesim.model.distributor
 
-import de.jmaschad.storagesim.model.microcloud.MicroCloud
-import de.jmaschad.storagesim.model.processing.StorageObject
+import de.jmaschad.storagesim.model.MicroCloud
+import de.jmaschad.storagesim.model.StorageObject
 import de.jmaschad.storagesim.model.transfer.dialogs.RequestSummary._
 import de.jmaschad.storagesim.model.user.User
 
