@@ -39,8 +39,6 @@ class User(
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     private val getInterval = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
-    private val requestLog = new RequestLog(log)
-
     private val objectIndexMap = Random.shuffle(objects.toIndexedSeq) zip (0 until objects.size) toMap
     private val indexObjectMap = objectIndexMap map { case (obj, index) => index -> obj }
 
@@ -58,7 +56,7 @@ class User(
         send(getId, firstGetIn, ScheduleGet)
     }
 
-    override def shutdownEntity() = log(requestLog.summary())
+    override def shutdownEntity() = {}
 
     override def processEvent(event: SimEvent) =
         event.getTag() match {
@@ -77,7 +75,6 @@ class User(
         case RequestType.Get =>
             val obj = indexObjectMap(getObjectIndex.sample())
             val get = Get(obj)
-            requestLog.add(get)
             lookupCloud(get, openGetDialog _)
 
         case _ => throw new IllegalStateException
@@ -101,7 +98,7 @@ class User(
                     dialog.close()
                     val requestState = if (success) Complete else TimeOut
 
-                    requestLog.finish(get, dialog.averageDelay, requestState)
+                    //                    requestLog.finish(get, dialog.averageDelay, requestState)
                 }
 
                 new Downloader(log _, dialog, get.obj.size, download _, onFinish)
@@ -112,7 +109,6 @@ class User(
 
         dialog.say(get, { () =>
             dialog.close()
-            requestLog.finish(get, TimeOut)
         })
     }
 
