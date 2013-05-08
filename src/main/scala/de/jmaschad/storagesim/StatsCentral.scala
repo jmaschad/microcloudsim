@@ -35,7 +35,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
     private def logStats() = {
         var message = requestStats() + " " + loadStats() + " " + repairStats()
         if (!message.trim().isEmpty())
-            Log.line("Stats Central", message)
+            Log.line("SC", message)
     }
 
     /*

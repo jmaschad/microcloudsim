@@ -22,7 +22,7 @@ class Downloader(
         case Packet(size, timeSend) =>
             val latency = CloudSim.clock() - timeSend
             remainingPackets -= 1
-            process(dialog.id, size, () => {
+            process(dialog.id, packetSize, () => {
                 dialog.say(Ack, timeoutHandler)
             })
 

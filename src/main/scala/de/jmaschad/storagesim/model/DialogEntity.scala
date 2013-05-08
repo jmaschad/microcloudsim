@@ -9,7 +9,7 @@ import org.cloudbus.cloudsim.core.CloudSim
 import org.cloudbus.cloudsim.core.CloudSim
 
 object DialogEntity {
-    val Timeout = 3.0
+    val Timeout = 2.0
     type TimeoutHandler = () => Unit
     type MessageHandler = AnyRef => Unit
 
