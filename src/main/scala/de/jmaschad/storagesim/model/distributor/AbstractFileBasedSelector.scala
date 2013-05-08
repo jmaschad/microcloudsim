@@ -31,7 +31,7 @@ abstract class AbstractFileBasedSelector(
     private var distributionGoal = Map.empty[StorageObject, Set[Int]]
 
     // current object cloud distribution
-    private var distributionState = Map.empty[StorageObject, Set[Int]]
+    var distributionState = Map.empty[StorageObject, Set[Int]]
 
     // current replication actions
     private var activeReplications = Map.empty[Int, Set[StorageObject]]
@@ -139,21 +139,6 @@ abstract class AbstractFileBasedSelector(
         // update the known distribution state
         distributionState += obj -> (distributionState.getOrElse(obj, Set.empty) + cloud)
     }
-
-    override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
-        distributionState.getOrElse(storageObject, Set.empty) match {
-            case targets if targets.size == 0 =>
-                Left(ObjectNotFound)
-            case targets if targets.size == 1 =>
-                Right(targets.head)
-            case targets =>
-                val sortedTargets = targets.toIndexedSeq.sortWith(
-                    (t1, t2) =>
-                        NetworkDelay.between(region, Entity.entityForId(t1).region) <
-                            NetworkDelay.between(region, Entity.entityForId(t2).region))
-
-                Right(sortedTargets.head)
-        }
 
     protected def selectReplicationTarget(obj: StorageObject, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
 

@@ -66,8 +66,6 @@ class BehaviorConfig(
 sealed abstract class SelectorConfig
 case class RandomBucketBased extends SelectorConfig
 case class RandomObjectBased extends SelectorConfig
-case class GreedyBucketBased extends SelectorConfig
-case class GreedyFileBased extends SelectorConfig
 
 object StorageSimConfig {
     def printDescription(configuration: StorageSimConfig, writer: PrintWriter): Unit = {
