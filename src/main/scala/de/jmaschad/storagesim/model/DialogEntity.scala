@@ -5,9 +5,11 @@ import org.cloudbus.cloudsim.core.SimEvent
 import scala.util.Random
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.distributor.Distributor
+import org.cloudbus.cloudsim.core.CloudSim
+import org.cloudbus.cloudsim.core.CloudSim
 
 object DialogEntity {
-    val Timeout = 1.0
+    val Timeout = 3.0
     type TimeoutHandler = () => Unit
     type MessageHandler = AnyRef => Unit
 
@@ -100,6 +102,8 @@ trait DialogEntity extends Entity {
 
         case _ =>
             // probably timeouts
+            log("Received unknown message: " + message.content + " from " + CloudSim.getEntityName(source))
+            message.content
             throw new IllegalStateException
     }
 

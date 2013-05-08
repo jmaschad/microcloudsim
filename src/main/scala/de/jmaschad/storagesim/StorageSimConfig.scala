@@ -11,12 +11,14 @@ import de.jmaschad.storagesim.model.user.RequestType._
 import java.io.PrintWriter
 import org.apache.commons.math3.distribution.ZipfDistribution
 import org.apache.commons.math3.distribution.WeibullDistribution
+import org.apache.commons.math3.distribution.UniformRealDistribution
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {
         case NormalDist(mean, dev) => new NormalDistribution(mean, dev)
         case ExponentialDist(mean) => new ExponentialDistribution(mean)
         case WeibullDist(alpha, beta) => new WeibullDistribution(alpha, beta)
+        case UniformRealDist(min, max) => new UniformRealDistribution(min, max)
         case _ => throw new IllegalStateException
     }
 }
@@ -24,6 +26,7 @@ sealed abstract class RealDistributionConfiguration
 case class NormalDist(mean: Double, deviation: Double) extends RealDistributionConfiguration
 case class ExponentialDist(mean: Double) extends RealDistributionConfiguration
 case class WeibullDist(alpha: Double, beta: Double) extends RealDistributionConfiguration
+case class UniformRealDist(min: Double, max: Double) extends RealDistributionConfiguration
 
 object IntegerDistributionConfiguration {
     def toDist(config: IntegerDistributionConfiguration): IntegerDistribution = config match {
@@ -86,7 +89,7 @@ object StorageSimConfig {
 }
 
 trait StorageSimConfig {
-    var outputDir: String = "."
+    var outputDir: String = "experiments"
     var simDuration: Double = 6.307e7 // two years
 
     var selector: SelectorConfig = RandomBucketBased()
@@ -107,7 +110,7 @@ trait StorageSimConfig {
     // size distribution of individual objects
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
     // mttf of 2 hours
-    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688)
+    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
 
     // mean time interval between get requests
     var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)
