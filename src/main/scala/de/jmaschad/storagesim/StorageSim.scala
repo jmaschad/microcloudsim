@@ -43,7 +43,7 @@ object StorageSim {
             run()
         } catch {
             case ex =>
-                Log.line("SIMULATION", "Exited with exception:\n" + ex.getMessage())
+                Log.line("SIMULATION", "Exited with exception:\n" + ex + "\n\n" + ex.getStackTraceString)
         }
         closeLogFile()
     }
