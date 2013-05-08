@@ -17,7 +17,7 @@ class RequestLog(
 
     private class Finished(val duration: Double, val size: Double, val avgLatency: Double, val summary: RequestSummary) {
         val avgBandwidth = (duration / size) * 8
-        override def toString = "%s in %.3fs [%.0fms latency] %.2fMB @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, size, avgBandwidth * 8)
+        override def toString = "%s in %.3fs [%.0fms latency] %.2fMB @ %.3fMBit/s".format(summary, duration, avgLatency * 1000, size, avgBandwidth)
     }
 
     private var activeRequests = Map.empty[Long, Active]

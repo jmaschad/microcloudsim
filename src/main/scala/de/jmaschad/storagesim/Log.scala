@@ -17,8 +17,10 @@ import java.nio.file.Path
 object Log {
     private var fileWriter: Option[PrintWriter] = None
 
-    def open(logFile: Path): Unit =
-        fileWriter = Some(new PrintWriter(Files.newBufferedWriter(logFile, Charset.forName("UTF-8"))))
+    def open(logFile: Path): Unit = {
+
+        fileWriter = Some(new PrintWriter(Files.newOutputStream(logFile), true))
+    }
 
     def close(): Unit =
         fileWriter.foreach(_.close)

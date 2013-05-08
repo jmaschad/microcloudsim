@@ -2,7 +2,7 @@ seq(com.github.retronym.SbtOneJar.oneJarSettings: _*)
 
 name := "MicroCloudSim"
 
-version := "0.1"
+version := "0.8"
 
 resolvers += "twitter" at "http://maven.twttr.com"
 
@@ -17,5 +17,3 @@ libraryDependencies += "org.joda" % "joda-convert" % "1.+"
 fork := true
 
 javaOptions += "-Xmx2G"
-
-javacOptions ++= Seq("-source", "1.6")

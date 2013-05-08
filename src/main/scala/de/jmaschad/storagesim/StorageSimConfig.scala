@@ -105,7 +105,7 @@ trait StorageSimConfig {
     var bucketsPerUser: IntegerDistributionConfiguration = PoissonDist(2)
 
     // size distribution of individual objects
-    var objectSize: RealDistributionConfiguration = WeibullDist(1.3, 40)
+    var objectSize: RealDistributionConfiguration = ExponentialDist(30)
     // mttf of 2 hours
     var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688)
 
