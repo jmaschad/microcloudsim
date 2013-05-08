@@ -176,12 +176,7 @@ abstract class AbstractFileBasedSelector(
         distributionPlan = objects map { obj =>
             val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
-            requiredTargetsCount match {
-                case 0 =>
-                    obj -> currentReplicas
-                case n =>
-                    obj -> (currentReplicas ++ selectReplicas(n, obj, clouds, distributionPlan))
-            }
+            obj -> selectReplicas(requiredTargetsCount, obj, clouds, distributionPlan)
         } toMap
 
         // the new plan does not contain unknown clouds

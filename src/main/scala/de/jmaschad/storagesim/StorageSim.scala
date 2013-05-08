@@ -39,11 +39,11 @@ object StorageSim {
         createDescription(experimentDir)
 
         setLogFile(experimentDir)
-        try {
-            run()
-        } catch {
-            case ex => println("finished with exception: " + ex.getClass().getSimpleName())
-        }
+        //        try {
+        run()
+        //        } catch {
+        //            case ex => println("finished with exception: " + ex.getClass().getSimpleName())
+        //        }
         closeLogFile()
     }
 

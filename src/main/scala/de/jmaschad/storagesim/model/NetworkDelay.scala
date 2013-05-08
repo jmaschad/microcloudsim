@@ -5,9 +5,10 @@ import org.apache.commons.math3.distribution.NormalDistribution
 import de.jmaschad.storagesim.StorageSimConfig
 import de.jmaschad.storagesim.StorageSim
 import org.cloudbus.cloudsim.NetworkTopology
+import org.apache.commons.math3.distribution.WeibullDistribution
 
 object NetworkDelay {
-    val regionDelay = new NormalDistribution(0.1, 0.03)
+    val regionDelay = new WeibullDistribution(2, 40)
     /**
      * Computes a networking delay between two regions.
      * The delay is a function of the numerical difference
@@ -19,7 +20,7 @@ object NetworkDelay {
         if (regionA == 0 || regionB == 0) {
             0.0f
         } else if (regionA == regionB) {
-            regionDelay.sample().max(0.001)
+            regionDelay.sample() * 0.001
         } else {
             NetworkTopology.getDelay(regionA, regionB)
         }

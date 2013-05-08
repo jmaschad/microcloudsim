@@ -186,16 +186,11 @@ abstract class AbstractBucketBasedSelector(
         } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan ++= buckets map { bucket =>
+        distributionPlan = buckets map { bucket =>
             val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
             val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
-            requiredTargetsCount match {
-                case 0 =>
-                    bucket -> currentReplicas
-                case n =>
-                    bucket -> selectReplicas(n, bucket, clouds, bucketMap, distributionPlan)
-            }
-        }
+            bucket -> selectReplicas(requiredTargetsCount, bucket, clouds, bucketMap, distributionPlan)
+        } toMap
 
         // the new plan does not contain unknown clouds
         assert(distributionPlan.values.flatten.toSet.subsetOf(clouds))
