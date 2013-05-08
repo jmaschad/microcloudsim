@@ -19,6 +19,7 @@ import de.jmaschad.storagesim.model.user.User
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.MicroCloud
 import scala.util.Random
+import de.jmaschad.storagesim.StatsCentral
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
@@ -35,8 +36,6 @@ abstract class AbstractFileBasedSelector(
 
     // current replication actions
     private var activeReplications = Map.empty[Int, Set[StorageObject]]
-    private var startOfRepair = Double.NaN
-    private var totalSizeOfRepair = Double.NaN
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]): Unit = {
         clouds = microclouds map { _.getId() }
@@ -77,14 +76,7 @@ abstract class AbstractFileBasedSelector(
                 case (obj, clouds) => obj.size
             } sum
         }
-        if (activeReplications.isEmpty) {
-            startOfRepair = CloudSim.clock()
-            totalSizeOfRepair = repairSize
-            log("Starting repair after failure of cloud %d [%.3fGB]".format(cloud, repairSize / 1024))
-        } else {
-            totalSizeOfRepair += repairSize
-            log("Added repair of cloud %d [%.3fMB]".format(cloud, repairSize))
-        }
+        StatsCentral.startRepair(repairSize)
 
         // update knowledge of current state
         assert(clouds.contains(cloud))
@@ -122,18 +114,9 @@ abstract class AbstractFileBasedSelector(
 
         // check if a repair is finished
         if (activeReplications.isEmpty) {
-            val duration = CloudSim.clock() - startOfRepair
-            val meanBandwidth = (totalSizeOfRepair / duration) * 8
-            log("Finished repair of %.3fGB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair / 1024, duration, meanBandwidth))
-            startOfRepair = Double.NaN
-            totalSizeOfRepair = Double.NaN
+            StatsCentral.finishRepair()
         } else {
-            val remainingObjects = activeReplications flatMap { case (_, objects) => objects }
-            val remainingAmount = { remainingObjects map { _.size } sum }
-            val duration = CloudSim.clock() - startOfRepair
-            val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
-            log("repaired object [%.3fMB], %d objects remain [%.3fGB], mean repair bandwidth %.3fMbit/s".
-                format(obj.size, remainingObjects.size, remainingAmount / 1024, currentMeanBandwidth))
+            StatsCentral.progressRepair(obj.size)
         }
 
         // update the known distribution state

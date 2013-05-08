@@ -190,8 +190,6 @@ class MicroCloud(
                             assert(!objects.contains(obj))
                             objects += obj
                             anounce(ObjectAdded(obj))
-                        } else {
-                            log("GET timed out")
                         }
                     })
 

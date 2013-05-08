@@ -7,9 +7,7 @@ import de.jmaschad.storagesim.Log
 class BaseEntity(name: String, region: Int) extends Entity(name, region) {
     override def startEntity(): Unit = {}
     override def shutdownEntity(): Unit = {}
-    override def processEvent(event: SimEvent): Unit = {
-        log("dropped event: " + event)
-    }
+    override def processEvent(event: SimEvent): Unit = {}
 
     protected override def reset(): Unit =
         log("was reset")

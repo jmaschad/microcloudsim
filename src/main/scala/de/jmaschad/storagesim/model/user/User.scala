@@ -101,8 +101,6 @@ class User(
 
                     if (success) {
                         StatsCentral.requestCompleted(dialog.averageDelay)
-                    } else {
-                        log(CloudSim.getEntityName(dialog.partner) + " timed out")
                     }
                 }
 
@@ -113,7 +111,6 @@ class User(
         }
 
         dialog.say(get, { () =>
-            log(CloudSim.getEntityName(dialog.partner) + " timed out")
             dialog.close()
         })
     }

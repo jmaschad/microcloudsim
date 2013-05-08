@@ -15,6 +15,7 @@ import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.user.User
 import org.cloudbus.cloudsim.core.CloudSim
 import scala.util.Random
+import de.jmaschad.storagesim.StatsCentral
 
 abstract class AbstractBucketBasedSelector(
     val log: String => Unit,
@@ -31,8 +32,6 @@ abstract class AbstractBucketBasedSelector(
 
     // current replication actions
     private var activeReplications = Map.empty[Int, Set[StorageObject]]
-    private var startOfRepair = Double.NaN
-    private var totalSizeOfRepair = Double.NaN
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]) = {
         clouds = microclouds map { _.getId() }
@@ -87,18 +86,9 @@ abstract class AbstractBucketBasedSelector(
 
         // check if a repair is finished
         if (activeReplications.isEmpty) {
-            val duration = CloudSim.clock() - startOfRepair
-            val meanBandwidth = (totalSizeOfRepair / duration) * 8
-            log("Finished repair of %.2fGB in %.3s with a mean bandwidth of %.3fMbit/s".format(totalSizeOfRepair / 1024, duration, meanBandwidth))
-            startOfRepair = Double.NaN
-            totalSizeOfRepair = Double.NaN
+            StatsCentral.finishRepair()
         } else {
-            val remainingObjects = activeReplications flatMap { case (_, objects) => objects }
-            val remainingAmount = { remainingObjects map { _.size } sum }
-            val duration = CloudSim.clock() - startOfRepair
-            val currentMeanBandwidth = ((totalSizeOfRepair - remainingAmount) / duration) * 8
-            log("repaired object [%.2fMB], %d objects remain [%.2fGB], mean repair bandwidth %.3fMbit/s".
-                format(obj.size, remainingObjects.size, remainingAmount / 1024, currentMeanBandwidth))
+            StatsCentral.progressRepair(obj.size)
         }
 
         // update the known distribution state
@@ -116,14 +106,7 @@ abstract class AbstractBucketBasedSelector(
                 case (obj, clouds) => obj.size
             } sum
         }
-        if (activeReplications.isEmpty) {
-            startOfRepair = CloudSim.clock()
-            totalSizeOfRepair = repairSize
-            log("Starting repair after failure of cloud %d [%.2fGB]".format(cloud, repairSize / 1024))
-        } else {
-            totalSizeOfRepair += repairSize
-            log("Added repair of cloud %d [%.2fGB]".format(cloud, repairSize / 1024))
-        }
+        StatsCentral.startRepair(repairSize)
 
         // update knowledge of current state
         assert(clouds.contains(cloud))
@@ -202,30 +185,9 @@ abstract class AbstractBucketBasedSelector(
                 selectReplicas(count - 1, bucket, clouds, bucketMap, newDistributionPlan)
         }
 
-    private def cloudLoad(): Map[Int, Double] = {
-        val bucketMap = distributionState.keySet groupBy { _.bucket }
-        val sizeDistribution = distributionGoal.foldLeft(Map.empty[Int, Double]) {
-            case (plan, (bucket, clouds)) =>
-                val bucketSize = bucketMap(bucket) map { _.size } sum
-                val sizeDist = clouds.map {
-                    _ -> bucketSize
-                } groupBy {
-                    case (cloud, _) => cloud
-                } mapValues { cloudSizeSet =>
-                    cloudSizeSet map { case (_, size) => size } sum
-                }
-
-                plan ++ sizeDist
-        }
-
-        // normalize
-        if (sizeDistribution.nonEmpty) {
-            val max = sizeDistribution.values.max
-            sizeDistribution mapValues { _ / max }
-        }
-
-        clouds map { c => c -> sizeDistribution.getOrElse(c, 0.0) } toMap
-    }
+    // TODO
+    private def cloudLoad(): Map[Int, Double] =
+        clouds map { _ -> 0.0 } toMap
 
     private def createRepairPlan(): Map[Int, Load] = {
         // additional clouds per object

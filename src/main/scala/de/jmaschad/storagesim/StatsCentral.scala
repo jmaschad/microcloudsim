@@ -66,7 +66,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
         }
 
     /*
-     * Server load stats over 1 second: {median, mean, min, max} data amount to transfer
+     * Server load stats over 1 second: {median, min, max} data amount to transfer
      */
     private def loadStats(): String = {
         var stats = Set.empty[String]
@@ -111,7 +111,54 @@ object StatsCentral extends SimEntity("StatsCentral") {
     }
 
     /*
-     * Repair stats: duration and mean repair bandwidth
+     * Repair stats: mean repair bandwidth over 10 sec and over all, repair time, repair size
      */
-    private def repairStats(): String = ""
+    case class RepairInfo(clock: Double, size: Double)
+    private var repairInfos = Queue.empty[RepairInfo]
+    private var startOfRepair = Double.NaN
+    private var totalSizeOfRepair = Double.NaN
+    private var finishedAmount = 0.0
+
+    def startRepair(totalSize: Double) =
+        if (startOfRepair.isNaN) {
+            startOfRepair = CloudSim.clock()
+            totalSizeOfRepair = totalSize
+            Log.line("SC", "Starting repair of %.3fMB".format(totalSize))
+        } else {
+            totalSizeOfRepair += totalSize
+            Log.line("SC", "Adding repair of %.3fMB".format(totalSize))
+        }
+
+    def finishRepair() = {
+        val totalTime = CloudSim.clock() - startOfRepair
+        val totalMeanBW = totalSizeOfRepair / totalTime
+        Log.line("SC", "Finished repair of %.3fMB in %.3f @ %.3fMbit/s".format(totalSizeOfRepair, totalTime, totalMeanBW * 8))
+        repairInfos = Queue.empty
+        startOfRepair = Double.NaN
+        totalSizeOfRepair = Double.NaN
+        finishedAmount = 0.0
+    }
+
+    def progressRepair(size: Double) = {
+        repairInfos = repairInfos :+ RepairInfo(CloudSim.clock(), size)
+        finishedAmount += size
+    }
+
+    private def repairStats(): String =
+        if (!startOfRepair.isNaN) {
+            val clock = CloudSim.clock()
+            val leastIncludedClock = clock - 10.0
+            repairInfos = repairInfos dropWhile { _.clock < leastIncludedClock }
+
+            val bw10 = if (repairInfos.isEmpty) {
+                0.0
+            } else {
+                { repairInfos map { _.size } sum } / { clock - repairInfos.head.clock }
+            }
+
+            val bwTotal = finishedAmount / (clock - startOfRepair)
+            "REP[BW10 %.3f Mbit/s BWTOT %.3f Mbit/s]".format(bw10 * 8, bwTotal * 8)
+        } else {
+            ""
+        }
 }
