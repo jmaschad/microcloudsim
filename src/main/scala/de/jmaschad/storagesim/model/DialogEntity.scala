@@ -19,6 +19,9 @@ object DialogEntity {
 }
 
 trait DialogEntity extends Entity {
+    protected def dialogsEnabled: Boolean = true
+
+    private var dialogs = Map.empty[String, Dialog]
 
     abstract override def processEvent(event: SimEvent): Unit = event.getTag match {
         case DialogEntity.DialogMessage if dialogsEnabled =>
@@ -43,12 +46,6 @@ trait DialogEntity extends Entity {
         dialogs = Map.empty[String, Dialog]
         super.reset()
     }
-
-    protected def dialogsEnabled: Boolean = true
-
-    protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler]
-
-    private var dialogs = Map.empty[String, Dialog]
 
     def openDialog(target: Int): Dialog = {
         val targetEnity = Entity.entityForId(target)
@@ -103,7 +100,6 @@ trait DialogEntity extends Entity {
         case _ =>
             // probably timeouts
             log("Received unknown message: " + message.content + " from " + CloudSim.getEntityName(source))
-            message.content
             throw new IllegalStateException
     }
 
@@ -114,6 +110,8 @@ trait DialogEntity extends Entity {
                 dialogs -= timeout.dialog
             }
         }
+
+    protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler]
 
     private def answerDialog(source: Int, message: Message): Dialog = {
         val avgDelay = NetworkDelay.between(region, Entity.entityForId(source).region)
