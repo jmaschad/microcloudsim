@@ -20,6 +20,8 @@ import org.apache.commons.math3.distribution.NormalDistribution
 import de.jmaschad.storagesim.model.Dialog
 import scala.util.Random
 import de.jmaschad.storagesim.model.transfer.Downloader
+import de.jmaschad.storagesim.StatsCentral
+import org.cloudbus.cloudsim.core.CloudSim
 
 object User {
     private var users = Set.empty[User]
@@ -96,9 +98,12 @@ class User(
             case RestAck =>
                 val onFinish = (success: Boolean) => {
                     dialog.close()
-                    val requestState = if (success) Complete else TimeOut
 
-                    //                    requestLog.finish(get, dialog.averageDelay, requestState)
+                    if (success) {
+                        StatsCentral.requestCompleted(dialog.averageDelay)
+                    } else {
+                        log(CloudSim.getEntityName(dialog.partner) + " timed out")
+                    }
                 }
 
                 new Downloader(log _, dialog, get.obj.size, download _, onFinish)
@@ -108,6 +113,7 @@ class User(
         }
 
         dialog.say(get, { () =>
+            log(CloudSim.getEntityName(dialog.partner) + " timed out")
             dialog.close()
         })
     }

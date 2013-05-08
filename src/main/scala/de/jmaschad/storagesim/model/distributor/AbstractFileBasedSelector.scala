@@ -18,6 +18,7 @@ import de.jmaschad.storagesim.model.DialogEntity
 import de.jmaschad.storagesim.model.user.User
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.MicroCloud
+import scala.util.Random
 
 abstract class AbstractFileBasedSelector(
     log: String => Unit,
@@ -146,17 +147,12 @@ abstract class AbstractFileBasedSelector(
             case targets if targets.size == 1 =>
                 Right(targets.head)
             case targets =>
-                var minDelay = Double.MaxValue
-                var minDelayTarget = targets.head
-                for (target <- targets) {
-                    val targetEntity = Entity.entityForId(target)
-                    val delay = NetworkDelay.between(region, targetEntity.region)
-                    if (delay < minDelay) {
-                        minDelay = delay
-                        minDelayTarget = target
-                    }
-                }
-                Right(minDelayTarget)
+                val sortedTargets = targets.toIndexedSeq.sortWith(
+                    (t1, t2) =>
+                        NetworkDelay.between(region, Entity.entityForId(t1).region) <
+                            NetworkDelay.between(region, Entity.entityForId(t2).region))
+
+                Right(sortedTargets.head)
         }
 
     protected def selectReplicationTarget(obj: StorageObject, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int

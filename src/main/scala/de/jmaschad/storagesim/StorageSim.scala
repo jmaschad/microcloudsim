@@ -99,6 +99,8 @@ object StorageSim {
         writer.close()
         NetworkTopology.buildNetworkTopology(topologyFile.toString())
 
+        log("wakeing up the stats")
+        StatsCentral.wakeup()
         // controlled failure
         //        (0 until 2) foreach { idx =>
         //            CloudSim.send(0, clouds.toIndexedSeq(idx).getId, 5 + 5 * idx, MicroCloud.Kill, null)

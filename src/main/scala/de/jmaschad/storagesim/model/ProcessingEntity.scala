@@ -15,7 +15,7 @@ trait ProcessingEntity extends Entity {
         processingModel.upload(id, size, onFinish)
 
     abstract override protected def reset() = {
-        ProcessingModel.destroyModel(processingModel)
+        ProcessingModel.destroyModel(this)
         processingModel = ProcessingModel.createModel(this)
         super.reset()
     }
