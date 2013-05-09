@@ -35,7 +35,7 @@ abstract class AbstractBucketBasedSelector(
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]) = {
         clouds = microclouds map { _.getId() }
-        distributionGoal = createDistributionPlan(objects)
+        distributionGoal = createDistributionGoal(objects)
 
         // initialization plan
         val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[String]]) {
@@ -122,20 +122,16 @@ abstract class AbstractBucketBasedSelector(
         }
 
         // create new distribution goal
-        distributionGoal = createDistributionPlan()
+        distributionGoal = createDistributionGoal()
 
         // create an action plan and inform the involved clouds
         val repairPlan = createRepairPlan()
         repairPlan foreach { case (cloud, load) => sendActions(cloud, load) }
     }
 
-    protected def selectReplicationTarget(
-        bucket: String,
-        clouds: Set[Int],
-        cloudLoad: Map[Int, Double],
-        preselectedClouds: Set[Int]): Int
+    protected def selectReplicas(bucket: String, currentReplicas: Set[Int], clouds: Set[Int]): Set[Int]
 
-    private def createDistributionPlan(initialObjects: Set[StorageObject] = Set.empty): Map[String, Set[Int]] = {
+    private def createDistributionGoal(initialObjects: Set[StorageObject] = Set.empty): Map[String, Set[Int]] = {
         val bucketMap = distributionState.keySet groupBy { _.bucket }
         val buckets = if (initialObjects.nonEmpty) {
             initialObjects map { _.bucket } toSet
@@ -144,50 +140,28 @@ abstract class AbstractBucketBasedSelector(
         }
 
         // remove unknown buckets and clouds from the current plan
-        var distributionPlan = distributionGoal.keys collect {
+        var newGoal = distributionGoal.keys collect {
             case bucket if buckets.contains(bucket) =>
                 bucket -> distributionGoal(bucket).intersect(clouds)
         } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan = buckets map { bucket =>
-            val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
-            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
-            bucket -> selectReplicas(requiredTargetsCount, bucket, clouds, bucketMap, distributionPlan)
+        newGoal = buckets map { bucket =>
+            val currentReplicas = newGoal.getOrElse(bucket, Set.empty)
+            bucket -> selectReplicas(bucket, currentReplicas, clouds)
         } toMap
 
         // the new plan does not contain unknown clouds
-        assert(distributionPlan.values.flatten.toSet.subsetOf(clouds))
+        assert(newGoal.values.flatten.toSet.subsetOf(clouds))
         // the new plan contains exactly the given buckets
-        assert(distributionPlan.keySet == buckets)
+        assert(newGoal.keySet == buckets)
         // every bucket has the correct count of replicas
-        assert(distributionPlan.values forall { clouds =>
+        assert(newGoal.values forall { clouds =>
             clouds.size == StorageSim.configuration.replicaCount
         })
 
-        distributionPlan
+        newGoal
     }
-
-    private def selectReplicas(
-        count: Int,
-        bucket: String,
-        clouds: Set[Int],
-        bucketMap: Map[String, Set[StorageObject]],
-        distributionPlan: Map[String, Set[Int]]): Set[Int] =
-        count match {
-            case 0 =>
-                distributionPlan.getOrElse(bucket, Set.empty)
-            case n =>
-                val load = cloudLoad()
-                val currentReplicas = distributionPlan.getOrElse(bucket, Set.empty)
-                val selection = selectReplicationTarget(bucket, clouds, load, currentReplicas)
-                val newDistributionPlan = distributionPlan + (bucket -> (distributionPlan.getOrElse(bucket, Set.empty) + selection))
-                selectReplicas(count - 1, bucket, clouds, bucketMap, newDistributionPlan)
-        }
-
-    // TODO
-    private def cloudLoad(): Map[Int, Double] =
-        clouds map { _ -> 0.0 } toMap
 
     private def createRepairPlan(): Map[Int, Load] = {
         // additional clouds per object

@@ -132,7 +132,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
     def finishRepair() = {
         val totalTime = CloudSim.clock() - startOfRepair
         val totalMeanBW = totalSizeOfRepair / totalTime
-        Log.line("SC", "Finished repair of %.3fMB in %.3f @ %.3fMbit/s".format(totalSizeOfRepair, totalTime, totalMeanBW * 8))
+        Log.line("SC", "Finished repair of %.3fMB in %.3fs @ %.3fMbit/s".format(totalSizeOfRepair, totalTime, totalMeanBW * 8))
         repairInfos = Queue.empty
         startOfRepair = Double.NaN
         totalSizeOfRepair = Double.NaN

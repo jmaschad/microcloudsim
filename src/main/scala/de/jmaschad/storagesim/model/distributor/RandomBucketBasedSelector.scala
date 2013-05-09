@@ -17,15 +17,20 @@ import de.jmaschad.storagesim.model.Entity
 class RandomBucketBasedSelector(log: String => Unit, dialogEntity: DialogEntity)
     extends AbstractBucketBasedSelector(log, dialogEntity) {
 
-    override protected def selectReplicationTarget(
+    override protected def selectReplicas(
         bucket: String,
-        clouds: Set[Int],
-        cloudLoad: Map[Int, Double],
-        preselectedClouds: Set[Int]): Int = {
-        val availableClouds = clouds diff preselectedClouds
+        currentReplicas: Set[Int],
+        clouds: Set[Int]): Set[Int] =
+        StorageSim.configuration.replicaCount - currentReplicas.size match {
+            case 0 =>
+                currentReplicas
+            case n =>
+                // select a new replication targets
+                val availableClouds = { { clouds -- currentReplicas } toIndexedSeq }
+                assert(availableClouds.size >= n)
 
-        RandomUtils.randomSelect1(availableClouds.toIndexedSeq)
-    }
+                currentReplicas ++ RandomUtils.distinctRandomSelectN(n, availableClouds)
+        }
 
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState getOrElse (storageObject, Set.empty) match {

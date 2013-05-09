@@ -39,7 +39,7 @@ abstract class AbstractFileBasedSelector(
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]): Unit = {
         clouds = microclouds map { _.getId() }
-        distributionGoal = createDistributionPlan(objects)
+        distributionGoal = createDistributionGoal(objects)
 
         // initialization plan
         val allocationPlan = distributionGoal.foldLeft(Map.empty[Int, Set[StorageObject]]) {
@@ -91,7 +91,7 @@ abstract class AbstractFileBasedSelector(
             CloudSim.terminateSimulation()
         } else {
             // create new distribution goal
-            distributionGoal = createDistributionPlan()
+            distributionGoal = createDistributionGoal()
 
             // create an action plan and inform the involved clouds
             val repairPlan = createRepairPlan()
@@ -123,67 +123,36 @@ abstract class AbstractFileBasedSelector(
         distributionState += obj -> (distributionState.getOrElse(obj, Set.empty) + cloud)
     }
 
-    protected def selectReplicationTarget(obj: StorageObject, clouds: Set[Int], cloudLoad: Map[Int, Double], preselectedClouds: Set[Int]): Int
+    protected def selectReplicas(obj: StorageObject, currentReplicas: Set[Int], clouds: Set[Int]): Set[Int]
 
-    private def createDistributionPlan(initialObjects: Set[StorageObject] = Set.empty): Map[StorageObject, Set[Int]] = {
+    private def createDistributionGoal(initialObjects: Set[StorageObject] = Set.empty): Map[StorageObject, Set[Int]] = {
         val objects = if (initialObjects.nonEmpty)
             initialObjects
         else
             distributionState.keySet
 
         // remove unknown objects and clouds from the current plan
-        var distributionPlan = distributionGoal.keys collect {
+        var newGoal = distributionGoal.keys collect {
             case obj if objects.contains(obj) => obj -> distributionGoal(obj).intersect(clouds)
         } toMap
 
         // choose clouds for buckets which have too few replicas
-        distributionPlan = objects map { obj =>
-            val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
-            val requiredTargetsCount = StorageSim.configuration.replicaCount - currentReplicas.size
-            obj -> selectReplicas(requiredTargetsCount, obj, clouds, distributionPlan)
+        newGoal = objects map { obj =>
+            val currentReplicas = newGoal.getOrElse(obj, Set.empty)
+            obj -> selectReplicas(obj, currentReplicas, clouds)
         } toMap
 
         // the new plan does not contain unknown clouds
-        assert(distributionPlan.values.flatten.toSet.subsetOf(clouds))
+        assert(newGoal.values.flatten.toSet.subsetOf(clouds))
         // the new plan contains exactly the given buckets
-        assert(distributionPlan.keySet == objects)
+        assert(newGoal.keySet == objects)
         // every bucket has the correct count of replicas
-        assert(distributionPlan.values forall { clouds =>
+        assert(newGoal.values forall { clouds =>
             clouds.size == StorageSim.configuration.replicaCount
         })
 
-        distributionPlan
+        newGoal
     }
-
-    private def selectReplicas(
-        count: Int,
-        obj: StorageObject,
-        clouds: Set[Int],
-        distributionPlan: Map[StorageObject, Set[Int]]): Set[Int] =
-        count match {
-            case 0 =>
-                distributionPlan.getOrElse(obj, Set.empty)
-            case n =>
-                // compute the load of all clouds
-                val load = cloudLoad(clouds, distributionPlan)
-
-                // select the current replicas of the object
-                val currentReplicas = distributionPlan.getOrElse(obj, Set.empty)
-
-                // select a new replication target
-                val selection = selectReplicationTarget(obj, clouds, load, currentReplicas)
-                assert(!currentReplicas.contains(selection))
-
-                // update the distribution plan 
-                val newDistributionPlan = distributionPlan + (obj -> (currentReplicas + selection))
-
-                //repeat
-                selectReplicas(count - 1, obj, clouds, newDistributionPlan)
-        }
-
-    // TODO
-    private def cloudLoad(clouds: Set[Int], distributionPlan: Map[StorageObject, Set[Int]]): Map[Int, Double] =
-        clouds map { _ -> 0.0 } toMap
 
     private def createRepairPlan(): Map[Int, Load] = {
         // additional clouds per object

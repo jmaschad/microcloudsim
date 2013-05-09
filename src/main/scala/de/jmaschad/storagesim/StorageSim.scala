@@ -101,10 +101,11 @@ object StorageSim {
 
         log("wakeing up the stats")
         StatsCentral.wakeup()
+
         // controlled failure
-        //        (0 until 2) foreach { idx =>
-        //            CloudSim.send(0, clouds.toIndexedSeq(idx).getId, 5 + 5 * idx, MicroCloud.Kill, null)
-        //        }
+        (0 until 1) foreach { idx =>
+            CloudSim.send(0, clouds.toIndexedSeq(idx).getId, 2 + 5 * idx, MicroCloud.Kill, null)
+        }
 
         log("will start simulation")
         CloudSim.terminateSimulation(configuration.simDuration)

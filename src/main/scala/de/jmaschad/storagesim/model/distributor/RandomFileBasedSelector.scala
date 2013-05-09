@@ -16,13 +16,20 @@ import org.apache.commons.math3.distribution.UniformIntegerDistribution
 class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractFileBasedSelector(log, dialogCenter) {
 
-    override protected def selectReplicationTarget(
+    override protected def selectReplicas(
         obj: StorageObject,
-        clouds: Set[Int],
-        cloudLoad: Map[Int, Double],
-        preselectedClouds: Set[Int]): Int = {
-        RandomUtils.randomSelect1({ clouds -- preselectedClouds } toIndexedSeq)
-    }
+        currentReplicas: Set[Int],
+        clouds: Set[Int]): Set[Int] =
+        StorageSim.configuration.replicaCount - currentReplicas.size match {
+            case 0 =>
+                currentReplicas
+            case n =>
+                // select a new replication targets
+                val availableClouds = { { clouds -- currentReplicas } toIndexedSeq }
+                assert(availableClouds.size >= n)
+
+                currentReplicas ++ RandomUtils.distinctRandomSelectN(n, availableClouds)
+        }
 
     override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
         distributionState.getOrElse(storageObject, Set.empty) match {
