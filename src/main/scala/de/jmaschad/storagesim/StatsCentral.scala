@@ -137,6 +137,9 @@ object StatsCentral extends SimEntity("StatsCentral") {
         startOfRepair = Double.NaN
         totalSizeOfRepair = Double.NaN
         finishedAmount = 0.0
+
+        // replaced real error model with one repair
+        CloudSim.terminateSimulation(CloudSim.clock() + 30)
     }
 
     def progressRepair(size: Double) = {

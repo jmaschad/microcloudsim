@@ -70,7 +70,7 @@ case class RandomObjectBased extends SelectorConfig
 object StorageSimConfig {
     def printDescription(configuration: StorageSimConfig, writer: PrintWriter): Unit = {
         writer.println("Configuration description:")
-        writer.println("duration = " + configuration.simDuration)
+        //        writer.println("duration = " + configuration.simDuration)
         writer.println()
         writer.println("selector = " + configuration.selector.getClass().getSimpleName())
         writer.println("replica count = " + configuration.replicaCount)
@@ -88,9 +88,9 @@ object StorageSimConfig {
 
 trait StorageSimConfig {
     var outputDir: String = "experiments"
-    var simDuration: Double = 6.307e7 // two years
+    //    var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = RandomBucketBased()
+    var selector: SelectorConfig = RandomObjectBased()
     var replicaCount: Int = 3
 
     var regionCount: Int = 30
@@ -108,7 +108,7 @@ trait StorageSimConfig {
     // size distribution of individual objects
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
     // mttf of 2 hours
-    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
+    //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
 
     // mean time interval between get requests
     var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)

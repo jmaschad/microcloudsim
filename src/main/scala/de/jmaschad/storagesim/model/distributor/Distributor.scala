@@ -68,7 +68,7 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
             case Lookup(Get(obj)) =>
                 val entity = Entity.entityForId(dialog.partner)
                 selector.selectForGet(entity.region, obj) match {
-                    case Right(cloud) =>
+                    case cloud if cloud >= 0 =>
                         dialog.sayAndClose(Result(cloud))
 
                     case _ => throw new IllegalStateException

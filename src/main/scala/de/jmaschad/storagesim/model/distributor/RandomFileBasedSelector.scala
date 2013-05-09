@@ -31,14 +31,14 @@ class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
                 currentReplicas ++ RandomUtils.distinctRandomSelectN(n, availableClouds)
         }
 
-    override def selectForGet(region: Int, storageObject: StorageObject): Either[RequestSummary, Int] =
+    override def selectForGet(region: Int, storageObject: StorageObject): Int =
         distributionState.getOrElse(storageObject, Set.empty) match {
             case targets if targets.size == 0 =>
-                Left(ObjectNotFound)
+                -1
             case targets if targets.size == 1 =>
-                Right(targets.head)
+                targets.head
             case targets =>
                 val target = targets.toIndexedSeq(new UniformIntegerDistribution(0, targets.size - 1).sample())
-                Right(target)
+                target
         }
 }

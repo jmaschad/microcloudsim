@@ -38,7 +38,7 @@ class MicroCloud(
     val bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
-    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailure)
+    //    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailure)
 
     private var state: MicroCloudState = new OnlineState
 
@@ -57,8 +57,8 @@ class MicroCloud(
         super.startEntity()
         anounce(CloudOnline())
 
-        val uptime = new UniformRealDistribution(0.0, meanTimeToFailure.getNumericalMean()).sample()
-        scheduleFailure(uptime)
+        //        val uptime = new UniformRealDistribution(0.0, meanTimeToFailure.getNumericalMean()).sample()
+        //        scheduleFailure(uptime)
     }
 
     override def processEvent(event: SimEvent) =
@@ -72,19 +72,19 @@ class MicroCloud(
 
     override def toString = "%s %s".format(getClass.getSimpleName, getName)
 
-    private def scheduleFailure(uptime: Double = 0.0) = {
-        var ttf = -uptime
-        while (ttf <= 0.0) {
-            ttf += meanTimeToFailure.sample()
-        }
+    //    private def scheduleFailure(uptime: Double = 0.0) = {
+    //        var ttf = -uptime
+    //        while (ttf <= 0.0) {
+    //            ttf += meanTimeToFailure.sample()
+    //        }
+    //
+    //        schedule(getId(), ttf, Kill)
+    //    }
 
-        schedule(getId(), ttf, Kill)
-    }
-
-    private def scheduleReplace() = {
-        // 30 minutes until replacement
-        schedule(getId(), 30 * 60, Boot)
-    }
+    //    private def scheduleReplace() = {
+    //        // 30 minutes until replacement
+    //        schedule(getId(), 30 * 60, Boot)
+    //    }
 
     private def switchState(newState: MicroCloudState): Unit =
         state = newState
@@ -107,7 +107,7 @@ class MicroCloud(
         def process(event: SimEvent) = event.getTag match {
             case MicroCloud.Boot =>
                 log("received boot request")
-                scheduleFailure()
+                //                scheduleFailure()
                 anounce(CloudOnline())
                 switchState(new OnlineState)
 
@@ -134,7 +134,7 @@ class MicroCloud(
                 log("received kill request")
                 objects = Set.empty
                 reset()
-                scheduleReplace()
+                //                scheduleReplace()
                 sendNow(distributor.getId, Distributor.MicroCloudOffline)
                 switchState(new OfflineState)
 

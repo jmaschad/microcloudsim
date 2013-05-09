@@ -103,12 +103,11 @@ object StorageSim {
         StatsCentral.wakeup()
 
         // controlled failure
-        (0 until 1) foreach { idx =>
-            CloudSim.send(0, clouds.toIndexedSeq(idx).getId, 2 + 5 * idx, MicroCloud.Kill, null)
-        }
+        val failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
+        CloudSim.send(0, failingCloud, 30, MicroCloud.Kill, null)
 
         log("will start simulation")
-        CloudSim.terminateSimulation(configuration.simDuration)
+        //        CloudSim.terminateSimulation(configuration.simDuration)
         CloudSim.startSimulation();
     }
 
