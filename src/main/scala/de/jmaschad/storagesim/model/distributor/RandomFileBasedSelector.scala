@@ -38,7 +38,9 @@ class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             case targets if targets.size == 1 =>
                 targets.head
             case targets =>
-                val target = targets.toIndexedSeq(new UniformIntegerDistribution(0, targets.size - 1).sample())
-                target
+                targets.toIndexedSeq(new UniformIntegerDistribution(0, targets.size - 1).sample())
         }
+
+    override def selectRepairSource(obj: StorageObject): Int =
+        RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
 }

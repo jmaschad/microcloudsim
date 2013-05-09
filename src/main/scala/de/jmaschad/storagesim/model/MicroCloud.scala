@@ -44,11 +44,11 @@ class MicroCloud(
 
     var objects = Set.empty[StorageObject]
 
-    def initialize(objs: Set[StorageObject]) =
-        objects = objs
+    def initialize(objs: Set[StorageObject]) = objects = objs
 
-    def isEmpty =
-        objects.isEmpty
+    def isEmpty = objects.isEmpty
+
+    def isOnline = state.isInstanceOf[OnlineState]
 
     def contains(obj: StorageObject) =
         objects.contains(obj)

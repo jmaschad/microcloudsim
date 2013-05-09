@@ -22,6 +22,8 @@ import scala.util.Random
 import de.jmaschad.storagesim.model.transfer.Downloader
 import de.jmaschad.storagesim.StatsCentral
 import org.cloudbus.cloudsim.core.CloudSim
+import de.jmaschad.storagesim.UniformRealDist
+import org.apache.commons.math3.distribution.UniformRealDistribution
 
 object User {
     private var users = Set.empty[User]
@@ -34,23 +36,15 @@ object User {
 class User(
     name: String,
     region: Int,
-    val objects: Set[StorageObject],
-    val getObjectIndex: IntegerDistribution,
+    val objects: Seq[StorageObject],
     val medianGetDelay: Double,
     val bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     private val getInterval = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
-    private val objectIndexMap = Random.shuffle(objects.toIndexedSeq) zip (0 until objects.size) toMap
-    private val indexObjectMap = objectIndexMap map { case (obj, index) => index -> obj }
+    private val objectSelection = new UniformRealDistribution(0.0, objects map { _.popularity } sum)
 
     User.users += this
-
-    def demand(obj: StorageObject): Double =
-        objectIndexMap.get(obj) match {
-            case Some(index) => getObjectIndex.probability(index)
-            case None => 0.0
-        }
 
     override def startEntity(): Unit = {
         super.startEntity()
@@ -75,7 +69,13 @@ class User(
 
     private def scheduleRequest(requestType: RequestType): Unit = requestType match {
         case RequestType.Get =>
-            val obj = indexObjectMap(getObjectIndex.sample())
+            var selection = objectSelection.sample()
+            var index = 0
+            do {
+                selection -= objects(index).size
+            } while (selection > 0)
+
+            val obj = objects(index)
             val get = Get(obj)
             lookupCloud(get, openGetDialog _)
 

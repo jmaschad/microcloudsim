@@ -41,17 +41,6 @@ case class PoissonDist(mean: Double) extends IntegerDistributionConfiguration
 case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfiguration
 case class ZipfDist(elems: Int, exp: Double) extends IntegerDistributionConfiguration
 
-object ObjectSelectionModel {
-    def toDist(objectCount: Int, config: ObjectSelectionModel): IntegerDistribution = config match {
-        case UniformSelection() => new UniformIntegerDistribution(0, objectCount - 1)
-        case ZipfSelection() => new ZipfDistribution(objectCount - 1, 1)
-        case _ => throw new IllegalStateException
-    }
-}
-sealed abstract class ObjectSelectionModel
-case class UniformSelection extends ObjectSelectionModel
-case class ZipfSelection extends ObjectSelectionModel
-
 object BehaviorConfig {
     def apply(requestType: RequestType,
         delayModel: RealDistributionConfiguration) =
@@ -66,6 +55,7 @@ class BehaviorConfig(
 sealed abstract class SelectorConfig
 case class RandomBucketBased extends SelectorConfig
 case class RandomObjectBased extends SelectorConfig
+case class PlacementBased extends SelectorConfig
 
 object StorageSimConfig {
     def printDescription(configuration: StorageSimConfig, writer: PrintWriter): Unit = {
@@ -82,7 +72,7 @@ object StorageSimConfig {
         writer.println("bucket count = " + configuration.bucketCount)
         writer.println("object size dist = " + configuration.objectSize)
         writer.println("mean get inteval dist = " + configuration.meanGetInterval)
-        writer.println("object for get selection = " + configuration.getTargetModel)
+        writer.println("object popularity model = " + configuration.objectPopularityModel)
     }
 }
 
@@ -90,7 +80,7 @@ trait StorageSimConfig {
     var outputDir: String = "experiments"
     //    var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = RandomObjectBased()
+    var selector: SelectorConfig = PlacementBased()
     var replicaCount: Int = 3
 
     var regionCount: Int = 30
@@ -107,11 +97,12 @@ trait StorageSimConfig {
 
     // size distribution of individual objects
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
+    // which object will be selected for download
+    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(1)
+
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
 
     // mean time interval between get requests
     var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)
-    // which object will be selected for download
-    var getTargetModel: ObjectSelectionModel = ZipfSelection()
 }

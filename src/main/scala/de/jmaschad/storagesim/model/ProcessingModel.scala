@@ -106,7 +106,7 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
     }
 
     private def microCloudModels(): Set[ProcessingModel] =
-        models.values collect { case m if m.procEntity.isInstanceOf[MicroCloud] => m } toSet
+        models.keys collect { case cloud: MicroCloud if cloud.isOnline => models(cloud) } toSet
 }
 import ProcessingModel._
 

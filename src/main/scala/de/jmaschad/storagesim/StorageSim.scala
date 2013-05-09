@@ -144,16 +144,23 @@ object StorageSim {
         }
 
         // generate enough objects to use all possible placements
-        val objectCount = ArithmeticUtils.binomialCoefficient(configuration.cloudCount, configuration.replicaCount) * 5
+        val objectCount = (ArithmeticUtils.binomialCoefficient(configuration.cloudCount, configuration.replicaCount) * 5).toInt
+
         val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSize)
+        val objectSizes = objectSizeDist.sample(objectCount)
+
+        val objectPupularityDist = RealDistributionConfiguration.toDist(configuration.objectPopularityModel)
+        val objectPopularities = objectPupularityDist.sample(objectCount) map { _ / objectPupularityDist.getNumericalMean() }
+
+        val meanObjectLoad = objectSizeDist.getNumericalMean() * objectPupularityDist.getNumericalMean()
+        val objectLoads = objectSizes zip objectPopularities map { case (size, pop) => (size * pop) / meanObjectLoad }
 
         // generate the objects and select the bucket by lot
         val bucketDrawer = new UniformIntegerDistribution(0, bucketFortunes.size - 1)
-        (1L to objectCount) map { idx =>
-            val objName = "obj" + idx
-            val objSize = objectSizeDist.sample()
+        (0 until objectCount) map { idx =>
+            val objName = "obj" + (idx + 1)
             val objBucket = buckets(bucketFortunes(bucketDrawer.sample()))
-            new StorageObject(objName, objBucket, objSize)
+            new StorageObject(objName, objBucket, objectSizes(idx), objectPopularities(idx), objectLoads(idx))
         } toSet
     }
 
@@ -181,13 +188,11 @@ object StorageSim {
             }
             val userObjects = userBuckets flatMap { bucketObjectMap(_) }
 
-            val objectForGetDist = ObjectSelectionModel.toDist(userObjects.size, configuration.getTargetModel)
-
             val meanGetInterval = meanGetIntervalDist.sample() max 0.1
 
             val bandwidth = 4.0 * Units.MByte
 
-            new User(userName, region, userObjects, objectForGetDist, meanGetInterval, bandwidth, distributor)
+            new User(userName, region, userObjects.toSeq, meanGetInterval, bandwidth, distributor)
         }
     }
 }

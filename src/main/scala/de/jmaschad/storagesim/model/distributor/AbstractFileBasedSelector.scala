@@ -125,6 +125,8 @@ abstract class AbstractFileBasedSelector(
 
     protected def selectReplicas(obj: StorageObject, currentReplicas: Set[Int], clouds: Set[Int]): Set[Int]
 
+    protected def selectRepairSource(obj: StorageObject): Int
+
     private def createDistributionGoal(initialObjects: Set[StorageObject] = Set.empty): Map[StorageObject, Set[Int]] = {
         val objects = if (initialObjects.nonEmpty)
             initialObjects
@@ -183,7 +185,7 @@ abstract class AbstractFileBasedSelector(
         // load instructions with random source selection
         val loadInstructions = addedReplications mapValues { objects =>
             Load(objects map { obj =>
-                obj -> RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
+                obj -> selectRepairSource(obj)
             } toMap)
         }
 

@@ -25,6 +25,8 @@ import de.jmaschad.storagesim.RandomBucketBased
 import de.jmaschad.storagesim.RandomObjectBased
 import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.Dialog
+import Distributor._
+import de.jmaschad.storagesim.PlacementBased
 
 object Distributor {
     val StatusInterval = 1
@@ -33,7 +35,6 @@ object Distributor {
     val MicroCloudOffline = Base + 1
     val UserRequest = MicroCloudOffline + 1
 }
-import Distributor._
 
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     private val selector = StorageSim.configuration.selector match {
@@ -42,6 +43,9 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
 
         case RandomObjectBased() =>
             new RandomFileBasedSelector(log _, this)
+
+        case PlacementBased() =>
+            new PlacementBasedSelector(log _, this)
 
         case _ => throw new IllegalStateException
     }
