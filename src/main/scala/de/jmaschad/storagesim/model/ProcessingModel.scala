@@ -76,6 +76,7 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
 
         case StatsEvent =>
             updateStats()
+
             val newUpStats = { microCloudModels map { model => model.procEntity -> model.loadUp } toMap }
             meanUp = newUpStats.values.sum / newUpStats.size
             upStats = newUpStats mapValues { _ / meanUp }

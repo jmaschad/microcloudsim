@@ -5,6 +5,7 @@ import org.cloudbus.cloudsim.core.SimEvent
 import scala.collection.immutable.Queue
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.ProcessingModel
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 
 object StatsCentral extends SimEntity("StatsCentral") {
     private val StatsInterval = 1
@@ -71,41 +72,15 @@ object StatsCentral extends SimEntity("StatsCentral") {
     private def loadStats(): String = {
         var stats = Set.empty[String]
 
-        val ulLoads = ProcessingModel.allLoadUp().toIndexedSeq
-        if (ulLoads.sum > 0.0) {
-            val sortedUl = ulLoads.sorted
-            val ulMedian = sortedUl.size match {
-                case n if n % 2 == 0 =>
-                    val upper = n / 2
-                    ((sortedUl(upper - 1) + sortedUl(upper)) / 2.0)
+        val ulStats = new DescriptiveStatistics(ProcessingModel.allLoadUp().toArray)
+        if (ulStats.getSum > 0.0)
+            stats += "UL[MIN %.2f MAX %.2f MEDIAN %.2f]".
+                format(ulStats.getMin, ulStats.getMax(), ulStats.getPercentile(50))
 
-                case n =>
-                    sortedUl(n / 2)
-            }
-
-            stats += {
-                "UL[MIN %.2f MAX %.2f MEDIAN %.2f]".
-                    format(sortedUl.head, sortedUl.last, ulMedian)
-            }
-        }
-
-        val dlLoads = ProcessingModel.allLoadDown().toIndexedSeq
-        if (dlLoads.sum > 0.0) {
-            val sortedDl = dlLoads.sorted
-            val dlMedian = sortedDl.size match {
-                case n if n % 2 == 0 =>
-                    val upper = n / 2
-                    ((sortedDl(upper - 1) + sortedDl(upper)) / 2)
-
-                case n =>
-                    sortedDl(n / 2)
-            }
-
-            stats += {
-                "DL[MIN %.2f MAX %.2f MEDIAN %.2f]".
-                    format(sortedDl.head, sortedDl.last, dlMedian)
-            }
-        }
+        val dlStats = new DescriptiveStatistics(ProcessingModel.allLoadDown().toArray)
+        if (dlStats.getSum > 0.0)
+            stats += "DL[MIN %.2f MAX %.2f MEDIAN %.2f]".
+                format(dlStats.getMin, dlStats.getMax, dlStats.getPercentile(50))
 
         stats.mkString(" ")
     }
