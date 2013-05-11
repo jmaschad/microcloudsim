@@ -14,6 +14,9 @@ import scala.math._
 import de.jmaschad.storagesim.Units
 import de.jmaschad.storagesim.model.ProcessingModel
 import org.apache.commons.math3.distribution.UniformRealDistribution
+import de.jmaschad.storagesim.model.LoadModel
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 
 class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractFileBasedSelector(log, dialogCenter) {
@@ -33,8 +36,10 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     private var placementPool = SortedSet.empty[Placement](SizeOrdering)
     private var placements = Map.empty[StorageObject, Placement]
+    private var cloudLoad = Map.empty[Int, Double]
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]) {
+
         val cloudCount = microclouds.size
         val cloudIDs = microclouds map { _.getId } toIndexedSeq
 
@@ -48,10 +53,25 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
         placementPool ++= allPlacements
 
+        LoadModel.setUsers(users)
+
+        val tenPerc = objects.size / 10
+        (1 to objects.size) zip objects foreach {
+            case (idx, obj) =>
+                placeObject(obj, Some(1.2), placementPool)
+                if (idx % tenPerc == 0) {
+                    print(".")
+                }
+        }
+        println()
+
         super.initialize(microclouds, objects, users)
     }
 
     override def removeCloud(cloud: Int) = {
+        // clean the cloud load
+        cloudLoad -= cloud
+
         // clean the placement pool
         val lostPlacements = placementPool filter { _.clouds.contains(cloud) }
         placementPool --= lostPlacements
@@ -85,17 +105,9 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     override def selectRepairSource(obj: StorageObject): Int = {
         val sources = distributionState(obj).toIndexedSeq
-        val sourceLoads = sources map { ProcessingModel.loadUp(_) }
-
-        val sample = new UniformRealDistribution(0.0, sourceLoads.sum).sample()
-        var index = -1
-        var selection = 0.0
-        while (selection < sample) {
-            index += 1
-            selection += sourceLoads(index)
-        }
-
-        sources(index)
+        sources sortWith { (s1, s2) =>
+            cloudLoad.getOrElse(s1, 0.0) < cloudLoad.getOrElse(s2, 0.0)
+        } head
     }
 
     private def repairObjects(objects: Set[StorageObject]) = {
@@ -119,20 +131,41 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
 
         objects foreach { obj =>
-            placeObject(obj, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
+            placeObject(obj, None, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
             val addedClouds = placements(obj).clouds -- currentClouds(obj)
             addedClouds foreach { c => cloudDownAmount += c -> { cloudDownAmount.getOrElse(c, 0.0) + obj.size } }
         }
     }
 
-    private def placeObject(obj: StorageObject, possiblePlacements: SortedSet[Placement] = placementPool): Unit = {
-        val placement = possiblePlacements.head
+    private def placeObject(obj: StorageObject, maxLoad: Option[Double], possiblePlacements: SortedSet[Placement]): Unit = {
+        val placement = maxLoad match {
+            case Some(max) =>
+                new DescriptiveStatistics(cloudLoad.values.toArray).getMean() match {
+                    case mean if mean.isNaN || mean == 0.0 =>
+                        possiblePlacements.head
+
+                    case mean =>
+                        possiblePlacements find { p =>
+                            p.clouds forall { c => (cloudLoad.getOrElse(c, 0.0) / mean) < max }
+                        } getOrElse {
+                            throw new IllegalStateException
+                        }
+                }
+
+            case None =>
+                possiblePlacements.head
+        }
+
         placementPool -= placement
 
         placement.size += obj.size
 
         placementPool += placement
         placements += obj -> placement
+
+        placement.clouds foreach { cloud =>
+            cloudLoad += cloud -> { cloudLoad.getOrElse(cloud, 0.0) + LoadModel.getLoad(obj) }
+        }
     }
 
 }

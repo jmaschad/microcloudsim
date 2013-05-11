@@ -38,11 +38,11 @@ class User(
     name: String,
     region: Int,
     val objects: Seq[StorageObject],
-    val medianGetDelay: Double,
+    val meanGetInterval: Double,
     val bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
-    private val getInterval = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
+    private val getInterval = new NormalDistribution(meanGetInterval, 0.1 * meanGetInterval)
     private val objectSelection = new UniformIntegerDistribution(0, objects.size - 1)
 
     User.users += this

@@ -98,10 +98,10 @@ object StatsCentral extends SimEntity("StatsCentral") {
         if (startOfRepair.isNaN) {
             startOfRepair = CloudSim.clock()
             totalSizeOfRepair = totalSize
-            Log.line("SC", "Starting repair of %.3fMB".format(totalSize))
+            Log.line("SC", "Starting repair of %.3f GB".format(totalSize / 1024))
         } else {
             totalSizeOfRepair += totalSize
-            Log.line("SC", "Adding repair of %.3fMB".format(totalSize))
+            Log.line("SC", "Adding repair of %.3fGB".format(totalSize / 1024))
         }
 
     def finishRepair() = {
@@ -134,8 +134,9 @@ object StatsCentral extends SimEntity("StatsCentral") {
                 { repairInfos map { _.size } sum } / { clock - repairInfos.head.clock }
             }
 
+            val remain = totalSizeOfRepair - finishedAmount
             val bwTotal = finishedAmount / (clock - startOfRepair)
-            "REP[BW10 %.3f Mbit/s BWTOT %.3f Mbit/s]".format(bw10 * 8, bwTotal * 8)
+            "REP[%.2f GB REMAIN BW10 %.3f Mbit/s BWTOT %.3f Mbit/s]".format(remain / 1024, bw10 * 8, bwTotal * 8)
         } else {
             ""
         }
