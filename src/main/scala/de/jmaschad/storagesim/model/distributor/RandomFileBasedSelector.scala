@@ -33,12 +33,7 @@ class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     override def selectForGet(region: Int, storageObject: StorageObject): Int = {
         val possibleTargets = distributionState(storageObject).toIndexedSeq
-        val latencyOrderedTargets = possibleTargets sortWith { (t1, t2) =>
-            val e1 = Entity.entityForId(t1)
-            val e2 = Entity.entityForId(t2)
-            NetworkDelay.between(region, e1.region) < NetworkDelay.between(region, e2.region)
-        }
-        latencyOrderedTargets.head
+        LatencyBasedSelection.selectForGet(region, possibleTargets)
     }
 
     override def selectRepairSource(obj: StorageObject): Int =

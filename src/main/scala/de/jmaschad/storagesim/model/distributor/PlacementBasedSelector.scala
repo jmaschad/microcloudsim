@@ -38,8 +38,6 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         val cloudCount = microclouds.size
         val cloudIDs = microclouds map { _.getId } toIndexedSeq
 
-        val printStat = cloudCount / 10
-
         val allPlacements = for {
             c1 <- 0 until cloudCount
             c2 <- 0 until cloudCount if c2 != c1
@@ -49,16 +47,6 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             new Placement(places, 0.0)
         }
         placementPool ++= allPlacements
-
-        val tenPerc = objects.size / 10
-        (1 to objects.size) zip objects foreach {
-            case (idx, obj) =>
-                placeObject(obj)
-                if (idx % tenPerc == 0) {
-                    print(".")
-                }
-        }
-        println()
 
         super.initialize(microclouds, objects, users)
     }
@@ -92,12 +80,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     override def selectForGet(region: Int, storageObject: StorageObject): Int = {
         val possibleTargets = placements(storageObject).clouds.toIndexedSeq
-        val latencyOrderedTargets = possibleTargets sortWith { (t1, t2) =>
-            val e1 = Entity.entityForId(t1)
-            val e2 = Entity.entityForId(t2)
-            NetworkDelay.between(region, e1.region) < NetworkDelay.between(region, e2.region)
-        }
-        latencyOrderedTargets.head
+        LatencyBasedSelection.selectForGet(region, possibleTargets)
     }
 
     override def selectRepairSource(obj: StorageObject): Int = {
