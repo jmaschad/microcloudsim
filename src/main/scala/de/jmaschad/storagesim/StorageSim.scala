@@ -95,9 +95,10 @@ object StorageSim {
             case (objCounter, user) =>
                 objCounter ++ { user.objects map { obj => obj -> { objCounter.getOrElse(obj, 0) + 1 } } }
         }
-        val stats = new DescriptiveStatistics(objCounts.values map { _.toDouble } toArray)
-        log("selected %d active objects [MAX %.0f MIN %.0f MEDIAN %.1f users/object]".
-            format(stats.getN, stats.getMax, stats.getMin, stats.getPercentile(50)))
+        val ucs = new DescriptiveStatistics(objCounts.values map { _.toDouble } toArray)
+        val ocs = new DescriptiveStatistics(users map { _.objects.size.toDouble } toArray)
+        log("%d active objects. users/object: MIN %.0f MAX %.0f MEAN %.2f. objects/users: MIN %.0f MAX %.0f MEAN %.2f".
+            format(ucs.getN(), ucs.getMin, ucs.getMax, ucs.getMean, ocs.getMin, ocs.getMax, ocs.getMean))
 
         log("initialize the distributor with clouds and objects")
         distributor.initialize(clouds, objects, users.toSet)
