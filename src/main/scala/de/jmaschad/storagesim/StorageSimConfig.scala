@@ -12,6 +12,7 @@ import java.io.PrintWriter
 import org.apache.commons.math3.distribution.ZipfDistribution
 import org.apache.commons.math3.distribution.WeibullDistribution
 import org.apache.commons.math3.distribution.UniformRealDistribution
+import org.apache.commons.math3.distribution.BinomialDistribution
 
 object RealDistributionConfiguration {
     def toDist(config: RealDistributionConfiguration) = config match {
@@ -33,6 +34,7 @@ object IntegerDistributionConfiguration {
         case PoissonDist(mean) => new PoissonDistribution(mean)
         case UniformIntDist(min, max) => new UniformIntegerDistribution(min, max)
         case ZipfDist(elems, exp) => new ZipfDistribution(elems, exp)
+        case BinomialDist(trials, p) => new BinomialDistribution(trials, p)
         case _ => throw new IllegalStateException
     }
 }
@@ -40,6 +42,7 @@ sealed abstract class IntegerDistributionConfiguration
 case class PoissonDist(mean: Double) extends IntegerDistributionConfiguration
 case class UniformIntDist(min: Int, max: Int) extends IntegerDistributionConfiguration
 case class ZipfDist(elems: Int, exp: Double) extends IntegerDistributionConfiguration
+case class BinomialDist(trials: Int, p: Double) extends IntegerDistributionConfiguration
 
 object BehaviorConfig {
     def apply(requestType: RequestType,
@@ -85,24 +88,26 @@ trait StorageSimConfig {
 
     var regionCount: Int = 30
     var cloudCount: Int = 30
-    var userCount: Int = 500
+    var userCount: Int = 1000
 
-    var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 20 * Units.MByte)
+    var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 0.25 * Units.MByte)
 
     // number of buckets in the system
-    var bucketCount: Int = 100
+    var bucketCount: Int = 1000
+    var bucketSizeDist: RealDistributionConfiguration = ExponentialDist(1)
 
-    // how many buckets can a user access
-    var bucketsPerUser: IntegerDistributionConfiguration = PoissonDist(2)
+    // the mean count of objects a user accesses 
+    var meanObjectCount: Int = 50
 
     // size distribution of individual objects
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
-    // which object will be selected for download
-    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(1)
+
+    // what percentage of the user population will access a given object.
+    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.1)
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
 
     // mean time interval between get requests
-    var meanGetInterval: RealDistributionConfiguration = NormalDist(2, 0.5)
+    var meanGetInterval: RealDistributionConfiguration = WeibullDist(3, 2)
 }

@@ -24,6 +24,7 @@ import de.jmaschad.storagesim.StatsCentral
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.UniformRealDist
 import org.apache.commons.math3.distribution.UniformRealDistribution
+import org.apache.commons.math3.distribution.UniformIntegerDistribution
 
 object User {
     private var users = Set.empty[User]
@@ -42,7 +43,7 @@ class User(
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
     private val getInterval = new NormalDistribution(medianGetDelay, 0.1 * medianGetDelay)
-    private val objectSelection = new UniformRealDistribution(0.0, objects map { _.popularity } sum)
+    private val objectSelection = new UniformIntegerDistribution(0, objects.size - 1)
 
     User.users += this
 
@@ -69,15 +70,8 @@ class User(
 
     private def scheduleRequest(requestType: RequestType): Unit = requestType match {
         case RequestType.Get =>
-            var selection = objectSelection.sample()
-            var index = 0
-            do {
-                selection -= objects(index).size
-            } while (selection > 0)
-
-            val obj = objects(index)
-            val get = Get(obj)
-            lookupCloud(get, openGetDialog _)
+            val obj = objects(objectSelection.sample())
+            lookupCloud(Get(obj), openGetDialog _)
 
         case _ => throw new IllegalStateException
     }

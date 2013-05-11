@@ -7,6 +7,7 @@ import org.cloudbus.cloudsim.core.CloudSim
 import scala.collection.mutable.HashSet
 import de.jmaschad.storagesim.StatsCentral
 import scala.collection.immutable.Queue
+import scala.math._
 
 object ProcessingModel extends SimEntity("ProcessingModel") {
     private val UpdateInterval = 0.001
@@ -18,11 +19,9 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
     var models = Map.empty[ProcessingEntity, ProcessingModel]
 
     var upStats = Map.empty[ProcessingEntity, Double]
-    var allUp = IndexedSeq.empty[Int]
     var meanUp = 0.0
 
     var downStats = Map.empty[ProcessingEntity, Double]
-    var allDown = IndexedSeq.empty[Int]
     var meanDown = 0.0
 
     def createModel(procEntity: ProcessingEntity) = {
@@ -44,11 +43,11 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
         }
 
         assert(downStats.isDefinedAt(cloud))
-        downStats(cloud) / meanDown
+        downStats(cloud)
     }
 
-    def allLoadDown(): IndexedSeq[Double] =
-        allDown map { _ / meanDown }
+    def allLoadDown(): Iterable[Double] =
+        downStats.values
 
     def loadUp(microCloud: Int): Double = {
         val cloud = CloudSim.getEntity(microCloud) match {
@@ -57,11 +56,11 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
         }
 
         assert(upStats.isDefinedAt(cloud))
-        upStats(cloud) / meanUp
+        upStats(cloud)
     }
 
-    def allLoadUp(): IndexedSeq[Double] =
-        allUp map { _ / meanUp }
+    def allLoadUp(): Iterable[Double] =
+        upStats.values
 
     override def startEntity() = {
         scheduleUpdate()
@@ -77,11 +76,13 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
 
         case StatsEvent =>
             updateStats()
-            allUp = { microCloudModels map { _.loadUp } }.toIndexedSeq
-            meanUp = allUp.sum / allUp.size.toDouble
+            val newUpStats = { microCloudModels map { model => model.procEntity -> model.loadUp } toMap }
+            meanUp = newUpStats.values.sum / newUpStats.size
+            upStats = newUpStats mapValues { _ / meanUp }
 
-            allDown = { microCloudModels map { _.loadDown } }.toIndexedSeq
-            meanDown = allDown.sum / allDown.size.toDouble
+            val newDownStats = { microCloudModels map { model => model.procEntity -> model.loadDown } toMap }
+            meanDown = newDownStats.values.sum / newDownStats.size
+            downStats = newDownStats mapValues { _ / meanDown }
 
             scheduleStats()
 

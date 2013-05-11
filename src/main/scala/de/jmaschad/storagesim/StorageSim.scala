@@ -20,6 +20,9 @@ import java.util.Calendar
 import java.nio.charset.Charset
 import java.io.File
 import org.apache.commons.math3.util.ArithmeticUtils
+import org.apache.commons.math3.distribution.UniformRealDistribution
+import org.apache.commons.math3.stat.correlation.PearsonsCorrelation
+import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 
 object StorageSim {
     private val log = Log.line("StorageSim", _: String)
@@ -85,8 +88,16 @@ object StorageSim {
         val objects = createObjects()
         log("created " + objects.size + " objects")
 
-        val users = createUsers(distributor, objects)
+        val users = createUsers(distributor, objects.toIndexedSeq)
         log("created " + users.size + " users")
+
+        val objCounts = users.foldLeft(Map.empty[StorageObject, Int]) {
+            case (objCounter, user) =>
+                objCounter ++ { user.objects map { obj => obj -> { objCounter.getOrElse(obj, 0) + 1 } } }
+        }
+        val stats = new DescriptiveStatistics(objCounts.values map { _.toDouble } toArray)
+        log("selected %d active objects [MAX %.0f MIN %.0f MEDIAN %.1f users/object]".
+            format(stats.getN, stats.getMax, stats.getMin, stats.getPercentile(50)))
 
         log("initialize the distributor with clouds and objects")
         distributor.initialize(clouds, objects, users.toSet)
@@ -126,73 +137,80 @@ object StorageSim {
 
     private def createObjects(): Set[StorageObject] = {
         val buckets = (1 to configuration.bucketCount) map { "bucket-" + _ }
-        val bucketSampler = new UniformIntegerDistribution(0, buckets.size - 1)
 
-        // all buckets get one fortune
-        var bucketFortunes = IndexedSeq.empty[Int] ++ buckets.indices
-
-        // one fourth gets one more
-        (1 to buckets.size / 4) foreach { _ =>
-            bucketFortunes = bucketFortunes :+ bucketSampler.sample()
-        }
-
-        // one sixteenth gets eight more
-        (1 to buckets.size / 16) foreach { _ =>
-            (1 to 8) foreach { _ =>
-                bucketFortunes = bucketFortunes :+ bucketSampler.sample()
-            }
-        }
+        // draw the bucket sizes 
+        val bucketSizeDist = RealDistributionConfiguration.toDist(configuration.bucketSizeDist)
+        val bucketSizes = bucketSizeDist.sample(buckets.size) map { _ / bucketSizeDist.getNumericalMean() }
+        val bucketSizeSum = bucketSizes.sum
 
         // generate enough objects to use all possible placements
         val objectCount = (ArithmeticUtils.binomialCoefficient(configuration.cloudCount, configuration.replicaCount) * 5).toInt
 
+        // draw object sizes
         val objectSizeDist = RealDistributionConfiguration.toDist(configuration.objectSize)
         val objectSizes = objectSizeDist.sample(objectCount)
 
-        val objectPupularityDist = RealDistributionConfiguration.toDist(configuration.objectPopularityModel)
-        val objectPopularities = objectPupularityDist.sample(objectCount) map { _ / objectPupularityDist.getNumericalMean() }
+        // generate the bucket allocation by lot
+        val bucketDrawer = new UniformRealDistribution(0.0, bucketSizeSum)
+        val bucketIndices = bucketDrawer.sample(objectCount) map { sample =>
+            var cumulator = 0.0
+            var index = -1
+            while (cumulator < sample) {
+                index += 1
+                cumulator += bucketSizes(index)
+            }
+            index
+        }
 
-        val meanObjectLoad = objectSizeDist.getNumericalMean() * objectPupularityDist.getNumericalMean()
-        val objectLoads = objectSizes zip objectPopularities map { case (size, pop) => (size * pop) / meanObjectLoad }
-
-        // generate the objects and select the bucket by lot
-        val bucketDrawer = new UniformIntegerDistribution(0, bucketFortunes.size - 1)
+        // generate the objects
         (0 until objectCount) map { idx =>
             val objName = "obj" + (idx + 1)
-            val objBucket = buckets(bucketFortunes(bucketDrawer.sample()))
-            new StorageObject(objName, objBucket, objectSizes(idx), objectPopularities(idx), objectLoads(idx))
+            new StorageObject(objName, buckets(bucketIndices(idx)), objectSizes(idx))
         } toSet
     }
 
-    private def createUsers(distributor: Distributor, objects: Set[StorageObject]): Seq[User] = {
+    private def createUsers(distributor: Distributor, objects: IndexedSeq[StorageObject]): Seq[User] = {
+        // draw a subset of objects which is to be used in this experiment
+        val objectPupularityDist = RealDistributionConfiguration.toDist(configuration.objectPopularityModel)
+        val maxPop = 1.0
+        val minPop = 1.0 / configuration.userCount
+        val totalSumOfObjsPerUser = configuration.userCount * configuration.meanObjectCount
+        val meanNumberOfUsersPerObject = configuration.userCount * { objectPupularityDist.getNumericalMean() min maxPop max minPop }
+        val usedObjectCount = (totalSumOfObjsPerUser / meanNumberOfUsersPerObject).ceil.toInt
 
+        assert(usedObjectCount <= objects.size)
+
+        var usedObjectIndices = RandomUtils.distinctRandomSelectN(usedObjectCount, (0 until objects.size).toIndexedSeq)
+
+        val userIndices = (0 until configuration.userCount).toIndexedSeq
+        var objectSets = Map.empty[Int, Set[StorageObject]]
+        usedObjectIndices foreach { objIdx =>
+            val userCount = (objectPupularityDist.sample() * configuration.userCount).ceil.toInt max 1 min configuration.userCount
+            val uids = RandomUtils.distinctRandomSelectN(userCount, userIndices)
+            uids foreach { uid => objectSets += uid -> { objectSets.getOrElse(uid, Set.empty) + objects(objIdx) } }
+        }
+
+        // assert all users have objects
+        assert(objectSets.keySet == userIndices.toSet)
+        assert(objectSets.values filter { _.isEmpty } isEmpty)
+
+        // draw the users region from a uniform distribution
         val regionDist = new UniformIntegerDistribution(1, configuration.regionCount - 1)
+
+        // different users generate different amount of requests
         val meanGetIntervalDist = RealDistributionConfiguration.toDist(configuration.meanGetInterval)
 
-        val bucketObjectMap = objects.groupBy(_.bucket)
-        val bucketSeq = bucketObjectMap.keys.toIndexedSeq
-        val bucketCount = bucketObjectMap.keySet.size
-        val bucketsPerUserDist = IntegerDistributionConfiguration.toDist(configuration.bucketsPerUser)
-
-        for (i <- 1 to configuration.userCount) yield {
-            val userName = "u" + i
+        for (i <- 0 until configuration.userCount) yield {
+            val userName = "u" + (i + 1)
 
             val region = regionDist.sample()
             assert(region != 0)
 
-            val userBuckets = if (bucketCount == 1) {
-                bucketObjectMap.keySet
-            } else {
-                val userBucketCount = bucketsPerUserDist.sample() max 1
-                new UniformIntegerDistribution(0, bucketCount - 1).sample(userBucketCount) map { bucketSeq(_) } toSet
-            }
-            val userObjects = userBuckets flatMap { bucketObjectMap(_) }
-
-            val meanGetInterval = meanGetIntervalDist.sample() max 0.1
+            val meanGetInterval = meanGetIntervalDist.sample() max 0.001
 
             val bandwidth = 4.0 * Units.MByte
 
-            new User(userName, region, userObjects.toSeq, meanGetInterval, bandwidth, distributor)
+            new User(userName, region, objectSets(i).toSeq, meanGetInterval, bandwidth, distributor)
         }
     }
 }

@@ -32,14 +32,13 @@ class RandomBucketBasedSelector(log: String => Unit, dialogEntity: DialogEntity)
                 currentReplicas ++ RandomUtils.distinctRandomSelectN(n, availableClouds)
         }
 
-    override def selectForGet(region: Int, storageObject: StorageObject): Int =
-        distributionState getOrElse (storageObject, Set.empty) match {
-            case targets if targets.size == 0 =>
-                -1
-            case targets if targets.size == 1 =>
-                targets.head
-            case targets =>
-                val target = targets.toIndexedSeq(new UniformIntegerDistribution(0, targets.size - 1).sample())
-                target
+    override def selectForGet(region: Int, storageObject: StorageObject): Int = {
+        val possibleTargets = distributionState(storageObject).toIndexedSeq
+        val latencyOrderedTargets = possibleTargets sortWith { (t1, t2) =>
+            val e1 = Entity.entityForId(t1)
+            val e2 = Entity.entityForId(t2)
+            NetworkDelay.between(region, e1.region) < NetworkDelay.between(region, e2.region)
         }
+        latencyOrderedTargets.head
+    }
 }

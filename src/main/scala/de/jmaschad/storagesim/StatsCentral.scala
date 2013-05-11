@@ -71,7 +71,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
     private def loadStats(): String = {
         var stats = Set.empty[String]
 
-        val ulLoads = ProcessingModel.allLoadUp()
+        val ulLoads = ProcessingModel.allLoadUp().toIndexedSeq
         if (ulLoads.sum > 0.0) {
             val sortedUl = ulLoads.sorted
             val ulMedian = sortedUl.size match {
@@ -89,7 +89,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
             }
         }
 
-        val dlLoads = ProcessingModel.allLoadDown()
+        val dlLoads = ProcessingModel.allLoadDown().toIndexedSeq
         if (dlLoads.sum > 0.0) {
             val sortedDl = dlLoads.sorted
             val dlMedian = sortedDl.size match {

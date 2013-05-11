@@ -9,18 +9,25 @@ import de.jmaschad.storagesim.model.Entity
 import de.jmaschad.storagesim.model.NetworkDelay
 import de.jmaschad.storagesim.RandomUtils
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
+import org.cloudbus.cloudsim.core.CloudSim
+import scala.math._
+import de.jmaschad.storagesim.Units
+import de.jmaschad.storagesim.model.ProcessingModel
+import org.apache.commons.math3.distribution.UniformRealDistribution
 
 class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractFileBasedSelector(log, dialogCenter) {
 
-    private class Placement(val clouds: Set[Int], var size: Double) {
+    private class Placement(var clouds: Set[Int], var size: Double) {
         override def toString() = "Placement(" + clouds + ", " + size + ")"
     }
 
     private object SizeOrdering extends Ordering[Placement] {
         def compare(x: Placement, y: Placement) = x.size == y.size match {
             case true => x.## compare y.##
-            case false => x.size compare y.size
+
+            case false =>
+                x.size compare y.size
         }
     }
 
@@ -39,12 +46,19 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             c3 <- 0 until cloudCount if c3 != c2 && c3 != c1
         } yield {
             val places = Set(cloudIDs(c1), cloudIDs(c2), cloudIDs(c3))
-            val size = 0.0
-            new Placement(places, size)
+            new Placement(places, 0.0)
         }
         placementPool ++= allPlacements
 
-        objects foreach { placeObject(_) }
+        val tenPerc = objects.size / 10
+        (1 to objects.size) zip objects foreach {
+            case (idx, obj) =>
+                placeObject(obj)
+                if (idx % tenPerc == 0) {
+                    print(".")
+                }
+        }
+        println()
 
         super.initialize(microclouds, objects, users)
     }
@@ -59,11 +73,13 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             case (_, placement) => lostPlacements.contains(placement)
         } keySet
 
-        // find a new placement for all impaired objects
+        // remove the lost cloud from the impaired object's placement
         impairedObjects foreach { obj =>
-            val remainingClouds = placements(obj).clouds - cloud
-            replaceObject(obj, remainingClouds)
+            placements(obj).clouds -= cloud
         }
+
+        // find a new placement for all impaired objects
+        repairObjects(impairedObjects)
 
         // assert no object is placed on the removed cloud
         assert({ placements.values filter { _.clouds.contains(cloud) } } isEmpty)
@@ -82,15 +98,48 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             NetworkDelay.between(region, e1.region) < NetworkDelay.between(region, e2.region)
         }
         latencyOrderedTargets.head
-        possibleTargets.toIndexedSeq(new UniformIntegerDistribution(0, possibleTargets.size - 1).sample())
     }
 
-    override def selectRepairSource(obj: StorageObject): Int =
-        RandomUtils.randomSelect1(distributionState(obj).toIndexedSeq)
+    override def selectRepairSource(obj: StorageObject): Int = {
+        val sources = distributionState(obj).toIndexedSeq
+        val sourceLoads = sources map { ProcessingModel.loadUp(_) }
 
-    private def replaceObject(obj: StorageObject, currentClouds: Set[Int]) = {
-        val neighborPlacements = placementPool filter { currentClouds subsetOf _.clouds }
-        placeObject(obj, neighborPlacements)
+        val sample = new UniformRealDistribution(0.0, sourceLoads.sum).sample()
+        var index = -1
+        var selection = 0.0
+        while (selection < sample) {
+            index += 1
+            selection += sourceLoads(index)
+        }
+
+        sources(index)
+    }
+
+    private def repairObjects(objects: Set[StorageObject]) = {
+        val currentClouds = objects map { obj => obj -> placements(obj).clouds } toMap
+        val neighborPlacements = objects map { obj =>
+            obj -> { placementPool filter { placement => currentClouds(obj) subsetOf placement.clouds } }
+        } toMap
+
+        var cloudDownAmount = Map.empty[Int, Double]
+        object DownAmountOrdering extends Ordering[Placement] {
+            def compare(x: Placement, y: Placement) = {
+                val maxDownAmountX = x.clouds map { cloudDownAmount.getOrElse(_, 0.0) } max
+                val maxDownAmountY = y.clouds map { cloudDownAmount.getOrElse(_, 0.0) } max
+
+                val dist = abs(maxDownAmountX - maxDownAmountY)
+                if (dist < 10 * Units.MByte)
+                    SizeOrdering.compare(x, y)
+                else
+                    maxDownAmountX compare maxDownAmountY
+            }
+        }
+
+        objects foreach { obj =>
+            placeObject(obj, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
+            val addedClouds = placements(obj).clouds -- currentClouds(obj)
+            addedClouds foreach { c => cloudDownAmount += c -> { cloudDownAmount.getOrElse(c, 0.0) + obj.size } }
+        }
     }
 
     private def placeObject(obj: StorageObject, possiblePlacements: SortedSet[Placement] = placementPool): Unit = {
