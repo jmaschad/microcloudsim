@@ -84,6 +84,10 @@ trait StorageSimConfig {
     //    var simDuration: Double = 6.307e7 // two years
 
     var selector: SelectorConfig = PlacementBased()
+
+    // Options for placement based placement
+    var maxLoadInit = 1.3
+
     var replicaCount: Int = 3
 
     var regionCount: Int = 30

@@ -17,6 +17,7 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 import de.jmaschad.storagesim.model.LoadModel
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
+import de.jmaschad.storagesim.StorageSim
 
 class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractFileBasedSelector(log, dialogCenter) {
@@ -58,7 +59,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         val tenPerc = objects.size / 10
         (1 to objects.size) zip objects foreach {
             case (idx, obj) =>
-                placeObject(obj, Some(1.2), placementPool)
+                placeObject(obj, Some(StorageSim.configuration.maxLoadInit), placementPool)
                 if (idx % tenPerc == 0) {
                     print(".")
                 }
