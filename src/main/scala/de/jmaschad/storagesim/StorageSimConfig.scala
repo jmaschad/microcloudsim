@@ -66,7 +66,9 @@ object StorageSimConfig {
         //        writer.println("duration = " + configuration.simDuration)
         writer.println()
         writer.println("selector = " + configuration.selector.getClass().getSimpleName())
-        writer.println("replica count = " + configuration.replicaCount)
+        if (configuration.selector.isInstanceOf[PlacementBased]) {
+            writer.println("max load init = " + configuration.maxLoadInit)
+        }
         writer.println()
         writer.println("cloud count = " + configuration.cloudCount)
         writer.println("cloud bandwidth dist = " + configuration.cloudBandwidth)
