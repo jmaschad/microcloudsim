@@ -4,7 +4,7 @@ import org.cloudbus.cloudsim.core.SimEntity
 import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Log
 
-class BaseEntity(name: String, region: Int) extends Entity(name, region) {
+class BaseEntity(name: String, netID: Int) extends Entity(name, netID) {
     override def startEntity(): Unit = {}
     override def shutdownEntity(): Unit = {}
     override def processEvent(event: SimEvent): Unit = {}

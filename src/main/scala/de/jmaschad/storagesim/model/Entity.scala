@@ -10,7 +10,7 @@ object Entity {
     }
 }
 
-abstract class Entity(name: String, val region: Int) extends SimEntity(name) {
+abstract class Entity(name: String, val netID: Int) extends SimEntity(name) {
     /**
      * This will be called when an entity gets killed.
      * It should reset the entities state to its initial state.

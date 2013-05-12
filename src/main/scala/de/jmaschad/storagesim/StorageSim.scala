@@ -92,7 +92,7 @@ object StorageSim {
         distributor.initialize(clouds, objects, users.toSet)
 
         log("inititalize network latency")
-        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("50areas_ba.brite"))
+        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("1500areas_wax.brite"))
         val topologyFile = Files.createTempFile("topology", "brite")
         val writer = Files.newBufferedWriter(topologyFile, Charset.defaultCharset())
         topologyStream foreach { writer.write(_) }
@@ -115,12 +115,10 @@ object StorageSim {
         assert(configuration.cloudCount >= configuration.replicaCount)
         val cloudBandwidthDist = RealDistributionConfiguration.toDist(configuration.cloudBandwidth)
 
-        (0 until configuration.cloudCount) map { i: Int =>
-            val name = "mc" + (i + 1)
-            val region = (i % (configuration.regionCount - 1)) + 1
-            assert(region != 0)
+        (1 to configuration.cloudCount) map { i: Int =>
+            val name = "mc" + i
             val bandwidth = cloudBandwidthDist.sample().max(1)
-            new MicroCloud(name, region, bandwidth, disposer)
+            new MicroCloud(name, i, bandwidth, disposer)
         } toSet
     }
 
@@ -184,17 +182,13 @@ object StorageSim {
         assert(objectSets.values filter { _.isEmpty } isEmpty)
 
         // draw the users region from a uniform distribution
-        val regionDist = new UniformIntegerDistribution(1, configuration.regionCount - 1)
 
         val bandwidthDist = RealDistributionConfiguration.toDist(configuration.userBandwidth)
 
         for (i <- 0 until configuration.userCount) yield {
             val userName = "u" + (i + 1)
-
-            val region = regionDist.sample()
-            assert(region != 0)
-
-            new User(userName, region, objectSets(i).toSeq, bandwidthDist.sample().max(64 * Units.KByte), distributor)
+            val nodeID = configuration.cloudCount + i + 1
+            new User(userName, nodeID, objectSets(i).toSeq, bandwidthDist.sample().max(64 * Units.KByte), distributor)
         }
     }
 }

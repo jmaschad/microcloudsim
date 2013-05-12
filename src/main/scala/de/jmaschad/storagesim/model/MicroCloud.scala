@@ -34,9 +34,9 @@ object MicroCloud {
 
 class MicroCloud(
     name: String,
-    region: Int,
+    netID: Int,
     val bandwidth: Double,
-    distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
+    distributor: Distributor) extends BaseEntity(name, netID) with DialogEntity with ProcessingEntity {
 
     //    private val meanTimeToFailure = RealDistributionConfiguration.toDist(StorageSim.configuration.meanTimeToFailure)
 

@@ -82,7 +82,6 @@ trait StorageSimConfig {
 
     var replicaCount: Int = 3
 
-    var regionCount: Int = 30
     var cloudCount: Int = 30
     var userCount: Int = 1000
 

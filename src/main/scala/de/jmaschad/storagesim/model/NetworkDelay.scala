@@ -16,13 +16,11 @@ object NetworkDelay {
      *
      * If one of the regions is 0 the delay will be 0 as well.
      */
-    def between(regionA: Int, regionB: Int): Double =
-        if (regionA == 0 || regionB == 0) {
+    def between(source: Int, target: Int): Double =
+        if (source == 0 || target == 0) {
             0.0f
-        } else if (regionA == regionB) {
-            regionDelay.sample() * 0.001
         } else {
-            NetworkTopology.getDelay(regionA, regionB)
+            NetworkTopology.getDelay(source, target)
         }
 
 }

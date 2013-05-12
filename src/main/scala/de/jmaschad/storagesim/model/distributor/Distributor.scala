@@ -71,7 +71,7 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
         Some((content) => content match {
             case Lookup(Get(obj)) =>
                 val entity = Entity.entityForId(dialog.partner)
-                selector.selectForGet(entity.region, obj) match {
+                selector.selectForGet(entity.netID, obj) match {
                     case cloud if cloud >= 0 =>
                         dialog.sayAndClose(Result(cloud))
 

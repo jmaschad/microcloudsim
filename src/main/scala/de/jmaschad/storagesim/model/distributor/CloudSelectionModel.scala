@@ -12,7 +12,7 @@ object LatencyBasedSelection extends CloudSelectionModel {
         val latencyOrderedTargets = targets sortWith { (t1, t2) =>
             val e1 = Entity.entityForId(t1)
             val e2 = Entity.entityForId(t2)
-            NetworkDelay.between(sourceRegion, e1.region) < NetworkDelay.between(sourceRegion, e2.region)
+            NetworkDelay.between(sourceRegion, e1.netID) < NetworkDelay.between(sourceRegion, e2.netID)
         }
         latencyOrderedTargets.head
     }

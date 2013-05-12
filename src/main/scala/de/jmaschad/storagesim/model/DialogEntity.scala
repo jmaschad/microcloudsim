@@ -49,7 +49,7 @@ trait DialogEntity extends Entity {
 
     def openDialog(target: Int): Dialog = {
         val targetEnity = Entity.entityForId(target)
-        val avgDelay = NetworkDelay.between(region, targetEnity.region)
+        val avgDelay = NetworkDelay.between(netID, targetEnity.netID)
 
         if (avgDelay == 0.0 && !this.isInstanceOf[Distributor] && !targetEnity.isInstanceOf[Distributor]) {
             println("PROBLEM")
@@ -114,7 +114,7 @@ trait DialogEntity extends Entity {
     protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler]
 
     private def answerDialog(source: Int, message: Message): Dialog = {
-        val avgDelay = NetworkDelay.between(region, Entity.entityForId(source).region)
+        val avgDelay = NetworkDelay.between(netID, Entity.entityForId(source).netID)
         val dialog = new Dialog(source, this, avgDelay, message.dialog)
 
         assert(!dialogs.isDefinedAt(message.dialog))
