@@ -2,7 +2,7 @@ package de.jmaschad.storagesim.model
 
 import de.jmaschad.storagesim.model.user.User
 
-object LoadModel {
+object LoadPrediction {
     private var load = Map.empty[StorageObject, Double]
 
     def getLoad(obj: StorageObject) = load.getOrElse(obj, 0.0)
@@ -19,8 +19,8 @@ object LoadModel {
 
         val unnormalizedLoads = objUsersMap map {
             case (obj, users) =>
-                val meanGetInterval = { users map { _.meanGetInterval } sum } / users.size
-                obj -> (obj.size * users.size) / meanGetInterval
+                val meanBandwidth = { users map { _.bandwidth } sum } / users.size
+                obj -> obj.size * users.size * meanBandwidth
         }
 
         val meanLoad = unnormalizedLoads.values.sum / unnormalizedLoads.size

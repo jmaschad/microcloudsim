@@ -74,13 +74,13 @@ object StatsCentral extends SimEntity("StatsCentral") {
 
         val ulStats = new DescriptiveStatistics(ProcessingModel.allLoadUp().toArray)
         if (ulStats.getSum > 0.0)
-            stats += "UL[MIN %.2f MAX %.2f MEDIAN %.2f]".
-                format(ulStats.getMin, ulStats.getMax(), ulStats.getPercentile(50))
+            stats += "UL[MEAN %.2fMbit/s STD.DEV %.2fMbit/s]".
+                format(ulStats.getMean * 8.0, ulStats.getStandardDeviation * 8.0)
 
         val dlStats = new DescriptiveStatistics(ProcessingModel.allLoadDown().toArray)
         if (dlStats.getSum > 0.0)
-            stats += "DL[MIN %.2f MAX %.2f MEDIAN %.2f]".
-                format(dlStats.getMin, dlStats.getMax, dlStats.getPercentile(50))
+            stats += "DL[MEAN %.2fMbit/s STD.DEV %.2fMbit/s]".
+                format(dlStats.getMean * 8.0, dlStats.getStandardDeviation * 8.0)
 
         stats.mkString(" ")
     }
@@ -108,7 +108,6 @@ object StatsCentral extends SimEntity("StatsCentral") {
         val totalTime = CloudSim.clock() - startOfRepair
         val totalMeanBW = totalSizeOfRepair / totalTime
         Log.line("SC", "Finished repair of %.3fMB in %.3fs @ %.3fMbit/s".format(totalSizeOfRepair, totalTime, totalMeanBW * 8))
-        repairInfos = Queue.empty
         startOfRepair = Double.NaN
         totalSizeOfRepair = Double.NaN
         finishedAmount = 0.0
@@ -118,25 +117,14 @@ object StatsCentral extends SimEntity("StatsCentral") {
     }
 
     def progressRepair(size: Double) = {
-        repairInfos = repairInfos :+ RepairInfo(CloudSim.clock(), size)
         finishedAmount += size
     }
 
     private def repairStats(): String =
         if (!startOfRepair.isNaN) {
-            val clock = CloudSim.clock()
-            val leastIncludedClock = clock - 10.0
-            repairInfos = repairInfos dropWhile { _.clock < leastIncludedClock }
-
-            val bw10 = if (repairInfos.isEmpty) {
-                0.0
-            } else {
-                { repairInfos map { _.size } sum } / { clock - repairInfos.head.clock }
-            }
-
             val remain = totalSizeOfRepair - finishedAmount
-            val bwTotal = finishedAmount / (clock - startOfRepair)
-            "REP[%.2f GB REMAIN BW10 %.3f Mbit/s BWTOT %.3f Mbit/s]".format(remain / 1024, bw10 * 8, bwTotal * 8)
+            val bwTotal = finishedAmount / (CloudSim.clock() - startOfRepair)
+            "REP[%.2fGB %.3fMbit/s]".format(remain / 1024, bwTotal * 8)
         } else {
             ""
         }

@@ -14,7 +14,7 @@ import scala.math._
 import de.jmaschad.storagesim.Units
 import de.jmaschad.storagesim.model.ProcessingModel
 import org.apache.commons.math3.distribution.UniformRealDistribution
-import de.jmaschad.storagesim.model.LoadModel
+import de.jmaschad.storagesim.model.LoadPrediction
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import de.jmaschad.storagesim.StorageSim
@@ -54,12 +54,12 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
         placementPool ++= allPlacements
 
-        LoadModel.setUsers(users)
+        LoadPrediction.setUsers(users)
 
         val tenPerc = objects.size / 10
         (1 to objects.size) zip objects foreach {
             case (idx, obj) =>
-                placeObject(obj, Some(StorageSim.configuration.maxLoadInit), placementPool)
+                placeObject(obj, Some(1.2), placementPool)
                 if (idx % tenPerc == 0) {
                     print(".")
                 }
@@ -107,7 +107,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     override def selectRepairSource(obj: StorageObject): Int = {
         val sources = distributionState(obj).toIndexedSeq
         sources sortWith { (s1, s2) =>
-            cloudLoad.getOrElse(s1, 0.0) < cloudLoad.getOrElse(s2, 0.0)
+            ProcessingModel.loadUp(s1) < ProcessingModel.loadUp(s2)
         } head
     }
 
@@ -165,7 +165,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         placements += obj -> placement
 
         placement.clouds foreach { cloud =>
-            cloudLoad += cloud -> { cloudLoad.getOrElse(cloud, 0.0) + LoadModel.getLoad(obj) }
+            cloudLoad += cloud -> { cloudLoad.getOrElse(cloud, 0.0) + LoadPrediction.getLoad(obj) }
         }
     }
 

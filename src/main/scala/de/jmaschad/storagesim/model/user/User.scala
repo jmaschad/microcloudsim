@@ -27,9 +27,7 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 
 object User {
-    private var users = Set.empty[User]
-    def allUsers: Set[User] = users
-
+    val GenerateGetInterval = 1.0
     private val Base = 10300
     val ScheduleGet = Base + 1
 }
@@ -38,19 +36,14 @@ class User(
     name: String,
     region: Int,
     val objects: Seq[StorageObject],
-    val meanGetInterval: Double,
-    val bandwidth: Double,
+    var bandwidth: Double,
     distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
 
-    private val getInterval = new NormalDistribution(meanGetInterval, 0.1 * meanGetInterval)
     private val objectSelection = new UniformIntegerDistribution(0, objects.size - 1)
-
-    User.users += this
 
     override def startEntity(): Unit = {
         super.startEntity()
-        val firstGetIn = getInterval.sample().max(0.01)
-        send(getId, firstGetIn, ScheduleGet)
+        send(getId, 0.5, ScheduleGet)
     }
 
     override def shutdownEntity() = {}
@@ -58,8 +51,11 @@ class User(
     override def processEvent(event: SimEvent) =
         event.getTag() match {
             case ScheduleGet =>
-                scheduleRequest(RequestType.Get)
-                send(getId, getInterval.sample().max(0.01), ScheduleGet)
+                if (processingModel.loadDown < (0.9 * bandwidth)) {
+                    val obj = objects(objectSelection.sample())
+                    lookupCloud(Get(obj), openGetDialog _)
+                }
+                send(getId, GenerateGetInterval, ScheduleGet)
 
             case _ =>
                 super.processEvent(event)
@@ -67,14 +63,6 @@ class User(
 
     override protected def createMessageHandler(dialog: Dialog, content: AnyRef): Option[DialogEntity.MessageHandler] =
         throw new IllegalStateException
-
-    private def scheduleRequest(requestType: RequestType): Unit = requestType match {
-        case RequestType.Get =>
-            val obj = objects(objectSelection.sample())
-            lookupCloud(Get(obj), openGetDialog _)
-
-        case _ => throw new IllegalStateException
-    }
 
     private def lookupCloud[T <: RestDialog](request: T, onSuccess: (Int, T) => Unit): Unit = {
         val dialog = openDialog(distributor.getId())

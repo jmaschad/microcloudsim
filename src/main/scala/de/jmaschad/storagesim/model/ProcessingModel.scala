@@ -77,13 +77,8 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
         case StatsEvent =>
             updateStats()
 
-            val newUpStats = { microCloudModels map { model => model.procEntity -> model.loadUp } toMap }
-            meanUp = newUpStats.values.sum / newUpStats.size
-            upStats = newUpStats mapValues { _ / meanUp }
-
-            val newDownStats = { microCloudModels map { model => model.procEntity -> model.loadDown } toMap }
-            meanDown = newDownStats.values.sum / newDownStats.size
-            downStats = newDownStats mapValues { _ / meanDown }
+            upStats = { microCloudModels map { model => model.procEntity -> model.loadUp } toMap }
+            downStats = { microCloudModels map { model => model.procEntity -> model.loadDown } toMap }
 
             scheduleStats()
 
@@ -120,31 +115,31 @@ class ProcessingModel(val procEntity: ProcessingEntity) {
         def isDone: Boolean = size < 1 * Units.Byte
     }
 
-    private var upCount = 0
-    var loadUp = 0
+    private var upAmount = 0.0
+    var loadUp = 0.0
 
-    private var downCount = 0
-    var loadDown = 0
+    private var downAmount = 0.0
+    var loadDown = 0.0
 
     private val uploads = HashSet.empty[Transfer]
     private val downloads = HashSet.empty[Transfer]
 
     def download(id: String, size: Double, onFinish: () => Unit): Unit = {
         downloads += new Transfer(size, onFinish)
-        downCount += 1
+        downAmount += size
     }
 
     def upload(id: String, size: Double, onFinish: () => Unit): Unit = {
         uploads += new Transfer(size, onFinish)
-        upCount += 1
+        upAmount += size
     }
 
     def updateStats() = {
-        loadUp = upCount
-        upCount = 0
+        loadUp = upAmount
+        upAmount = 0
 
-        loadDown = downCount
-        downCount = 0
+        loadDown = downAmount
+        downAmount = 0
     }
 
     def progress() = {

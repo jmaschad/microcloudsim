@@ -61,23 +61,16 @@ case class RandomObjectBased extends SelectorConfig
 case class PlacementBased extends SelectorConfig
 
 object StorageSimConfig {
-    def printDescription(configuration: StorageSimConfig, writer: PrintWriter): Unit = {
-        writer.println("Configuration description:")
-        //        writer.println("duration = " + configuration.simDuration)
-        writer.println()
-        writer.println("selector = " + configuration.selector.getClass().getSimpleName())
-        if (configuration.selector.isInstanceOf[PlacementBased]) {
-            writer.println("max load init = " + configuration.maxLoadInit)
-        }
-        writer.println()
-        writer.println("cloud count = " + configuration.cloudCount)
-        writer.println("cloud bandwidth dist = " + configuration.cloudBandwidth)
-        writer.println()
-        writer.println("user count = " + configuration.userCount)
-        writer.println("bucket count = " + configuration.bucketCount)
-        writer.println("object size dist = " + configuration.objectSize)
-        writer.println("mean get inteval dist = " + configuration.meanGetInterval)
-        writer.println("object popularity model = " + configuration.objectPopularityModel)
+    def logDescription(configuration: StorageSimConfig): Unit = {
+        Log.line("CONF", "Configuration description:")
+        Log.line("CONF", "selector = " + configuration.selector.getClass().getSimpleName())
+        Log.line("CONF", "cloud count = " + configuration.cloudCount)
+        Log.line("CONF", "cloud bandwidth dist = " + configuration.cloudBandwidth)
+        Log.line("CONF", "user count = " + configuration.userCount)
+        Log.line("CONF", "user bandwidth dist = " + configuration.userBandwidth)
+        Log.line("CONF", "bucket count = " + configuration.bucketCount)
+        Log.line("CONF", "object size dist = " + configuration.objectSize)
+        Log.line("CONF", "object popularity model = " + configuration.objectPopularityModel)
     }
 }
 
@@ -85,10 +78,7 @@ trait StorageSimConfig {
     var outputDir: String = "experiments"
     //    var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = PlacementBased()
-
-    // Options for placement based placement
-    var maxLoadInit = 1.3
+    var selector: SelectorConfig = RandomObjectBased()
 
     var replicaCount: Int = 3
 
@@ -97,6 +87,7 @@ trait StorageSimConfig {
     var userCount: Int = 1000
 
     var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 0.25 * Units.MByte)
+    var userBandwidth: RealDistributionConfiguration = NormalDist(4 * Units.MByte, 0.125 * Units.MByte)
 
     // number of buckets in the system
     var bucketCount: Int = 1000
@@ -113,7 +104,4 @@ trait StorageSimConfig {
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)
-
-    // mean time interval between get requests
-    var meanGetInterval: RealDistributionConfiguration = WeibullDist(3, 2)
 }

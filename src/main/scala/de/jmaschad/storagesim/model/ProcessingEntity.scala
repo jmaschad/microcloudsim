@@ -4,9 +4,9 @@ import org.cloudbus.cloudsim.core.SimEvent
 import de.jmaschad.storagesim.Units
 
 trait ProcessingEntity extends Entity {
-    val bandwidth: Double
+    var processingModel = ProcessingModel.createModel(this)
 
-    private var processingModel = ProcessingModel.createModel(this)
+    def bandwidth: Double
 
     def download(id: String, size: Double, onFinish: () => Unit) =
         processingModel.download(id, size, onFinish)

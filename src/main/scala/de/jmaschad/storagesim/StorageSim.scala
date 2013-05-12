@@ -38,10 +38,10 @@ object StorageSim {
 
         val outDir = Paths.get(configuration.outputDir).toAbsolutePath().toRealPath()
         assert(Files.exists(outDir) && Files.isDirectory(outDir))
-        val experimentDir = createExperimentDir(outDir)
-        createDescription(experimentDir)
 
-        setLogFile(experimentDir)
+        setLogFile(outDir)
+        StorageSimConfig.logDescription(configuration)
+
         try {
             run()
         } catch {
@@ -51,25 +51,12 @@ object StorageSim {
         closeLogFile()
     }
 
-    private def createExperimentDir(baseDir: Path): Path = {
-        val date = DateTime.now()
-        val fmt = DateTimeFormat.forPattern("dd.MM.yyyy HH:mm:ss")
-        val dirName = fmt.print(date) + " " + configuration.selector.getClass().getSimpleName()
-        val expDir = baseDir.resolve(dirName)
-
-        assert(Files.notExists(expDir))
-        Files.createDirectory(expDir)
-    }
-
-    private def createDescription(dir: Path): Unit = {
-        val descFile = dir.resolve("description.txt")
-        val descWriter = new PrintWriter(Files.newBufferedWriter(descFile, Charset.forName("UTF-8")))
-        StorageSimConfig.printDescription(configuration, descWriter)
-        descWriter.close()
-    }
-
     private def setLogFile(dir: Path): Unit = {
-        val logFile = dir.resolve("experiment_log.txt")
+        val fmt = DateTimeFormat.forPattern("dd.MM.yyyy_HH:mm:ss")
+        val date = fmt.print(DateTime.now) + ".%d".format(System.currentTimeMillis() % 1000)
+        val logName = date + "_" + configuration.selector.getClass().getSimpleName() + ".txt"
+
+        val logFile = dir.resolve(logName.toLowerCase)
         Log.open(logFile)
     }
 
@@ -97,8 +84,9 @@ object StorageSim {
         }
         val ucs = new DescriptiveStatistics(objCounts.values map { _.toDouble } toArray)
         val ocs = new DescriptiveStatistics(users map { _.objects.size.toDouble } toArray)
-        log("%d active objects. users/object: MIN %.0f MAX %.0f MEAN %.2f. objects/users: MIN %.0f MAX %.0f MEAN %.2f".
-            format(ucs.getN(), ucs.getMin, ucs.getMax, ucs.getMean, ocs.getMin, ocs.getMax, ocs.getMean))
+        val oss = new DescriptiveStatistics(users flatMap { _.objects map { _.size } } toArray)
+        log("%d active objects. users/object: MIN %.0f MAX %.0f MEAN %.2f. objects/users: MIN %.0f MAX %.0f MEAN %.2f. object sizes MEAN %.2f STD.DEV %.2f".
+            format(ucs.getN(), ucs.getMin, ucs.getMax, ucs.getMean, ocs.getMin, ocs.getMax, ocs.getMean, oss.getMean(), oss.getStandardDeviation()))
 
         log("initialize the distributor with clouds and objects")
         distributor.initialize(clouds, objects, users.toSet)
@@ -198,8 +186,7 @@ object StorageSim {
         // draw the users region from a uniform distribution
         val regionDist = new UniformIntegerDistribution(1, configuration.regionCount - 1)
 
-        // different users generate different amount of requests
-        val meanGetIntervalDist = RealDistributionConfiguration.toDist(configuration.meanGetInterval)
+        val bandwidthDist = RealDistributionConfiguration.toDist(configuration.userBandwidth)
 
         for (i <- 0 until configuration.userCount) yield {
             val userName = "u" + (i + 1)
@@ -207,11 +194,7 @@ object StorageSim {
             val region = regionDist.sample()
             assert(region != 0)
 
-            val meanGetInterval = meanGetIntervalDist.sample() max 0.001
-
-            val bandwidth = 4.0 * Units.MByte
-
-            new User(userName, region, objectSets(i).toSeq, meanGetInterval, bandwidth, distributor)
+            new User(userName, region, objectSets(i).toSeq, bandwidthDist.sample().max(64 * Units.KByte), distributor)
         }
     }
 }
