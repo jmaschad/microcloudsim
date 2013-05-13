@@ -22,7 +22,7 @@ import scala.util.Random
 import de.jmaschad.storagesim.StatsCentral
 import de.jmaschad.storagesim.model.transfer.dialogs.Load
 
-abstract class AbstractFileBasedSelector(
+abstract class AbstractObjectBasedSelector(
     log: String => Unit,
     dialogEntity: DialogEntity) extends CloudSelector {
 

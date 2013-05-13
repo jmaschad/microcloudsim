@@ -131,12 +131,12 @@ class ProcessingModel(val procEntity: ProcessingEntity) {
 
     def download(obj: StorageObject, size: Double, onFinish: () => Unit): Unit = {
         downloads += new Transfer(size, onFinish)
-        downAmount += obj -> { downAmount.getOrElse(obj, 0.0) + 1.0 }
+        downAmount += obj -> { downAmount.getOrElse(obj, 0.0) + size }
     }
 
     def upload(obj: StorageObject, size: Double, onFinish: () => Unit): Unit = {
         uploads += new Transfer(size, onFinish)
-        upAmount += obj -> { upAmount.getOrElse(obj, 0.0) + 1.0 }
+        upAmount += obj -> { upAmount.getOrElse(obj, 0.0) + size }
     }
 
     def updateStats() = {

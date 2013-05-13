@@ -14,7 +14,7 @@ import de.jmaschad.storagesim.model.Entity
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 
 class RandomFileBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
-    extends AbstractFileBasedSelector(log, dialogCenter) {
+    extends AbstractObjectBasedSelector(log, dialogCenter) {
 
     override protected def selectReplicas(
         obj: StorageObject,

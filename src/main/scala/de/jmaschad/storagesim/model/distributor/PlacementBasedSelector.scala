@@ -19,13 +19,15 @@ import org.apache.commons.math3.stat.descriptive.SummaryStatistics
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import de.jmaschad.storagesim.StorageSim
 import de.jmaschad.storagesim.model.ProximityModel
+import de.jmaschad.storagesim.model.ProcessingEntity
+import org.cloudbus.cloudsim.NetworkTopology
 
 class Placement(var clouds: Set[Int], var size: Double) {
     override def toString() = "Placement(" + clouds + ", " + size + ")"
 }
 
 class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
-    extends AbstractFileBasedSelector(log, dialogCenter) {
+    extends AbstractObjectBasedSelector(log, dialogCenter) {
 
     private object SizeOrdering extends Ordering[Placement] {
         def compare(x: Placement, y: Placement) = x.size == y.size match {
@@ -113,13 +115,66 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     }
 
     override def optimizePlacement(): Unit = if (!isRepairing) {
-        // TODO change the placements of objects to migrate and call corresponding startMigrations
+        val meanLoad = ProcessingModel.allLoadUp.sum / ProcessingModel.upStats.size
+        val cloudMeanLoads = ProcessingModel.upStats map {
+            case (cloud, objLoad) => cloud -> objLoad.values.sum / meanLoad
+
+        }
+
+        val maxLoad = 1.8
+        val highLoadClouds = { cloudMeanLoads filter { case (cloud, load) => load > maxLoad } keySet } map { _.getId }
+
+        val currentMigrationSources = activeMigrations.values.flatten groupBy { _.source } keySet
+        val newMigrationSources = highLoadClouds -- currentMigrationSources
+
+        newMigrationSources foreach { migrateTopObjects(_) }
+    }
+
+    private def migrateTopObjects(source: Int, minLoadPercentage: Double = 0.05): Unit = {
+        val objLoads = ProcessingModel.loadUp(source)
+        val loadToMigrate = objLoads.values.sum * minLoadPercentage
+
+        var objectsByLoad = objLoads.toIndexedSeq.sortWith { (l1, l2) => l1._2 > l2._2 }
+        var load = 0.0
+        var objectsToMigrate = Set.empty[StorageObject]
+        while (load < loadToMigrate) {
+            val (obj, objLoad) = objectsByLoad.head
+            objectsByLoad = objectsByLoad.tail
+            objectsToMigrate += obj
+            load += objLoad
+        }
+        migrateObjects(source, objectsToMigrate)
+    }
+
+    private def migrateObjects(source: Int, objects: Set[StorageObject]): Unit = {
+        objects foreach { placements(_).clouds -= source }
+        val possibleMigrationTargets = objects map { obj =>
+            val ps = { placementPool filter { placement => placements(obj).clouds subsetOf placement.clouds } }
+            obj -> { ps flatMap { _.clouds -- placements(obj).clouds } }
+        } toMap
+
+        val meanLoad = ProcessingModel.allLoadUp.sum / ProcessingModel.upStats.size
+        val loadFilteredMigrationTargets = possibleMigrationTargets map {
+            case (obj, targets) =>
+                obj -> { targets filter { t => (ProcessingModel.loadUp(t).values.sum / meanLoad) > 1.0 } }
+        }
+
+        assert(loadFilteredMigrationTargets.values forall { _.nonEmpty })
+
+        loadFilteredMigrationTargets foreach {
+            case (obj, targets) =>
+                val sourceNetID = Entity.entityForId(source).netID
+                val target = targets minBy { t => NetworkTopology.getDelay(sourceNetID, Entity.entityForId(t).netID) }
+
+                // TODO update the placement information
+
+                migrate(obj, source, target)
+        }
     }
 
     private def repairObjects(objects: Set[StorageObject]) = {
-        val currentClouds = objects map { obj => obj -> placements(obj).clouds } toMap
         val neighborPlacements = objects map { obj =>
-            obj -> { placementPool filter { placement => currentClouds(obj) subsetOf placement.clouds } }
+            obj -> { placementPool filter { placement => placements(obj).clouds subsetOf placement.clouds } }
         } toMap
 
         var cloudDownAmount = Map.empty[Int, Double]
@@ -137,8 +192,9 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
 
         objects foreach { obj =>
+            val currentClouds = placements(obj).clouds
             placeObject(obj, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
-            val addedClouds = placements(obj).clouds -- currentClouds(obj)
+            val addedClouds = placements(obj).clouds -- currentClouds
             addedClouds foreach { c => cloudDownAmount += c -> { cloudDownAmount.getOrElse(c, 0.0) + obj.size } }
         }
     }
