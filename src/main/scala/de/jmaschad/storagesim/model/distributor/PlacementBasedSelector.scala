@@ -108,7 +108,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     override def selectRepairSource(obj: StorageObject): Int = {
         val sources = distributionState(obj).toIndexedSeq
         sources sortWith { (s1, s2) =>
-            ProcessingModel.loadUp(s1) < ProcessingModel.loadUp(s2)
+            ProcessingModel.loadUp(s1).values.sum < ProcessingModel.loadUp(s2).values.sum
         } head
     }
 

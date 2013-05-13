@@ -18,25 +18,30 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
 
     var models = Map.empty[ProcessingEntity, ProcessingModel]
 
-    var upStats = Map.empty[ProcessingEntity, Double]
+    var upStats = Map.empty[ProcessingEntity, Map[StorageObject, Double]]
     var meanUp = 0.0
 
-    var downStats = Map.empty[ProcessingEntity, Double]
+    var downStats = Map.empty[ProcessingEntity, Map[StorageObject, Double]]
     var meanDown = 0.0
 
     def createModel(procEntity: ProcessingEntity) = {
         val model = new ProcessingModel(procEntity)
         models += procEntity -> model
-        upStats += procEntity -> 0.0
+
+        upStats += procEntity -> Map.empty
+        downStats += procEntity -> Map.empty
+
         model
     }
 
     def destroyModel(procEntity: ProcessingEntity) = {
         models -= procEntity
+
         upStats -= procEntity
+        downStats -= procEntity
     }
 
-    def loadDown(microCloud: Int): Double = {
+    def loadDown(microCloud: Int): Map[StorageObject, Double] = {
         val cloud = CloudSim.getEntity(microCloud) match {
             case c: MicroCloud => c
             case _ => throw new IllegalStateException
@@ -47,9 +52,9 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
     }
 
     def allLoadDown(): Iterable[Double] =
-        downStats.values
+        downStats.values map { _.values sum }
 
-    def loadUp(microCloud: Int): Double = {
+    def loadUp(microCloud: Int): Map[StorageObject, Double] = {
         val cloud = CloudSim.getEntity(microCloud) match {
             case c: MicroCloud => c
             case _ => throw new IllegalStateException
@@ -60,7 +65,7 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
     }
 
     def allLoadUp(): Iterable[Double] =
-        upStats.values
+        upStats.values map { _.values sum }
 
     override def startEntity() = {
         scheduleUpdate()
@@ -115,31 +120,31 @@ class ProcessingModel(val procEntity: ProcessingEntity) {
         def isDone: Boolean = size < 1 * Units.Byte
     }
 
-    private var upAmount = 0.0
-    var loadUp = 0.0
+    private var upAmount = Map.empty[StorageObject, Double]
+    var loadUp = Map.empty[StorageObject, Double]
 
-    private var downAmount = 0.0
-    var loadDown = 0.0
+    private var downAmount = Map.empty[StorageObject, Double]
+    var loadDown = Map.empty[StorageObject, Double]
 
     private val uploads = HashSet.empty[Transfer]
     private val downloads = HashSet.empty[Transfer]
 
-    def download(id: String, size: Double, onFinish: () => Unit): Unit = {
+    def download(obj: StorageObject, size: Double, onFinish: () => Unit): Unit = {
         downloads += new Transfer(size, onFinish)
-        downAmount += size
+        downAmount += obj -> { downAmount.getOrElse(obj, 0.0) + 1.0 }
     }
 
-    def upload(id: String, size: Double, onFinish: () => Unit): Unit = {
+    def upload(obj: StorageObject, size: Double, onFinish: () => Unit): Unit = {
         uploads += new Transfer(size, onFinish)
-        upAmount += size
+        upAmount += obj -> { upAmount.getOrElse(obj, 0.0) + 1.0 }
     }
 
     def updateStats() = {
         loadUp = upAmount
-        upAmount = 0
+        upAmount = Map.empty
 
         loadDown = downAmount
-        downAmount = 0
+        downAmount = Map.empty
     }
 
     def progress() = {

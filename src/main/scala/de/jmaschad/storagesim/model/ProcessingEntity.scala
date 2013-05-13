@@ -8,11 +8,11 @@ trait ProcessingEntity extends Entity {
 
     def bandwidth: Double
 
-    def download(id: String, size: Double, onFinish: () => Unit) =
-        processingModel.download(id, size, onFinish)
+    def download(obj: StorageObject, size: Double, onFinish: () => Unit) =
+        processingModel.download(obj, size, onFinish)
 
-    def upload(id: String, size: Double, onFinish: () => Unit) =
-        processingModel.upload(id, size, onFinish)
+    def upload(obj: StorageObject, size: Double, onFinish: () => Unit) =
+        processingModel.upload(obj, size, onFinish)
 
     abstract override protected def reset() = {
         ProcessingModel.destroyModel(this)

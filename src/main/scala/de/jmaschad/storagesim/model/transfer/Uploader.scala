@@ -5,16 +5,17 @@ import de.jmaschad.storagesim.model.transfer.dialogs.Packet
 import de.jmaschad.storagesim.model.transfer.dialogs.Ack
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.Dialog
+import de.jmaschad.storagesim.model.StorageObject
 
 class Uploader(
     log: String => Unit,
     dialog: Dialog,
-    size: Double,
-    process: (String, Double, () => Unit) => Unit,
+    obj: StorageObject,
+    process: (StorageObject, Double, () => Unit) => Unit,
     onFinish: Boolean => Unit) {
 
-    private val packetSize = Transfer.packetSize(size)
-    private var remainingPackets = Transfer.packetCount(size)
+    private val packetSize = Transfer.packetSize(obj.size)
+    private var remainingPackets = Transfer.packetCount(obj.size)
 
     private var received = false
     private var send = false
@@ -31,7 +32,6 @@ class Uploader(
 
     val timeoutHandler = () => onFinish(false)
 
-    TransferProbe.add(dialog.id, size)
     sendNextPacket
 
     private def synchronizeAndContinue() =
@@ -50,7 +50,7 @@ class Uploader(
         received = false
 
         dialog.say(Packet(packetSize, CloudSim.clock), timeoutHandler)
-        process(dialog.id, packetSize, () => {
+        process(obj, packetSize, () => {
             send = true
             synchronizeAndContinue
         })

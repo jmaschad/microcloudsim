@@ -53,7 +53,7 @@ class User(
     override def processEvent(event: SimEvent) =
         event.getTag() match {
             case ScheduleGet =>
-                if (processingModel.loadDown < (0.9 * bandwidth)) {
+                if (processingModel.loadDown.values.sum < (0.9 * bandwidth)) {
                     val obj = objects(objectSelection.sample())
                     lookupCloud(Get(obj), openGetDialog _)
                 }
@@ -90,7 +90,7 @@ class User(
                     }
                 }
 
-                new Downloader(log _, dialog, get.obj.size, download _, onFinish)
+                new Downloader(log _, dialog, get.obj, download _, onFinish)
 
             case _ =>
                 throw new IllegalStateException

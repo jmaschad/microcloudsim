@@ -162,7 +162,7 @@ class MicroCloud(
                             dialog.say(RestAck, () => dialog.close)
 
                         case DownloadReady =>
-                            new Uploader(log _, dialog, obj.size, upload(_, _, _), _ => dialog.close)
+                            new Uploader(log _, dialog, obj, upload(_, _, _), _ => dialog.close)
 
                         case _ => throw new IllegalStateException
                     })
@@ -184,7 +184,7 @@ class MicroCloud(
 
             dialog.messageHandler = {
                 case RestAck =>
-                    new Downloader(log _, dialog, obj.size, download(_, _, _), { success =>
+                    new Downloader(log _, dialog, obj, download(_, _, _), { success =>
                         dialog.close()
                         if (success) {
                             assert(!objects.contains(obj))
