@@ -27,6 +27,7 @@ object ProximityModel {
 
             case n =>
                 val clusters = kMeans(loads.keySet.toIndexedSeq)
+
                 val meanLoad = loads.values.sum / loads.size
                 val normalizedLoads = loads mapValues { _ / meanLoad }
                 clusters map { cluster =>
@@ -73,7 +74,13 @@ object ProximityModel {
 
     private def assignClusters(means: IndexedSeq[Point2D], positions: IndexedSeq[Point2D]): Iterable[IndexedSeq[Point2D]] =
         positions.groupBy { position =>
-            means.indexOf({ means.sortWith { (m1, m2) => m1.distance(position) < m2.distance(position) } head })
+            means.indexOf({
+                means.sortWith { (m1, m2) =>
+                    val dist1 = m1.distance(position)
+                    val dist2 = m2.distance(position)
+                    dist1 < dist2
+                } head
+            })
         } values
 
     private def updateMeans(clusters: Iterable[IndexedSeq[Point2D]]): IndexedSeq[Point2D] =

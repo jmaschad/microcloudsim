@@ -60,7 +60,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         val tenPerc = objects.size / 10
         (1 to objects.size) zip objects foreach {
             case (idx, obj) =>
-                placeObject(obj, Some(1.3), placementPool)
+                placeObject(obj, Some(1.4), placementPool)
                 if (idx % tenPerc == 0) {
                     print(".")
                 }
@@ -141,6 +141,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     private def placeObject(obj: StorageObject, maxLoad: Option[Double], availablePlacements: SortedSet[Placement]): Unit = {
         val placement = if (LoadPrediction.getLoad(obj) > 0.0) {
+
             // filter the placements by load
             val loadFilteredPlacements = maxLoad match {
                 case Some(max) => filterByLoad(max, availablePlacements)
@@ -148,7 +149,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             }
 
             // select the lowest proximity placement out of a fraction of the remaining placements
-            val topFractionPercentage = 1.0
+            val topFractionPercentage = 0.8
             val topFractionSize = (loadFilteredPlacements.size * topFractionPercentage).ceil.toInt
             if (topFractionSize > 1) {
                 val consideredPlacements = loadFilteredPlacements take topFractionSize

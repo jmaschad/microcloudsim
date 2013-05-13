@@ -68,6 +68,7 @@ object StorageSimConfig {
         Log.line("CONF", "cloud bandwidth dist = " + configuration.cloudBandwidth)
         Log.line("CONF", "user count = " + configuration.userCount)
         Log.line("CONF", "user bandwidth dist = " + configuration.userBandwidth)
+        Log.line("CONF", "mean number of objects per user = " + configuration.meanObjectCount)
         Log.line("CONF", "bucket count = " + configuration.bucketCount)
         Log.line("CONF", "object size dist = " + configuration.objectSize)
         Log.line("CONF", "object popularity model = " + configuration.objectPopularityModel)
@@ -82,24 +83,24 @@ trait StorageSimConfig {
 
     var replicaCount: Int = 3
 
-    var cloudCount: Int = 30
-    var userCount: Int = 1000
+    var cloudCount: Int = 15
+    var userCount: Int = 200
 
     var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 0.25 * Units.MByte)
-    var userBandwidth: RealDistributionConfiguration = NormalDist(4 * Units.MByte, 0.125 * Units.MByte)
+    var userBandwidth: RealDistributionConfiguration = NormalDist(4 * Units.MByte, 0.001 * Units.MByte)
 
     // number of buckets in the system
     var bucketCount: Int = 1000
     var bucketSizeDist: RealDistributionConfiguration = ExponentialDist(1)
 
     // the mean count of objects a user accesses 
-    var meanObjectCount: Int = 50
+    var meanObjectCount: Int = 20
 
     // size distribution of individual objects
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
 
     // what percentage of the user population will access a given object.
-    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.005)
+    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.01)
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)

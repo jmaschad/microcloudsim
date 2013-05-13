@@ -67,7 +67,7 @@ object StorageSim {
         CloudSim.init(1, Calendar.getInstance(), false)
 
         log("inititalize network latency")
-        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("1500areas_wax.brite"))
+        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("300areas_wax.brite"))
         val topologyFile = Files.createTempFile("topology", "brite")
         val writer = Files.newBufferedWriter(topologyFile, Charset.defaultCharset())
         topologyStream foreach { writer.write(_) }
