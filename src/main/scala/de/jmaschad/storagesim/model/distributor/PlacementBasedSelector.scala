@@ -112,6 +112,10 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         } head
     }
 
+    override def optimizePlacement(): Unit = if (!isRepairing) {
+        // TODO change the placements of objects to migrate and call corresponding startMigrations
+    }
+
     private def repairObjects(objects: Set[StorageObject]) = {
         val currentClouds = objects map { obj => obj -> placements(obj).clouds } toMap
         val neighborPlacements = objects map { obj =>

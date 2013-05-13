@@ -37,4 +37,9 @@ trait CloudSelector {
      * is satisfiable or None otherwise.
      */
     def selectForGet(area: Int, storageObject: StorageObject): Int
+
+    /**
+     * May trigger periodic placement optimizations
+     */
+    def optimizePlacement(): Unit
 }

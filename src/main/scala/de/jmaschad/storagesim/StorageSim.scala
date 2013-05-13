@@ -28,6 +28,7 @@ object StorageSim {
     private val log = Log.line("StorageSim", _: String)
 
     var configuration: StorageSimConfig = null
+    var failingCloud = -1
 
     def main(args: Array[String]) {
         configuration = args.size match {
@@ -103,7 +104,7 @@ object StorageSim {
         StatsCentral.wakeup()
 
         // controlled failure
-        val failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
+        failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
         CloudSim.send(0, failingCloud, 30, MicroCloud.Kill, null)
 
         log("will start simulation")

@@ -71,6 +71,8 @@ abstract class AbstractBucketBasedSelector(
         } toMap
     }
 
+    override def optimizePlacement(): Unit = {}
+
     def addedObject(cloud: Int, obj: StorageObject): Unit = {
         // update the active replications
         activeReplications.contains(cloud) match {

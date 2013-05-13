@@ -29,11 +29,12 @@ import Distributor._
 import de.jmaschad.storagesim.PlacementBased
 
 object Distributor {
-    val StatusInterval = 1
+    val PeriodicUpdateInterval = 1.0
 
     val Base = 10100
     val MicroCloudOffline = Base + 1
     val UserRequest = MicroCloudOffline + 1
+    val PeriodicUpdate = UserRequest + 1
 }
 
 class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
@@ -53,9 +54,19 @@ class Distributor(name: String) extends BaseEntity(name, 0) with DialogEntity {
     def initialize(initialClouds: Set[MicroCloud], initialObjects: Set[StorageObject], users: Set[User]) =
         selector.initialize(initialClouds, initialObjects, users)
 
+    override def startEntity() = {
+        super.startEntity
+
+        send(getId, PeriodicUpdateInterval, PeriodicUpdate)
+    }
+
     override def processEvent(event: SimEvent): Unit = event.getTag() match {
         case MicroCloudOffline =>
             selector.removeCloud(event.getSource())
+
+        case PeriodicUpdate =>
+            selector.optimizePlacement()
+            send(getId, PeriodicUpdateInterval, PeriodicUpdate)
 
         case _ => super.processEvent(event)
     }
