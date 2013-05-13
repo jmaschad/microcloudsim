@@ -18,13 +18,14 @@ import de.jmaschad.storagesim.model.LoadPrediction
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
 import de.jmaschad.storagesim.StorageSim
+import de.jmaschad.storagesim.model.ProximityModel
+
+class Placement(var clouds: Set[Int], var size: Double) {
+    override def toString() = "Placement(" + clouds + ", " + size + ")"
+}
 
 class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractFileBasedSelector(log, dialogCenter) {
-
-    private class Placement(var clouds: Set[Int], var size: Double) {
-        override def toString() = "Placement(" + clouds + ", " + size + ")"
-    }
 
     private object SizeOrdering extends Ordering[Placement] {
         def compare(x: Placement, y: Placement) = x.size == y.size match {
@@ -37,9 +38,10 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
 
     private var placementPool = SortedSet.empty[Placement](SizeOrdering)
     private var placements = Map.empty[StorageObject, Placement]
-    private var cloudLoad = Map.empty[Int, Double]
+    private var cloudLoad = Map.empty[Int, SummaryStatistics]
 
     override def initialize(microclouds: Set[MicroCloud], objects: Set[StorageObject], users: Set[User]) {
+        LoadPrediction.setUsers(users)
 
         val cloudCount = microclouds.size
         val cloudIDs = microclouds map { _.getId } toIndexedSeq
@@ -52,14 +54,13 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
             val places = Set(cloudIDs(c1), cloudIDs(c2), cloudIDs(c3))
             new Placement(places, 0.0)
         }
+        assert(allPlacements forall { _.clouds.size == 3 })
         placementPool ++= allPlacements
-
-        LoadPrediction.setUsers(users)
 
         val tenPerc = objects.size / 10
         (1 to objects.size) zip objects foreach {
             case (idx, obj) =>
-                placeObject(obj, Some(1.2), placementPool)
+                placeObject(obj, Some(1.3), placementPool)
                 if (idx % tenPerc == 0) {
                     print(".")
                 }
@@ -138,23 +139,25 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
     }
 
-    private def placeObject(obj: StorageObject, maxLoad: Option[Double], possiblePlacements: SortedSet[Placement]): Unit = {
-        val placement = maxLoad match {
-            case Some(max) =>
-                new DescriptiveStatistics(cloudLoad.values.toArray).getMean() match {
-                    case mean if mean.isNaN || mean == 0.0 =>
-                        possiblePlacements.head
+    private def placeObject(obj: StorageObject, maxLoad: Option[Double], availablePlacements: SortedSet[Placement]): Unit = {
+        val placement = if (LoadPrediction.getLoad(obj) > 0.0) {
+            // filter the placements by load
+            val loadFilteredPlacements = maxLoad match {
+                case Some(max) => filterByLoad(max, availablePlacements)
+                case _ => availablePlacements
+            }
 
-                    case mean =>
-                        possiblePlacements find { p =>
-                            p.clouds forall { c => (cloudLoad.getOrElse(c, 0.0) / mean) < max }
-                        } getOrElse {
-                            throw new IllegalStateException
-                        }
-                }
-
-            case None =>
-                possiblePlacements.head
+            // select the lowest proximity placement out of a fraction of the remaining placements
+            val topFractionPercentage = 1.0
+            val topFractionSize = (loadFilteredPlacements.size * topFractionPercentage).ceil.toInt
+            if (topFractionSize > 1) {
+                val consideredPlacements = loadFilteredPlacements take topFractionSize
+                ProximityModel.selectLowestDistance(consideredPlacements, LoadPrediction.getUserLoads(obj))
+            } else {
+                loadFilteredPlacements.head
+            }
+        } else {
+            availablePlacements.head
         }
 
         placementPool -= placement
@@ -165,8 +168,29 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         placements += obj -> placement
 
         placement.clouds foreach { cloud =>
-            cloudLoad += cloud -> { cloudLoad.getOrElse(cloud, 0.0) + LoadPrediction.getLoad(obj) }
+            if (!cloudLoad.isDefinedAt(cloud)) {
+                cloudLoad += cloud -> new SummaryStatistics()
+            }
+            cloudLoad(cloud).addValue(LoadPrediction.getLoad(obj))
         }
     }
 
+    private def filterByLoad(maxLoad: Double, availablePlacements: SortedSet[Placement]): SortedSet[Placement] = {
+        val overAllMean = new DescriptiveStatistics(cloudLoad.values map { _.getMean() } toArray).getMean
+
+        if (overAllMean > 0.0) {
+            availablePlacements filter { p =>
+                p.clouds forall { c =>
+                    if (cloudLoad.isDefinedAt(c)) {
+                        val load = (cloudLoad(c).getMean / overAllMean)
+                        load <= maxLoad
+                    } else {
+                        true
+                    }
+                }
+            } ensuring { _.nonEmpty }
+        } else {
+            availablePlacements
+        }
+    }
 }

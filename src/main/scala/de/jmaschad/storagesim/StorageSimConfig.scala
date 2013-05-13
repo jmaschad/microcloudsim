@@ -78,7 +78,7 @@ trait StorageSimConfig {
     var outputDir: String = "experiments"
     //    var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = RandomObjectBased()
+    var selector: SelectorConfig = PlacementBased()
 
     var replicaCount: Int = 3
 
@@ -99,7 +99,7 @@ trait StorageSimConfig {
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
 
     // what percentage of the user population will access a given object.
-    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.1)
+    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.005)
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)

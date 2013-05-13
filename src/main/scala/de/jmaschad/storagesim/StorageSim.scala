@@ -66,6 +66,14 @@ object StorageSim {
     private def run(): Unit = {
         CloudSim.init(1, Calendar.getInstance(), false)
 
+        log("inititalize network latency")
+        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("1500areas_wax.brite"))
+        val topologyFile = Files.createTempFile("topology", "brite")
+        val writer = Files.newBufferedWriter(topologyFile, Charset.defaultCharset())
+        topologyStream foreach { writer.write(_) }
+        writer.close()
+        NetworkTopology.buildNetworkTopology(topologyFile.toString())
+
         val distributor = new Distributor("dp")
         log("created distributor")
 
@@ -90,14 +98,6 @@ object StorageSim {
 
         log("initialize the distributor with clouds and objects")
         distributor.initialize(clouds, objects, users.toSet)
-
-        log("inititalize network latency")
-        val topologyStream = Source.fromInputStream(getClass.getResourceAsStream("1500areas_wax.brite"))
-        val topologyFile = Files.createTempFile("topology", "brite")
-        val writer = Files.newBufferedWriter(topologyFile, Charset.defaultCharset())
-        topologyStream foreach { writer.write(_) }
-        writer.close()
-        NetworkTopology.buildNetworkTopology(topologyFile.toString())
 
         log("wakeing up the stats")
         StatsCentral.wakeup()

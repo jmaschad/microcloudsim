@@ -25,6 +25,8 @@ import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.UniformRealDist
 import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
+import org.cloudbus.cloudsim.NetworkTopology
+import de.jmaschad.storagesim.model.Entity
 
 object User {
     val GenerateGetInterval = 1.0
@@ -34,10 +36,10 @@ object User {
 
 class User(
     name: String,
-    region: Int,
+    netID: Int,
     val objects: Seq[StorageObject],
     var bandwidth: Double,
-    distributor: Distributor) extends BaseEntity(name, region) with DialogEntity with ProcessingEntity {
+    distributor: Distributor) extends BaseEntity(name, netID) with DialogEntity with ProcessingEntity {
 
     private val objectSelection = new UniformIntegerDistribution(0, objects.size - 1)
 
@@ -82,7 +84,9 @@ class User(
                     dialog.close()
 
                     if (success) {
-                        StatsCentral.requestCompleted(dialog.averageDelay)
+                        val ownPos = NetworkTopology.getPosition(netID)
+                        val targetPos = NetworkTopology.getPosition(Entity.entityForId(target).netID)
+                        StatsCentral.requestCompleted(dialog.averageDelay, ownPos.distance(targetPos))
                     }
                 }
 

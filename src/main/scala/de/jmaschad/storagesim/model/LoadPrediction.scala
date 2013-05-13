@@ -3,30 +3,27 @@ package de.jmaschad.storagesim.model
 import de.jmaschad.storagesim.model.user.User
 
 object LoadPrediction {
-    private var load = Map.empty[StorageObject, Double]
+    private var load = Map.empty[StorageObject, Map[User, Double]]
 
-    def getLoad(obj: StorageObject) = load.getOrElse(obj, 0.0)
+    def getLoad(obj: StorageObject): Double = load.getOrElse(obj, Map.empty).values.sum
+
+    def getUserLoads(obj: StorageObject): Map[User, Double] = load.getOrElse(obj, Map.empty)
 
     def setUsers(users: Set[User]) = {
-        computeLoad(users)
+        load = computeLoad(users)
     }
 
-    private def computeLoad(users: Set[User]) = {
-        val objUsersMap = users.foldLeft(Map.empty[StorageObject, Set[User]]) {
-            case (ouMap, user) =>
-                ouMap ++ { user.objects map { obj => obj -> { ouMap.getOrElse(obj, Set.empty) + user } } }
+    private def computeLoad(users: Set[User]): Map[StorageObject, Map[User, Double]] = {
+        users.foldLeft(Map.empty[StorageObject, Map[User, Double]]) {
+            case (loadMap, user) =>
+                val objectLoads = { user.objects map { obj => obj -> user.bandwidth * obj.size } toMap }
+                loadMap ++ {
+                    objectLoads map {
+                        case (obj: StorageObject, load: Double) =>
+                            obj -> { loadMap.getOrElse(obj, Map.empty) + { user -> load } }
+                    }
+                }
         }
 
-        val unnormalizedLoads = objUsersMap map {
-            case (obj, users) =>
-                val meanBandwidth = { users map { _.bandwidth } sum } / users.size
-                obj -> obj.size * users.size * meanBandwidth
-        }
-
-        val meanLoad = unnormalizedLoads.values.sum / unnormalizedLoads.size
-
-        load = unnormalizedLoads map {
-            case (obj, load) => obj -> { load / meanLoad }
-        }
     }
 }

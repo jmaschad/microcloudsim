@@ -6,6 +6,7 @@ import scala.collection.immutable.Queue
 import org.cloudbus.cloudsim.core.CloudSim
 import de.jmaschad.storagesim.model.ProcessingModel
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics
+import org.apache.commons.math3.stat.descriptive.SummaryStatistics
 
 object StatsCentral extends SimEntity("StatsCentral") {
     private val StatsInterval = 1
@@ -39,32 +40,19 @@ object StatsCentral extends SimEntity("StatsCentral") {
             Log.line("SC", message)
     }
 
-    /*
-     * Request stats over 5 seconds: mean latency, requests per second 
-     */
-    case class RequestInfo(time: Double, meanLatency: Double)
-    var reqs = Queue.empty[RequestInfo]
+    val latencyStats = new SummaryStatistics()
+    val distanceStats = new SummaryStatistics()
+    var requestCount = BigDecimal(0.0)
 
-    def requestCompleted(meanLatency: Double) = {
-        reqs = reqs :+ RequestInfo(CloudSim.clock(), meanLatency)
+    def requestCompleted(meanLatency: Double, distance: Double) = {
+        latencyStats.addValue(meanLatency)
+        distanceStats.addValue(distance)
+        requestCount += 1.0
     }
 
-    private def requestStats(): String =
-        if (reqs.nonEmpty) {
-            val currentTime = CloudSim.clock()
-            val lastPossibleTime = currentTime - 5.0
-            reqs = reqs dropWhile { _.time < lastPossibleTime }
-
-            val lastTime = reqs.head.time
-            val requestCount = reqs.size
-
-            val requestRate = requestCount / (currentTime - lastTime)
-            val meanLatency = (reqs map { _.meanLatency } sum) / requestCount
-
-            "%2.2freq/s %.3fms".format(requestRate, meanLatency)
-        } else {
-            ""
-        }
+    private def requestStats(): String = {
+        "%2.2freq/s %.3fms %.2fdist".format(requestCount / CloudSim.clock(), latencyStats.getMean(), distanceStats.getMean())
+    }
 
     /*
      * Server load stats over 1 second: {median, min, max} data amount to transfer
