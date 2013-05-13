@@ -167,13 +167,32 @@ object StorageSim {
 
         assert(usedObjectCount <= objects.size)
 
-        var usedObjectIndices = RandomUtils.distinctRandomSelectN(usedObjectCount, (0 until objects.size).toIndexedSeq)
+        val usedObjectIndices = RandomUtils.distinctRandomSelectN(usedObjectCount, (0 until objects.size).toIndexedSeq)
 
         val userIndices = (0 until configuration.userCount).toIndexedSeq
+
+        val minID = configuration.cloudCount + 1
+        val maxID = minID + configuration.userCount
+        val netIDs = { (minID to maxID) zip userIndices } toMap
+        val userNetIds = netIDs map { case (netID, uID) => uID -> netID }
+
         var objectSets = Map.empty[Int, Set[StorageObject]]
         usedObjectIndices foreach { objIdx =>
             val userCount = (objectPupularityDist.sample() * configuration.userCount).ceil.toInt max 1 min configuration.userCount
-            val uids = RandomUtils.distinctRandomSelectN(userCount, userIndices)
+
+            val uids = if (configuration.closePlacement) {
+                val compID = RandomUtils.randomSelect1(netIDs.keys.toIndexedSeq)
+                val compPos = NetworkTopology.getPosition(compID)
+                val sortedIndices = netIDs.keys.toIndexedSeq sortWith { (ID1, ID2) =>
+                    val p1 = NetworkTopology.getPosition(ID1)
+                    val p2 = NetworkTopology.getPosition(ID2)
+                    compPos.distance(p1) < compPos.distance(p2)
+                }
+                { sortedIndices take userCount } map { netIDs(_) }
+            } else {
+                RandomUtils.distinctRandomSelectN(userCount, userIndices)
+            }
+
             uids foreach { uid => objectSets += uid -> { objectSets.getOrElse(uid, Set.empty) + objects(objIdx) } }
         }
 
@@ -187,8 +206,7 @@ object StorageSim {
 
         for (i <- 0 until configuration.userCount) yield {
             val userName = "u" + (i + 1)
-            val nodeID = configuration.cloudCount + i + 1
-            new User(userName, nodeID, objectSets(i).toSeq, bandwidthDist.sample().max(64 * Units.KByte), distributor)
+            new User(userName, userNetIds(i), objectSets(i).toSeq, bandwidthDist.sample().max(64 * Units.KByte), distributor)
         }
     }
 }

@@ -100,7 +100,10 @@ trait StorageSimConfig {
     var objectSize: RealDistributionConfiguration = ExponentialDist(30)
 
     // what percentage of the user population will access a given object.
-    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.01)
+    var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.05)
+
+    // place objects on closely placed users
+    var closePlacement: Boolean = true
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)

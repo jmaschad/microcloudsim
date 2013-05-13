@@ -60,7 +60,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         val tenPerc = objects.size / 10
         (1 to objects.size) zip objects foreach {
             case (idx, obj) =>
-                placeObject(obj, Some(1.4), placementPool)
+                placeObject(obj, placementPool)
                 if (idx % tenPerc == 0) {
                     print(".")
                 }
@@ -133,29 +133,22 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         }
 
         objects foreach { obj =>
-            placeObject(obj, None, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
+            placeObject(obj, SortedSet.empty(DownAmountOrdering) ++ neighborPlacements(obj))
             val addedClouds = placements(obj).clouds -- currentClouds(obj)
             addedClouds foreach { c => cloudDownAmount += c -> { cloudDownAmount.getOrElse(c, 0.0) + obj.size } }
         }
     }
 
-    private def placeObject(obj: StorageObject, maxLoad: Option[Double], availablePlacements: SortedSet[Placement]): Unit = {
+    private def placeObject(obj: StorageObject, availablePlacements: SortedSet[Placement]): Unit = {
         val placement = if (LoadPrediction.getLoad(obj) > 0.0) {
-
-            // filter the placements by load
-            val loadFilteredPlacements = maxLoad match {
-                case Some(max) => filterByLoad(max, availablePlacements)
-                case _ => availablePlacements
-            }
-
             // select the lowest proximity placement out of a fraction of the remaining placements
-            val topFractionPercentage = 0.8
-            val topFractionSize = (loadFilteredPlacements.size * topFractionPercentage).ceil.toInt
+            val topFractionPercentage = 0.3
+            val topFractionSize = (availablePlacements.size * topFractionPercentage).ceil.toInt
             if (topFractionSize > 1) {
-                val consideredPlacements = loadFilteredPlacements take topFractionSize
+                val consideredPlacements = availablePlacements take topFractionSize
                 ProximityModel.selectLowestDistance(consideredPlacements, LoadPrediction.getUserLoads(obj))
             } else {
-                loadFilteredPlacements.head
+                availablePlacements.head
             }
         } else {
             availablePlacements.head
