@@ -53,6 +53,7 @@ trait DialogEntity extends Entity {
 
         if (avgDelay == 0.0 && !this.isInstanceOf[Distributor] && !targetEnity.isInstanceOf[Distributor]) {
             println("PROBLEM")
+            println()
         }
 
         val dialog = new Dialog(target, this, avgDelay)

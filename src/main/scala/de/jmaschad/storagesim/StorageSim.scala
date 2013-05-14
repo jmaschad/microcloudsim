@@ -105,7 +105,7 @@ object StorageSim {
 
         // controlled failure
         failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
-        CloudSim.send(0, failingCloud, 30, MicroCloud.Kill, null)
+        CloudSim.send(0, failingCloud, 300, MicroCloud.Kill, null)
 
         log("will start simulation")
         //        CloudSim.terminateSimulation(configuration.simDuration)

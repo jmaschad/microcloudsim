@@ -141,13 +141,24 @@ abstract class AbstractObjectBasedSelector(
     }
 
     private def completeMigration(to: Int, migration: Migration): Unit = {
-        distributionState += migration.obj -> { distributionState(migration.obj) - migration.source }
+        distributionState += migration.obj -> { distributionState(migration.obj) - migration.source + to }
+
+        // little shortcut
+        val microCloud = Entity.entityForId(migration.source) match {
+            case mc: MicroCloud => mc
+            case _ => throw new IllegalStateException
+        }
+        microCloud.objects -= migration.obj
+        // --
+
         activeMigrations(to) size match {
             case 1 =>
                 activeMigrations -= to
             case n =>
                 activeMigrations += to -> { activeMigrations(to) - migration }
         }
+
+        println("Finished migration of " + migration.obj + " from " + migration.source + " to " + to)
     }
 
     private def completeReplication(cloud: Int, obj: StorageObject): Unit =
@@ -211,7 +222,7 @@ abstract class AbstractObjectBasedSelector(
         // remove already running replications
         val addedReplications = additionalObjectMap map {
             case (cloud, objects) =>
-                cloud -> { objects -- activeReplications.getOrElse(cloud, Set.empty) }
+                cloud -> { objects -- activeReplications.getOrElse(cloud, Set.empty) -- { activeMigrations.getOrElse(cloud, Set.empty) map { _.obj } } }
         }
 
         // load instructions with random source selection

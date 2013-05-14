@@ -35,7 +35,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
     }
 
     private def logStats() = {
-        var message = requestStats() + " " + loadStats() + " " + repairStats()
+        var message = requestStats + " " + loadStats + " " + repairStats
         if (!message.trim().isEmpty())
             Log.line("SC", message)
     }
@@ -50,14 +50,14 @@ object StatsCentral extends SimEntity("StatsCentral") {
         requestCount += 1.0
     }
 
-    private def requestStats(): String = {
+    private def requestStats: String = {
         "%2.2freq/s %.3fms %.2fdist".format(requestCount / CloudSim.clock(), latencyStats.getMean(), distanceStats.getMean())
     }
 
     /*
      * Server load stats over 1 second: {median, min, max} data amount to transfer
      */
-    private def loadStats(): String = {
+    private def loadStats: String = {
         var stats = Set.empty[String]
 
         val ulStats = new DescriptiveStatistics(ProcessingModel.allLoadUp().toArray)
@@ -101,14 +101,14 @@ object StatsCentral extends SimEntity("StatsCentral") {
         finishedAmount = 0.0
 
         // replaced real error model with one repair
-        CloudSim.terminateSimulation(CloudSim.clock() + 30)
+        CloudSim.terminateSimulation(CloudSim.clock() + 120)
     }
 
     def progressRepair(size: Double) = {
         finishedAmount += size
     }
 
-    private def repairStats(): String =
+    private def repairStats: String =
         if (!startOfRepair.isNaN) {
             val remain = totalSizeOfRepair - finishedAmount
             val bwTotal = finishedAmount / (CloudSim.clock() - startOfRepair)
