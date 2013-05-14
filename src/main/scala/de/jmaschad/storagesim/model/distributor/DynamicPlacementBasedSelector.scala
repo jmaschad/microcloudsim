@@ -22,11 +22,7 @@ import de.jmaschad.storagesim.model.ProximityModel
 import de.jmaschad.storagesim.model.ProcessingEntity
 import org.cloudbus.cloudsim.NetworkTopology
 
-class Placement(var clouds: Set[Int], var size: Double) {
-    override def toString() = "Placement(" + clouds + ", " + size + ")"
-}
-
-class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
+class DynamicPlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
     extends AbstractObjectBasedSelector(log, dialogCenter) {
 
     private object SizeOrdering extends Ordering[Placement] {
@@ -113,6 +109,120 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
         sources sortWith { (s1, s2) =>
             ProcessingModel.loadUp(s1).values.sum < ProcessingModel.loadUp(s2).values.sum
         } head
+    }
+
+    override def optimizePlacement(): Unit = {
+        updateMigrations()
+
+        if (!isRepairing && CloudSim.clock() > 4.0) {
+
+            val meanLoad = ProcessingModel.allLoadUp.sum / ProcessingModel.upStats.size
+            val cloudMeanLoads = ProcessingModel.upStats map {
+                case (cloud, objLoad) => cloud -> objLoad.values.sum / meanLoad
+
+            }
+
+            val maxLoad = 1.5
+            val highLoadClouds = { cloudMeanLoads filter { case (cloud, load) => load > maxLoad } keySet } map { _.getId }
+
+            val currentMigrationSources = activeMigrations.values.flatten groupBy { _.source } keySet
+            val newMigrationSources = highLoadClouds -- currentMigrationSources - StorageSim.failingCloud
+
+            newMigrationSources foreach { migrateTopObjects(_) }
+        }
+    }
+
+    private def updateMigrations(): Unit = {
+        val activeMigrationObjects = { activeMigrations.values.flatten map { _.obj } toSet }
+        val clock = CloudSim.clock()
+
+        // update finished migrations
+        migrations ++= migrations collect {
+            case (obj, None) if !activeMigrationObjects.contains(obj) => obj -> Some(clock)
+        }
+
+        // remove old migrations
+        migrations --= migrations collect {
+            case (obj, Some(finishedClock)) if (clock - finishedClock) > 3.0 => obj
+        }
+    }
+
+    private def migrateTopObjects(source: Int, minLoadPercentage: Double = 0.05): Unit = {
+        val objLoads = ProcessingModel.loadUp(source)
+        val loadToMigrate = objLoads.values.sum * minLoadPercentage
+
+        var objectsByLoad = { objLoads filterKeys { !migrations.contains(_) } toIndexedSeq } sortWith { (l1, l2) => l1._2 > l2._2 }
+        var load = 0.0
+        var objectsToMigrate = Set.empty[StorageObject]
+        while (load < loadToMigrate) {
+            val (obj, objLoad) = objectsByLoad.head
+            objectsByLoad = objectsByLoad.tail
+            objectsToMigrate += obj
+            load += objLoad
+        }
+        migrateObjects(source, objectsToMigrate)
+    }
+
+    private def migrateObjects(source: Int, objects: Set[StorageObject]): Unit = {
+        val possibleMigrationTargets = objects map { obj =>
+            val remainingClouds = placements(obj).clouds - source
+
+            // remaining requests still produce a lot of load..
+            if (remainingClouds.size == 3) {
+                return
+            }
+
+            val ps = {
+                placementPool filter { placement =>
+                    val placementClouds = placement.clouds
+                    (remainingClouds subsetOf placementClouds) && (!placementClouds.contains(source))
+                }
+            }
+            val targets = { ps flatMap { _.clouds -- placements(obj).clouds } } - StorageSim.failingCloud
+
+            obj -> targets
+        } toMap
+
+        assert(possibleMigrationTargets.values.forall { clouds => (!clouds.contains(source)) && clouds.nonEmpty })
+
+        val meanLoad = ProcessingModel.allLoadUp.sum / ProcessingModel.upStats.size
+        val loadFilteredMigrationTargets = possibleMigrationTargets map {
+            case (obj, targets) =>
+                obj -> {
+                    targets filter { t =>
+                        val targetLoad = ProcessingModel.loadUp(t).values.sum / meanLoad
+                        targetLoad < 0.9
+                    }
+                }
+        }
+
+        assert(loadFilteredMigrationTargets.values forall { _.nonEmpty })
+
+        loadFilteredMigrationTargets foreach {
+            case (obj, targets) =>
+                val sourceNetID = Entity.entityForId(source).netID
+                val target = targets minBy { t => NetworkTopology.getDelay(sourceNetID, Entity.entityForId(t).netID) }
+
+                val placement = placements(obj)
+                placementPool -= placement
+
+                placement.clouds -= source
+                placement.clouds += target
+                assert(placement.clouds.size == StorageSim.configuration.replicaCount)
+
+                placementPool += placement
+                migrate(obj, source, target)
+                migrations += obj -> None
+        }
+        assert(placements forall {
+            case (obj, placement) =>
+                val correctCount = placement.clouds.size == StorageSim.configuration.replicaCount
+                if (!correctCount) {
+                    println("Problem: " + obj)
+                    println()
+                }
+                correctCount
+        })
     }
 
     private def repairObjects(objects: Set[StorageObject]) = {

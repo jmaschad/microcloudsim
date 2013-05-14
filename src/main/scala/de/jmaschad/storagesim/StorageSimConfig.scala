@@ -59,6 +59,7 @@ sealed abstract class SelectorConfig
 case class RandomBucketBased extends SelectorConfig
 case class RandomObjectBased extends SelectorConfig
 case class PlacementBased extends SelectorConfig
+case class DynamicPlacementBased extends SelectorConfig
 
 object StorageSimConfig {
     def logDescription(configuration: StorageSimConfig): Unit = {
@@ -79,12 +80,12 @@ trait StorageSimConfig {
     var outputDir: String = "experiments"
     //    var simDuration: Double = 6.307e7 // two years
 
-    var selector: SelectorConfig = PlacementBased()
+    var selector: SelectorConfig = DynamicPlacementBased()
 
     var replicaCount: Int = 3
 
-    var cloudCount: Int = 15
-    var userCount: Int = 200
+    var cloudCount: Int = 40
+    var userCount: Int = 800
 
     var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 0.25 * Units.MByte)
     var userBandwidth: RealDistributionConfiguration = NormalDist(4 * Units.MByte, 0.001 * Units.MByte)
@@ -103,7 +104,7 @@ trait StorageSimConfig {
     var objectPopularityModel: RealDistributionConfiguration = ExponentialDist(0.05)
 
     // place objects on closely placed users
-    var closePlacement: Boolean = true
+    var closePlacement: Boolean = false
 
     // mttf of 2 hours
     //    var meanTimeToFailure: RealDistributionConfiguration = WeibullDist(0.7, 5688) // NormalDist(3.154e7, 1.0)

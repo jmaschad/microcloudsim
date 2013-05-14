@@ -38,7 +38,10 @@ object StorageSim {
         }
 
         val outDir = Paths.get(configuration.outputDir).toAbsolutePath().toRealPath()
-        assert(Files.exists(outDir) && Files.isDirectory(outDir))
+        if (!Files.isDirectory(outDir)) {
+            Files.createDirectories(outDir)
+        }
+        assert(Files.isDirectory(outDir))
 
         setLogFile(outDir)
         StorageSimConfig.logDescription(configuration)
