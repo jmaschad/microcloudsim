@@ -37,7 +37,7 @@ object StorageSim {
             case _ => throw new IllegalArgumentException
         }
 
-        val outDir = Paths.get(configuration.outputDir).toAbsolutePath().toRealPath()
+        val outDir = Paths.get(configuration.outputDir)
         if (!Files.isDirectory(outDir)) {
             Files.createDirectories(outDir)
         }
