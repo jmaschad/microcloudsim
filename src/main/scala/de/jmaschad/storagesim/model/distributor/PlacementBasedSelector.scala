@@ -195,7 +195,7 @@ class PlacementBasedSelector(log: String => Unit, dialogCenter: DialogEntity)
                 obj -> {
                     targets filter { t =>
                         val targetLoad = ProcessingModel.loadUp(t).values.sum / meanLoad
-                        targetLoad < 0.8
+                        targetLoad < 0.9
                     }
                 }
         }
