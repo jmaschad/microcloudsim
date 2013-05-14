@@ -157,8 +157,6 @@ abstract class AbstractObjectBasedSelector(
             case n =>
                 activeMigrations += to -> { activeMigrations(to) - migration }
         }
-
-        println("Finished migration of " + migration.obj + " from " + migration.source + " to " + to)
     }
 
     private def completeReplication(cloud: Int, obj: StorageObject): Unit =
