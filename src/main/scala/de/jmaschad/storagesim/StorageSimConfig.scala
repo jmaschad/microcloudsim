@@ -85,7 +85,7 @@ trait StorageSimConfig {
     var replicaCount: Int = 3
 
     var cloudCount: Int = 20
-    var userCount: Int = 500
+    var userCount: Int = 260
 
     var cloudBandwidth: RealDistributionConfiguration = NormalDist(125 * Units.MByte, 0.25 * Units.MByte)
     var userBandwidth: RealDistributionConfiguration = NormalDist(4 * Units.MByte, 0.001 * Units.MByte)

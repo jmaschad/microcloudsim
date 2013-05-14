@@ -122,7 +122,7 @@ class DynamicPlacementBasedSelector(log: String => Unit, dialogCenter: DialogEnt
 
             }
 
-            val maxLoad = 1.5
+            val maxLoad = 1.4
             val highLoadClouds = { cloudMeanLoads filter { case (cloud, load) => load > maxLoad } keySet } map { _.getId }
 
             val currentMigrationSources = activeMigrations.values.flatten groupBy { _.source } keySet
@@ -152,6 +152,10 @@ class DynamicPlacementBasedSelector(log: String => Unit, dialogCenter: DialogEnt
         val loadToMigrate = objLoads.values.sum * minLoadPercentage
 
         var objectsByLoad = { objLoads filterKeys { !migrations.contains(_) } toIndexedSeq } sortWith { (l1, l2) => l1._2 > l2._2 }
+
+        if (objectsByLoad.isEmpty)
+            return
+
         var load = 0.0
         var objectsToMigrate = Set.empty[StorageObject]
         while (load < loadToMigrate) {
