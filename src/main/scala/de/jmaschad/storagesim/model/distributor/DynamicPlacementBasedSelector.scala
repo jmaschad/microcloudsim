@@ -153,12 +153,9 @@ class DynamicPlacementBasedSelector(log: String => Unit, dialogCenter: DialogEnt
 
         var objectsByLoad = { objLoads filterKeys { !migrations.contains(_) } toIndexedSeq } sortWith { (l1, l2) => l1._2 > l2._2 }
 
-        if (objectsByLoad.isEmpty)
-            return
-
         var load = 0.0
         var objectsToMigrate = Set.empty[StorageObject]
-        while (load < loadToMigrate) {
+        while (load < loadToMigrate && objectsByLoad.nonEmpty) {
             val (obj, objLoad) = objectsByLoad.head
             objectsByLoad = objectsByLoad.tail
             objectsToMigrate += obj
