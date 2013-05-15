@@ -16,7 +16,7 @@ object LoadPrediction {
     private def computeLoad(users: Set[User]): Map[StorageObject, Map[User, Double]] = {
         users.foldLeft(Map.empty[StorageObject, Map[User, Double]]) {
             case (loadMap, user) =>
-                val objectLoads = { user.objects map { obj => obj -> user.bandwidth * obj.size } toMap }
+                val objectLoads = { user.objects map { obj => obj -> { (user.bandwidth * obj.size) / user.objects.size } } toMap }
                 loadMap ++ {
                     objectLoads map {
                         case (obj: StorageObject, load: Double) =>
