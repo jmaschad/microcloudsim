@@ -1,8 +1,8 @@
 import de.jmaschad.storagesim._
 
 new StorageSimConfig {
-    outputDir = "experiments/placement_close_objects_10pop"
+    outputDir = "experiments/placement_close_objects_30pop"
     selector = PlacementBased()
     closePlacement = true
-    objectPopularityModel = ExponentialDist(0.1)
+    objectPopularityModel = ExponentialDist(0.25)
 }

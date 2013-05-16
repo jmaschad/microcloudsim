@@ -4,5 +4,5 @@ new StorageSimConfig {
     outputDir = "experiments/dynamic_placement_close_objects_30pop"
     selector = DynamicPlacementBased()
     closePlacement = true
-    objectPopularityModel = ExponentialDist(0.3)
+    objectPopularityModel = ExponentialDist(0.25)
 }
