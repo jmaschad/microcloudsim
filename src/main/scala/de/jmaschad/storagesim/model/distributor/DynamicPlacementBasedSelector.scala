@@ -201,18 +201,24 @@ class DynamicPlacementBasedSelector(log: String => Unit, dialogCenter: DialogEnt
 
         loadFilteredMigrationTargets foreach {
             case (obj, targets) =>
-                val sourceNetID = Entity.entityForId(source).netID
-                val target = targets minBy { t => NetworkTopology.getDelay(sourceNetID, Entity.entityForId(t).netID) }
-
                 val placement = placements(obj)
                 placementPool -= placement
-
                 placement.clouds -= source
-                placement.clouds += target
+
+                val sourceNetID = Entity.entityForId(source).netID
+                val possibleTargets = targets map { t => placement.clouds + t }
+                val load = ProcessingModel.userDownStats mapValues { loadMap =>
+                    if (loadMap.isDefinedAt(obj)) loadMap(obj) else 1.0
+                }
+                val target = ProximityModel.selectLowestDistance(possibleTargets, load) -- placement.clouds
+
+                assert(target.size == 1)
+
+                placement.clouds += target.head
                 assert(placement.clouds.size == StorageSim.configuration.replicaCount)
 
                 placementPool += placement
-                migrate(obj, source, target)
+                migrate(obj, source, target.head)
                 migrations += obj -> None
         }
         assert(placements forall {

@@ -9,6 +9,8 @@ import de.jmaschad.storagesim.StatsCentral
 import scala.collection.immutable.Queue
 import scala.math._
 
+import de.jmaschad.storagesim.model.user.User
+
 object ProcessingModel extends SimEntity("ProcessingModel") {
     private val UpdateInterval = 0.001
     private val StatsInterval = 1.0
@@ -18,27 +20,23 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
 
     var models = Map.empty[ProcessingEntity, ProcessingModel]
 
-    var upStats = Map.empty[ProcessingEntity, Map[StorageObject, Double]]
+    var upStats = Map.empty[MicroCloud, Map[StorageObject, Double]]
+    var userUpStats = Map.empty[User, Map[StorageObject, Double]]
     var meanUp = 0.0
 
-    var downStats = Map.empty[ProcessingEntity, Map[StorageObject, Double]]
+    var downStats = Map.empty[MicroCloud, Map[StorageObject, Double]]
+    var userDownStats = Map.empty[User, Map[StorageObject, Double]]
     var meanDown = 0.0
 
     def createModel(procEntity: ProcessingEntity) = {
         val model = new ProcessingModel(procEntity)
         models += procEntity -> model
 
-        upStats += procEntity -> Map.empty
-        downStats += procEntity -> Map.empty
-
         model
     }
 
     def destroyModel(procEntity: ProcessingEntity) = {
         models -= procEntity
-
-        upStats -= procEntity
-        downStats -= procEntity
     }
 
     def loadDown(microCloud: Int): Map[StorageObject, Double] = {
@@ -82,8 +80,11 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
         case StatsEvent =>
             updateStats()
 
-            upStats = { microCloudModels map { model => model.procEntity -> model.loadUp } toMap }
-            downStats = { microCloudModels map { model => model.procEntity -> model.loadDown } toMap }
+            upStats = microCloudModels mapValues { model => model.loadUp }
+            userUpStats = userModels mapValues { model => model.loadUp }
+
+            downStats = microCloudModels mapValues { model => model.loadDown }
+            userDownStats = userModels mapValues { model => model.loadDown }
 
             scheduleStats()
 
@@ -107,8 +108,11 @@ object ProcessingModel extends SimEntity("ProcessingModel") {
         models.values foreach { _.updateStats() }
     }
 
-    private def microCloudModels(): Set[ProcessingModel] =
-        models.keys collect { case cloud: MicroCloud if cloud.isOnline => models(cloud) } toSet
+    private def microCloudModels(): Map[MicroCloud, ProcessingModel] =
+        models.keys collect { case cloud: MicroCloud if cloud.isOnline => cloud -> models(cloud) } toMap
+
+    private def userModels(): Map[User, ProcessingModel] =
+        models.keys collect { case user: User => user -> models(user) } toMap
 }
 import ProcessingModel._
 
@@ -139,12 +143,22 @@ class ProcessingModel(val procEntity: ProcessingEntity) {
         upAmount += obj -> { upAmount.getOrElse(obj, 0.0) + size }
     }
 
-    def updateStats() = {
-        loadUp = upAmount
-        upAmount = Map.empty
+    def updateStats() = procEntity match {
+        case _: MicroCloud =>
+            loadUp = upAmount
+            upAmount = Map.empty
 
-        loadDown = downAmount
-        downAmount = Map.empty
+            loadDown = downAmount
+            downAmount = Map.empty
+
+        case _: User if (CloudSim.clock % 10) == 0 =>
+            loadUp = upAmount
+            upAmount = Map.empty
+
+            loadDown = downAmount
+            downAmount = Map.empty
+
+        case _ =>
     }
 
     def progress() = {

@@ -9,6 +9,18 @@ import scala.collection.mutable
 import de.jmaschad.storagesim.model.distributor.Placement
 
 object ProximityModel {
+    def selectLowestDistance(cloudSets: Set[Set[Int]], loads: Map[User, Double]): Set[Int] = {
+        val weightedMeans = getWeightedMeans(loads map {
+            case (user, load) =>
+                NetworkTopology.getPosition(user.netID) -> load
+        })
+        val placementLocations = {
+            cloudSets map { cloudIDs =>
+                cloudIDs -> { cloudIDs map { cid => NetworkTopology.getPosition(Entity.entityForId(cid).netID) } }
+            } toMap
+        }
+        minDistancePlacement(placementLocations, weightedMeans)
+    }
 
     def selectLowestDistance(placements: SortedSet[Placement], loads: Map[User, Double]): Placement = {
         val placementLocations = placements map { p =>
@@ -42,9 +54,9 @@ object ProximityModel {
                 } toSet
         }
 
-    private def minDistancePlacement(placementLocations: Map[Placement, Set[Point2D]], weightedMeans: Set[Point2D]): Placement = {
+    private def minDistancePlacement[T](placementLocations: Map[T, Set[Point2D]], weightedMeans: Set[Point2D]): T = {
         val min = placementLocations minBy {
-            case (placement, placementPositions) => placementDistance(placementPositions, weightedMeans)
+            case (_, placementPositions) => placementDistance(placementPositions, weightedMeans)
         }
         min._1
     }

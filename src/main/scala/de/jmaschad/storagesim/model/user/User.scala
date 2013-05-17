@@ -27,6 +27,8 @@ import org.apache.commons.math3.distribution.UniformRealDistribution
 import org.apache.commons.math3.distribution.UniformIntegerDistribution
 import org.cloudbus.cloudsim.NetworkTopology
 import de.jmaschad.storagesim.model.Entity
+import scala.math._
+import de.jmaschad.storagesim.StorageSim
 
 object User {
     val GenerateGetInterval = 1.0
@@ -42,6 +44,7 @@ class User(
     distributor: Distributor) extends BaseEntity(name, netID) with DialogEntity with ProcessingEntity {
 
     private val objectSelection = new UniformIntegerDistribution(0, objects.size - 1)
+    private val activityGroup = if (NetworkTopology.getPosition(netID).getX() <= StorageSim.medianX) 0 else 0.5 * math.Pi
 
     override def startEntity(): Unit = {
         super.startEntity()
@@ -53,7 +56,10 @@ class User(
     override def processEvent(event: SimEvent) =
         event.getTag() match {
             case ScheduleGet =>
-                if (processingModel.loadDown.values.sum < (0.9 * bandwidth)) {
+                val divisor = 2400 / math.Pi
+                val activity = (CloudSim.clock() / divisor) + activityGroup
+                val activityLevel = abs(sin(activity)) max 0.1 min 0.9
+                if (processingModel.loadDown.values.sum < (activityLevel * bandwidth)) {
                     val obj = objects(objectSelection.sample())
                     lookupCloud(Get(obj), openGetDialog _)
                 }
