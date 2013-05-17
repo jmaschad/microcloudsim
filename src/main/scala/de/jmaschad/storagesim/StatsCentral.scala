@@ -101,7 +101,7 @@ object StatsCentral extends SimEntity("StatsCentral") {
         finishedAmount = 0.0
 
         // replaced real error model with one repair
-        CloudSim.terminateSimulation(CloudSim.clock() + 300)
+        CloudSim.terminateSimulation(CloudSim.clock() + 1200)
     }
 
     def progressRepair(size: Double) = {

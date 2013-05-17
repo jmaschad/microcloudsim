@@ -107,14 +107,14 @@ object StorageSim {
         log("wakeing up the stats")
         StatsCentral.wakeup()
 
-        // controlled failure
-        //        failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
-        //        CloudSim.send(0, failingCloud, 300, MicroCloud.Kill, null)
+        //        controlled failure
+        failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
+        CloudSim.send(0, failingCloud, 1200, MicroCloud.Kill, null)
 
         log("will start simulation")
         //        CloudSim.terminateSimulation(configuration.simDuration)
         CloudSim.startSimulation();
-        CloudSim.terminateSimulation(4800)
+        //        CloudSim.terminateSimulation(4800)
     }
 
     private def createClouds(disposer: Distributor): Set[MicroCloud] = {
