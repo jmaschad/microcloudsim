@@ -59,6 +59,7 @@ class User(
                 val divisor = 2400 / math.Pi
                 val activity = (CloudSim.clock() / divisor) + activityGroup
                 val activityLevel = abs(sin(activity)) max 0.1 min 0.9
+
                 if (processingModel.loadDown.values.sum < (activityLevel * bandwidth)) {
                     val obj = objects(objectSelection.sample())
                     lookupCloud(Get(obj), openGetDialog _)
