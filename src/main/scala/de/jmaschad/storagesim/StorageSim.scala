@@ -29,6 +29,7 @@ object StorageSim {
 
     var configuration: StorageSimConfig = null
     var failingCloud = -1
+    var medianX = Double.NaN
 
     def main(args: Array[String]) {
         configuration = args.size match {
@@ -107,12 +108,13 @@ object StorageSim {
         StatsCentral.wakeup()
 
         // controlled failure
-        failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
-        CloudSim.send(0, failingCloud, 300, MicroCloud.Kill, null)
+        //        failingCloud = clouds.toIndexedSeq(new UniformIntegerDistribution(0, clouds.size - 1).sample()).getId
+        //        CloudSim.send(0, failingCloud, 300, MicroCloud.Kill, null)
 
         log("will start simulation")
         //        CloudSim.terminateSimulation(configuration.simDuration)
         CloudSim.startSimulation();
+        CloudSim.terminateSimulation(4800)
     }
 
     private def createClouds(disposer: Distributor): Set[MicroCloud] = {
@@ -179,6 +181,9 @@ object StorageSim {
         val maxID = minID + configuration.userCount
         val netIDs = { (minID to maxID) zip userIndices } toMap
         val userNetIds = netIDs map { case (netID, uID) => uID -> netID }
+
+        val xStats = new DescriptiveStatistics(netIDs map { id => NetworkTopology.getPosition(id._1).getX() } toArray)
+        medianX = xStats.getPercentile(50.0)
 
         var objectSets = Map.empty[Int, Set[StorageObject]]
         usedObjectIndices foreach { objIdx =>
